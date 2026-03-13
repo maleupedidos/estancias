@@ -740,7 +740,18 @@ function updateUI(){
   }
   updateFormSummary();
 }
-
+function updateFormSummary(){
+  const el = $id('form-summary'), count = cartCount();
+  if(count === 0){
+    el.innerHTML = '<p class="summary-empty">Agregá productos para ver el resumen.</p>';
+    return;
+  }
+  el.innerHTML = Object.entries(cart).map(([id,qty]) => {
+    const p = PRODUCTOS.find(p => p.id === +id);
+    if(!p) return '';
+    return `<div class="summary-line"><span>${p.nombre} <strong>×${qty}</strong></span><span>${ars(p.precio*qty)}</span></div>`;
+  }).join('') + `<div class="summary-line total-line"><span>Total</span><span>${ars(cartTotal())}</span></div>`;
+}
 /* TOGGLE CART */
 function toggleCart(){
   const s=$id('cart-sidebar'), o=$id('cart-overlay');
