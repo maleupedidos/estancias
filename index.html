@@ -1057,27 +1057,9 @@ ${lineas}
 📞 ${telefono}
 📅 *Entrega:* ${dia} · ${horario}
 💳 *Pago:* ${pagoEl.value}
-━━━━━━━━━━━━━━━`;
-```
----
-## Cómo va a quedar el mensaje para vos
-```
-🧾 NUEVO PEDIDO — MALEU
-📦 1 producto
-Postres & Tortas
-   · Franui Leche ×1  $8.000
-━━━━━━━━━━━━━━━
-💰 TOTAL: $8.000
-━━━━━━━━━━━━━━━
-👤 Tadeo
-🏘 Barrio: Champagnat Alto
-📍 Lote: 289
-📞 1136887500
-📅 Entrega: Viernes · 19 a 21 hs
-💳 Pago: Transferencia
 ━━━━━━━━━━━━━━━
 _Pedido enviado desde maleupedidos.github.io_`;
-window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
+  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 /* TOAST */
 /* TOAST */
