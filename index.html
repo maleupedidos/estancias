@@ -343,6 +343,45 @@
       transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s; opacity:0;
     }
     .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    /* VALIDACIÓN INLINE */
+.field-error {
+  font-size: .74rem;
+  color: #d63c3c;
+  margin-top: .22rem;
+  display: none;
+  align-items: center;
+  gap: .25rem;
+  animation: errorIn .18s ease;
+}
+.field-error.visible {
+  display: flex;
+}
+@keyframes errorIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.field-group input.error,
+.field-group select.error {
+  border-color: #d63c3c;
+  box-shadow: 0 0 0 3px rgba(214,60,60,.12);
+}
+.field-group input.error:focus,
+.field-group select.error:focus {
+  border-color: #d63c3c;
+  box-shadow: 0 0 0 3px rgba(214,60,60,.18);
+}
+.pago-error {
+  font-size: .74rem;
+  color: #d63c3c;
+  margin-top: .3rem;
+  display: none;
+  align-items: center;
+  gap: .25rem;
+  animation: errorIn .18s ease;
+}
+.pago-error.visible {
+  display: flex;
+}
 
     /* RESPONSIVE */
     @media(max-width:420px){
@@ -415,21 +454,24 @@
     <div class="form-grid">
       <div class="field-group">
         <label for="f-nombre">Nombre y apellido</label>
-        <input type="text" id="f-nombre" placeholder="Ej: Ana García" autocomplete="name" />
+        <input type="text" id="f-nombre" placeholder="Ej: Ana García" autocomplete="name" onblur="validateOnBlur('nombre')">
+        <span class="field-error" id="err-nombre">⚠ Completá tu nombre y apellido</span>
       </div>
       <div class="field-group">
         <label for="f-direccion">Dirección en Estancias del Pilar</label>
-        <input type="text" id="f-direccion" placeholder="Ej: Los Álamos 250, barrio..." autocomplete="street-address" />
+        <input type="text" id="f-direccion" placeholder="Ej: Los Álamos 250, barrio..." autocomplete="street-address" onblur="validateOnBlur('direccion')">
+        <span class="field-error" id="err-direccion">⚠ Completá tu dirección</span>
       </div>
       <div class="form-row form-row-2">
         <div class="field-group">
           <label for="f-telefono">WhatsApp / Teléfono</label>
-          <input type="tel" id="f-telefono" placeholder="11 5555 5555" autocomplete="tel" />
+          <input type="tel" id="f-telefono" placeholder="11 5555 5555" autocomplete="tel" onblur="validateOnBlur('telefono')">
+          <span class="field-error" id="err-telefono">⚠ Completá tu número de WhatsApp</span>
         </div>
         <div class="field-group">
           <label for="f-dia">Día de entrega</label>
           <div class="select-wrapper">
-            <select id="f-dia" onchange="onDiaChange()">
+            <select id="f-dia" onchange="onDiaChange()" onblur="validateOnBlur('dia')">
               <option value="">Elegí un día</option>
               <option value="Miércoles">Miércoles</option>
               <option value="Viernes">Viernes</option>
@@ -437,6 +479,7 @@
               <option value="Domingo">Domingo</option>
             </select>
           </div>
+          <span class="field-error" id="err-dia">⚠ Elegí un día de entrega</span>
         </div>
       </div>
       <div class="field-group">
@@ -444,8 +487,20 @@
         <input type="text" id="f-horario" readonly placeholder="Se completa al elegir el día" />
       </div>
       <div>
-        <span class="pago-label">Método de pago</span>
-        <div class="radio-row">
+        <div id="pago-group">
+  <span class="pago-label">Método de pago</span>
+  <div class="radio-row">
+    <div class="radio-opt">
+      <input type="radio" id="pago-ef" name="pago" value="Efectivo">
+      <label for="pago-ef">💵 Efectivo</label>
+    </div>
+    <div class="radio-opt">
+      <input type="radio" id="pago-tr" name="pago" value="Transferencia">
+      <label for="pago-tr">📲 Transferencia</label>
+    </div>
+  </div>
+  <span class="pago-error" id="err-pago">⚠ Elegí un método de pago</span>
+</div>
           <div class="radio-opt">
             <input type="radio" id="pago-ef" name="pago" value="Efectivo" />
             <label for="pago-ef">💵 Efectivo</label>
@@ -653,26 +708,91 @@ function onDiaChange(){
   $id('f-horario').value=dia?(HORARIOS[dia]||''):'';
 }
 
+/* VALIDACIÓN INLINE */
+function showError(fieldId, errorId) {
+  const field = $id(fieldId);
+  const errEl = $id(errorId);
+  if(field) field.classList.add('error');
+  if(errEl) errEl.classList.add('visible');
+}
+function clearError(fieldId, errorId) {
+  const field = $id(fieldId);
+  const errEl = $id(errorId);
+  if(field) field.classList.remove('error');
+  if(errEl) errEl.classList.remove('visible');
+}
+function validateOnBlur(campo) {
+  if(campo === 'nombre') {
+    const v = $id('f-nombre').value.trim();
+    v ? clearError('f-nombre','err-nombre') : showError('f-nombre','err-nombre');
+  }
+  if(campo === 'direccion') {
+    const v = $id('f-direccion').value.trim();
+    v ? clearError('f-direccion','err-direccion') : showError('f-direccion','err-direccion');
+  }
+  if(campo === 'telefono') {
+    const v = $id('f-telefono').value.trim();
+    v ? clearError('f-telefono','err-telefono') : showError('f-telefono','err-telefono');
+  }
+  if(campo === 'dia') {
+    const v = $id('f-dia').value;
+    v ? clearError('f-dia','err-dia') : showError('f-dia','err-dia');
+  }
+}
 /* WHATSAPP */
 function enviarPedido(){
-  const nombre=$id('f-nombre').value.trim();
-  const direccion=$id('f-direccion').value.trim();
-  const telefono=$id('f-telefono').value.trim();
-  const dia=$id('f-dia').value;
-  const horario=$id('f-horario').value;
-  const pagoEl=document.querySelector('input[name="pago"]:checked');
-  if(cartCount()===0)  { toast('⚠️ Agregá al menos un producto'); return; }
-  if(!nombre)          { toast('⚠️ Completá tu nombre');    $id('f-nombre').focus();    return; }
-  if(!direccion)       { toast('⚠️ Completá tu dirección'); $id('f-direccion').focus(); return; }
-  if(!telefono)        { toast('⚠️ Completá tu teléfono');  $id('f-telefono').focus();  return; }
-  if(!dia)             { toast('⚠️ Elegí un día de entrega'); $id('f-dia').focus();      return; }
-  if(!pagoEl)          { toast('⚠️ Elegí el método de pago'); return; }
-  const lineas=Object.entries(cart).map(([id,qty])=>{
-    const p=PRODUCTOS.find(p=>p.id===+id);
-    return `  • ${p.nombre} ×${qty}  →  ${ars(p.precio*qty)}`;
-  }).join('\n');
-  const msg=`🛍️ *Nuevo pedido — Maleu*\n\n*Productos:*\n${lineas}\n\n*Total: ${ars(cartTotal())}*\n\n──────────────────\n*Datos del pedido:*\n👤 Nombre: ${nombre}\n📍 Dirección: ${direccion}\n📞 Teléfono: ${telefono}\n📅 Entrega: ${dia}, ${horario}\n💳 Pago: ${pagoEl.value}\n──────────────────`;
-  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`,'_blank');
+  const nombre    = $id('f-nombre').value.trim();
+  const direccion = $id('f-direccion').value.trim();
+  const telefono  = $id('f-telefono').value.trim();
+  const dia       = $id('f-dia').value;
+  const horario   = $id('f-horario').value;
+  const pagoEl    = document.querySelector('input[name="pago"]:checked');
+  /* Limpiar todos los errores previos */
+  clearError('f-nombre',   'err-nombre');
+  clearError('f-direccion','err-direccion');
+  clearError('f-telefono', 'err-telefono');
+  clearError('f-dia',      'err-dia');
+  $id('err-pago').classList.remove('visible');
+  /* Validar carrito */
+  if(cartCount() === 0) {
+    toast('⚠️ Agregá al menos un producto');
+    return;
+  }
+  /* Validar campos — recolectar todos los errores de una vez */
+  let primerCampoInvalido = null;
+  if(!nombre) {
+    showError('f-nombre','err-nombre');
+    if(!primerCampoInvalido) primerCampoInvalido = $id('f-nombre');
+  }
+  if(!direccion) {
+    showError('f-direccion','err-direccion');
+    if(!primerCampoInvalido) primerCampoInvalido = $id('f-direccion');
+  }
+  if(!telefono) {
+    showError('f-telefono','err-telefono');
+    if(!primerCampoInvalido) primerCampoInvalido = $id('f-telefono');
+  }
+  if(!dia) {
+    showError('f-dia','err-dia');
+    if(!primerCampoInvalido) primerCampoInvalido = $id('f-dia');
+  }
+  if(!pagoEl) {
+    $id('err-pago').classList.add('visible');
+    if(!primerCampoInvalido) primerCampoInvalido = $id('pago-group');
+  }
+  /* Si hay errores, hacer scroll al primero y salir */
+  if(primerCampoInvalido) {
+    primerCampoInvalido.scrollIntoView({ behavior:'smooth', block:'center' });
+    primerCampoInvalido.focus && primerCampoInvalido.focus();
+    return;
+  }
+  /* Todo válido — construir y enviar mensaje */
+  const lineas = Object.entries(cart).map(([id,qty]) => {
+    const p = PRODUCTOS.find(p => p.id === +id);
+    return ` • ${p.nombre} ×${qty} → ${ars(p.precio*qty)}`;
+  }).join('\\n');
+  const msg = `🛍️ *Nuevo pedido — Maleu*\\n\\n*Productos:*\\n${lineas}\\n\\n*Total: ${ars(cartTotal())}*\\n\\n──────────────────\\n*Datos del pedido:*\\n👤 Nombre: ${nombre}\\n📍 Dirección: ${direccion}\\n📞 Teléfono: ${telefono}\\n📅 Entrega: ${dia}, ${horario}\\n💳 Pago: ${pagoEl.value}\\n──────────────────`;
+  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 /* TOAST */
