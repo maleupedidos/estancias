@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maleu — Rico, listo, sin drama.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!--
+  ═══════════════════════════════════════════════════════
+   FOTOS DE PRODUCTOS
+   Para agregar tus fotos: creá una carpeta llamada "img"
+   en la misma carpeta que este archivo HTML, y copiá las
+   fotos con exactamente estos nombres:
+
+   PIZZAS PREMIUM:
+     img/pizza-margarita.jpg
+     img/pizza-jamon-queso-p.jpg
+     img/pizza-cebolla-p.jpg
+     img/pizza-jamon-morron.jpg
+
+   PIZZAS CLÁSICAS:
+     img/pack-muzarella.jpg
+     img/pack-jamon-queso.jpg
+     img/pack-cebolla-queso.jpg
+
+   SORRENTINOS:
+     img/sorrentinos-cordero.jpg
+     img/sorrentinos-jamon.jpg
+     img/sorrentinos-calabaza.jpg
+
+   EMPANADAS:
+     img/empanadas-carne.jpg
+     img/empanadas-jamon.jpg
+
+   POSTRES Y TORTAS:
+     img/franui.jpg
+     img/torta-golosa.jpg
+     img/torta-lemon.jpg
+     img/torta-coco.jpg
+
+   Si la foto no existe, se muestra un fondo de color.
+  ═══════════════════════════════════════════════════════
+  -->
+
+  <style>
+    :root {
+      --brown:  #3D1C0A;
+      --orange: #F97035;
+      --cream:  #E8DFC4;
+      --white:  #FAFAF5;
+      --brown-mid: #7a5a46;
+      --cream-dark: #c8b89a;
+      --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { font-family:var(--font); background:var(--white); color:var(--brown); line-height:1.55; -webkit-font-smoothing:antialiased; }
+
+    /* HEADER */
+    header {
+      background:var(--brown); position:sticky; top:0; z-index:100;
+      padding:.85rem 1.4rem; display:flex; justify-content:space-between; align-items:center;
+      box-shadow:0 2px 14px rgba(0,0,0,.28);
+    }
+    .logo-name { font-size:1.9rem; font-weight:800; color:var(--orange); letter-spacing:-.03em; line-height:1; }
+    .logo-tag  { font-size:.7rem; color:var(--cream); opacity:.75; margin-top:2px; letter-spacing:.04em; }
+    .cart-btn {
+      display:flex; align-items:center; gap:.45rem;
+      background:var(--orange); color:#fff; border:none; border-radius:50px;
+      padding:.55rem 1.1rem .55rem .85rem; font-family:var(--font); font-weight:700; font-size:.9rem;
+      cursor:pointer; transition:background .15s, transform .1s;
+    }
+    .cart-btn:hover  { background:#e05e20; }
+    .cart-btn:active { transform:scale(.97); }
+    .cart-badge {
+      background:#fff; color:var(--orange); border-radius:50%;
+      width:1.35rem; height:1.35rem; display:flex; align-items:center; justify-content:center;
+      font-size:.72rem; font-weight:800;
+    }
+
+    /* HERO */
+    .hero {
+      background:var(--cream); padding:3rem 1.5rem 2.75rem; text-align:center;
+      position:relative; overflow:hidden;
+    }
+    .hero::before {
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(ellipse at 70% 30%, rgba(249,112,53,.12) 0%, transparent 65%);
+      pointer-events:none;
+    }
+    .hero-pill {
+      display:inline-block; background:var(--orange); color:#fff;
+      font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+      padding:.28rem .75rem; border-radius:50px; margin-bottom:1rem;
+    }
+    .hero h2 {
+      font-size:clamp(1.85rem,5.5vw,3.1rem); font-weight:800; color:var(--brown);
+      line-height:1.1; letter-spacing:-.02em; margin-bottom:.75rem;
+    }
+    .hero h2 span { color:var(--orange); }
+    .hero-sub { font-size:.98rem; color:var(--brown-mid); max-width:420px; margin:0 auto 1.6rem; }
+    .hero-cta {
+      display:inline-block; background:var(--brown); color:var(--cream);
+      text-decoration:none; padding:.72rem 1.65rem; border-radius:10px;
+      font-weight:700; font-size:.93rem; transition:background .15s, transform .1s;
+    }
+    .hero-cta:hover { background:#5a2a10; transform:translateY(-1px); }
+
+    /* CATÁLOGO */
+    .catalog { padding:2.5rem 1.25rem 3rem; max-width:1140px; margin:0 auto; }
+
+    .cat-section { margin-bottom:3rem; }
+    .cat-header {
+      margin-bottom:1.2rem; padding-bottom:.85rem;
+      border-bottom:2px solid var(--cream);
+    }
+    .cat-title {
+      display:flex; align-items:center; gap:.5rem;
+      font-size:1.25rem; font-weight:800; color:var(--brown); margin-bottom:.25rem;
+    }
+    .cat-nota { font-size:.79rem; color:var(--brown-mid); padding-left:1.9rem; }
+    .cat-tip {
+      display:inline-flex; align-items:center; gap:.35rem;
+      background:var(--cream); color:var(--brown); border-radius:8px;
+      padding:.28rem .7rem; font-size:.72rem; font-weight:600;
+      margin-left:1.9rem; margin-top:.4rem; width:fit-content;
+    }
+
+    .products-grid {
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(255px,1fr)); gap:1.1rem;
+    }
+
+    /* PRODUCT CARD */
+    .product-card {
+      background:#fff; border-radius:16px; overflow:hidden;
+      border:1.5px solid var(--cream);
+      transition:transform .2s, box-shadow .2s;
+      display:flex; flex-direction:column;
+    }
+    .product-card:hover { transform:translateY(-4px); box-shadow:0 10px 28px rgba(61,28,10,.1); }
+
+    .product-thumb {
+      width:100%; height:160px;
+      display:flex; align-items:center; justify-content:center;
+      position:relative; overflow:hidden; flex-shrink:0;
+    }
+    .product-thumb-emoji { font-size:3.8rem; user-select:none; }
+    .product-thumb-img {
+      position:absolute; top:0; left:0; right:0; bottom:0;
+      width:100%; height:100%; object-fit:cover;
+    }
+
+    .product-body { padding:.95rem 1.05rem 1.15rem; flex:1; display:flex; flex-direction:column; }
+    .product-pill {
+      display:inline-block; background:var(--cream); color:var(--brown);
+      font-size:.63rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+      padding:.18rem .5rem; border-radius:50px; margin-bottom:.48rem; width:fit-content;
+    }
+    .product-name   { font-size:.97rem; font-weight:700; color:var(--brown); margin-bottom:.3rem; line-height:1.25; }
+    .product-desc   { font-size:.79rem; color:var(--brown-mid); line-height:1.45; flex:1; margin-bottom:.8rem; }
+    .product-footer { display:flex; align-items:center; justify-content:space-between; }
+    .product-price  { font-size:1.2rem; font-weight:800; color:var(--brown); letter-spacing:-.01em; }
+
+    .add-btn {
+      background:var(--orange); color:#fff; border:none; border-radius:9px;
+      padding:.46rem .9rem; font-family:var(--font); font-size:.87rem; font-weight:700;
+      cursor:pointer; transition:background .15s, transform .1s; flex-shrink:0;
+    }
+    .add-btn:hover  { background:#e05e20; }
+    .add-btn:active { transform:scale(.95); }
+
+    /* CART */
+    .cart-overlay {
+      position:fixed; inset:0; background:rgba(20,8,2,.5); z-index:200;
+      opacity:0; pointer-events:none; transition:opacity .25s; backdrop-filter:blur(2px);
+    }
+    .cart-overlay.open { opacity:1; pointer-events:all; }
+    .cart-sidebar {
+      position:fixed; right:0; top:0; bottom:0; width:min(390px,100vw);
+      background:var(--white); z-index:300;
+      display:flex; flex-direction:column;
+      transform:translateX(100%); transition:transform .3s cubic-bezier(.4,0,.2,1);
+      box-shadow:-6px 0 32px rgba(0,0,0,.18);
+    }
+    .cart-sidebar.open { transform:translateX(0); }
+    .cart-head {
+      background:var(--brown); color:#fff; padding:1.2rem 1.4rem;
+      display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
+    }
+    .cart-head h3 { font-size:1.05rem; font-weight:700; }
+    .close-cart-btn {
+      background:none; border:none; color:#fff; font-size:1.65rem; line-height:1;
+      cursor:pointer; opacity:.8; transition:opacity .15s; padding:0 .2rem;
+    }
+    .close-cart-btn:hover { opacity:1; }
+    .cart-body { flex:1; overflow-y:auto; padding:1.1rem 1.2rem; }
+    .cart-empty-msg {
+      display:flex; flex-direction:column; align-items:center; gap:.6rem;
+      padding:2.5rem 0; color:var(--brown-mid); font-size:.9rem; text-align:center;
+    }
+    .cart-empty-msg span { font-size:2.8rem; }
+    .cart-item {
+      display:flex; align-items:center; gap:.7rem;
+      padding:.78rem 0; border-bottom:1px solid var(--cream);
+    }
+    .cart-item-emoji { font-size:1.75rem; flex-shrink:0; width:2.3rem; text-align:center; }
+    .cart-item-info  { flex:1; min-width:0; }
+    .cart-item-name  { font-size:.865rem; font-weight:700; color:var(--brown); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cart-item-sub   { font-size:.75rem; color:var(--brown-mid); margin-top:1px; }
+    .qty-controls { display:flex; align-items:center; gap:.35rem; flex-shrink:0; }
+    .qty-btn {
+      background:var(--cream); border:none; border-radius:7px;
+      width:1.85rem; height:1.85rem; font-size:1rem; font-weight:700; color:var(--brown);
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      transition:background .12s, color .12s;
+    }
+    .qty-btn:hover { background:var(--orange); color:#fff; }
+    .qty-val { font-size:.9rem; font-weight:700; min-width:1.25rem; text-align:center; color:var(--brown); }
+    .cart-foot { padding:1.1rem 1.2rem 1.4rem; border-top:2px solid var(--cream); flex-shrink:0; }
+    .cart-total-row {
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:1.1rem; font-weight:800; color:var(--brown); margin-bottom:.95rem;
+    }
+    .cart-total-row span:last-child { color:var(--orange); }
+    .go-form-btn {
+      display:block; width:100%; background:var(--brown); color:var(--cream);
+      border:none; border-radius:11px; padding:.85rem; font-family:var(--font);
+      font-size:.97rem; font-weight:700; cursor:pointer; text-align:center;
+      transition:background .15s;
+    }
+    .go-form-btn:hover { background:#5a2a10; }
+
+    /* FORMULARIO */
+    .form-section { background:var(--cream); padding:3rem 1.25rem 3.5rem; }
+    .form-wrap { max-width:580px; margin:0 auto; }
+    .section-heading { font-size:1.45rem; font-weight:800; color:var(--brown); margin-bottom:.25rem; }
+    .section-sub { font-size:.87rem; color:var(--brown-mid); margin-bottom:1.6rem; }
+    .order-summary-box {
+      background:#fff; border-radius:14px; padding:1.15rem 1.2rem;
+      border:1.5px solid var(--cream-dark); margin-bottom:1.75rem;
+    }
+    .order-summary-box h4 {
+      font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+      color:var(--orange); margin-bottom:.7rem;
+    }
+    .summary-empty { font-size:.84rem; color:var(--brown-mid); font-style:italic; }
+    .summary-line  { display:flex; justify-content:space-between; font-size:.84rem; padding:.22rem 0; color:var(--brown); }
+    .summary-line.total-line {
+      font-weight:800; font-size:.97rem;
+      border-top:1.5px solid var(--cream); margin-top:.45rem; padding-top:.65rem;
+    }
+    .summary-line.total-line span:last-child { color:var(--orange); }
+    .form-grid { display:grid; gap:1rem; }
+    .form-row  { display:grid; gap:1rem; }
+    @media(min-width:500px){ .form-row-2{ grid-template-columns:1fr 1fr; } }
+    .field-group { display:flex; flex-direction:column; gap:.32rem; }
+    label { font-size:.82rem; font-weight:700; color:var(--brown); }
+    input[type="text"], input[type="tel"], select {
+      width:100%; padding:.76rem 1rem; background:#fff;
+      border:1.5px solid var(--cream-dark); border-radius:11px;
+      font-family:var(--font); font-size:.94rem; color:var(--brown);
+      outline:none; appearance:none; transition:border-color .15s, box-shadow .15s;
+    }
+    input::placeholder { color:#b8a898; }
+    input:focus, select:focus {
+      border-color:var(--orange); box-shadow:0 0 0 3px rgba(249,112,53,.14);
+    }
+    .select-wrapper { position:relative; }
+    .select-wrapper::after {
+      content:'▾'; position:absolute; right:1rem; top:50%; transform:translateY(-50%);
+      color:var(--brown-mid); pointer-events:none; font-size:.9rem;
+    }
+    input[readonly] { background:#f0ebe0; cursor:default; color:var(--brown-mid); }
+    input[readonly]:focus { border-color:var(--cream-dark); box-shadow:none; }
+    .pago-label { font-size:.82rem; font-weight:700; color:var(--brown); margin-bottom:.45rem; display:block; }
+    .radio-row { display:flex; gap:.75rem; }
+    .radio-opt { flex:1; position:relative; }
+    .radio-opt input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
+    .radio-opt label {
+      display:flex; align-items:center; justify-content:center; gap:.4rem;
+      padding:.73rem .5rem; border:1.5px solid var(--cream-dark); border-radius:11px;
+      background:#fff; cursor:pointer; font-size:.89rem; font-weight:600; color:var(--brown);
+      transition:border-color .15s, background .15s, color .15s; user-select:none;
+    }
+    .radio-opt input:checked + label { border-color:var(--orange); background:var(--orange); color:#fff; }
+    .whatsapp-btn {
+      display:flex; align-items:center; justify-content:center; gap:.6rem;
+      width:100%; background:#25D366; color:#fff; border:none; border-radius:13px;
+      padding:1rem; font-family:var(--font); font-size:1.04rem; font-weight:700;
+      cursor:pointer; margin-top:1.5rem;
+      transition:background .15s, transform .1s, box-shadow .15s;
+      box-shadow:0 4px 16px rgba(37,211,102,.3);
+    }
+    .whatsapp-btn:hover  { background:#1bb954; transform:translateY(-1px); }
+    .whatsapp-btn:active { transform:scale(.98); }
+    .whatsapp-btn svg { width:1.45rem; height:1.45rem; flex-shrink:0; }
+    .form-note { text-align:center; font-size:.75rem; color:var(--brown-mid); margin-top:.8rem; }
+
+    /* FOOTER */
+    footer { background:var(--brown); color:var(--cream); padding:3rem 1.5rem 2rem; text-align:center; }
+    .footer-brand { font-size:1.6rem; font-weight:800; color:var(--orange); letter-spacing:-.02em; }
+    .footer-tag   { font-size:.8rem; opacity:.65; margin-top:.2rem; margin-bottom:1.9rem; }
+    .footer-cols  { display:grid; gap:1.7rem; max-width:560px; margin:0 auto 2rem; }
+    @media(min-width:540px){ .footer-cols{ grid-template-columns:1fr 1fr; text-align:left; } }
+    .footer-col-label { font-size:.67rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--orange); margin-bottom:.55rem; }
+    .footer-col p, .footer-col a { font-size:.86rem; opacity:.82; line-height:1.65; text-decoration:none; color:var(--cream); }
+    .hours-table { width:100%; }
+    .hours-table tr td { font-size:.86rem; opacity:.82; padding:.15rem 0; }
+    .hours-table tr td:first-child { font-weight:600; padding-right:1rem; }
+    .footer-hr   { border:none; border-top:1px solid rgba(232,223,196,.18); margin-bottom:1.2rem; }
+    .footer-copy { font-size:.72rem; opacity:.4; }
+
+    /* TOAST */
+    .toast {
+      position:fixed; bottom:1.5rem; left:50%;
+      transform:translateX(-50%) translateY(80px);
+      background:var(--brown); color:#fff; padding:.68rem 1.25rem;
+      border-radius:50px; font-size:.82rem; font-weight:600; z-index:500;
+      pointer-events:none; white-space:nowrap;
+      border-left:3px solid var(--orange); box-shadow:0 4px 20px rgba(0,0,0,.2);
+      transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s; opacity:0;
+    }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+    /* RESPONSIVE */
+    @media(max-width:420px){
+      .products-grid{ grid-template-columns:1fr; }
+      .hero h2{ font-size:1.72rem; }
+      .logo-name{ font-size:1.65rem; }
+    }
+    @media(min-width:540px){ .products-grid{ grid-template-columns:repeat(2,1fr); } }
+    @media(min-width:820px){ .products-grid{ grid-template-columns:repeat(3,1fr); } }
+    @media(min-width:1080px){ .products-grid{ grid-template-columns:repeat(4,1fr); } }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div>
+    <div class="logo-name">Maleu</div>
+    <div class="logo-tag">Rico, listo, sin drama.</div>
+  </div>
+  <button class="cart-btn" onclick="toggleCart()" aria-label="Ver carrito">
+    🛒 Carrito
+    <span class="cart-badge" id="cart-badge">0</span>
+  </button>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <span class="hero-pill">Estancias del Pilar · Delivery</span>
+  <h2>Hoy no tenés que<br>pensar <span>qué cocinar.</span></h2>
+  <p class="hero-sub">Comida lista en minutos, con sabor de verdad. Te la dejamos en la puerta de tu casa.</p>
+  <a href="#catalogo" class="hero-cta">Ver productos ↓</a>
+</section>
+
+<!-- CATÁLOGO -->
+<div class="catalog" id="catalogo">
+  <div id="catalog-root"></div>
+</div>
+
+<!-- CART -->
+<div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
+<aside class="cart-sidebar" id="cart-sidebar">
+  <div class="cart-head">
+    <h3>Tu pedido</h3>
+    <button class="close-cart-btn" onclick="toggleCart()">×</button>
+  </div>
+  <div class="cart-body" id="cart-body">
+    <div class="cart-empty-msg"><span>🛒</span>Todavía no agregaste nada.</div>
+  </div>
+  <div id="cart-foot" style="display:none" class="cart-foot">
+    <div class="cart-total-row">
+      <span>Total</span>
+      <span id="cart-total">$0</span>
+    </div>
+    <button class="go-form-btn" onclick="goToForm()">Completar pedido →</button>
+  </div>
+</aside>
+
+<!-- FORMULARIO -->
+<section class="form-section">
+  <div class="form-wrap">
+    <h2 class="section-heading">Completá tu pedido</h2>
+    <p class="section-sub">Te confirmamos todo por WhatsApp.</p>
+
+    <div class="order-summary-box">
+      <h4>Resumen</h4>
+      <div id="form-summary"><p class="summary-empty">Agregá productos para ver el resumen.</p></div>
+    </div>
+
+    <div class="form-grid">
+      <div class="field-group">
+        <label for="f-nombre">Nombre y apellido</label>
+        <input type="text" id="f-nombre" placeholder="Ej: Ana García" autocomplete="name" />
+      </div>
+      <div class="field-group">
+        <label for="f-direccion">Dirección en Estancias del Pilar</label>
+        <input type="text" id="f-direccion" placeholder="Ej: Los Álamos 250, barrio..." autocomplete="street-address" />
+      </div>
+      <div class="form-row form-row-2">
+        <div class="field-group">
+          <label for="f-telefono">WhatsApp / Teléfono</label>
+          <input type="tel" id="f-telefono" placeholder="11 5555 5555" autocomplete="tel" />
+        </div>
+        <div class="field-group">
+          <label for="f-dia">Día de entrega</label>
+          <div class="select-wrapper">
+            <select id="f-dia" onchange="onDiaChange()">
+              <option value="">Elegí un día</option>
+              <option value="Miércoles">Miércoles</option>
+              <option value="Viernes">Viernes</option>
+              <option value="Sábado">Sábado</option>
+              <option value="Domingo">Domingo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label for="f-horario">Horario de entrega</label>
+        <input type="text" id="f-horario" readonly placeholder="Se completa al elegir el día" />
+      </div>
+      <div>
+        <span class="pago-label">Método de pago</span>
+        <div class="radio-row">
+          <div class="radio-opt">
+            <input type="radio" id="pago-ef" name="pago" value="Efectivo" />
+            <label for="pago-ef">💵 Efectivo</label>
+          </div>
+          <div class="radio-opt">
+            <input type="radio" id="pago-tr" name="pago" value="Transferencia" />
+            <label for="pago-tr">📲 Transferencia</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="whatsapp-btn" onclick="enviarPedido()">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+      Pedir por WhatsApp
+    </button>
+    <p class="form-note">Abrimos WhatsApp con el resumen completo para que lo confirmés vos.</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">Maleu</div>
+  <p class="footer-tag">Rico, listo, sin drama.</p>
+  <div class="footer-cols">
+    <div class="footer-col">
+      <div class="footer-col-label">Zona de cobertura</div>
+      <p>Estancias del Pilar<br>Buenos Aires, Argentina</p>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-label">Días y horarios de entrega</div>
+      <table class="hours-table">
+        <tr><td>Miércoles</td><td>19 a 21 hs</td></tr>
+        <tr><td>Viernes</td><td>19 a 21 hs</td></tr>
+        <tr><td>Sábado</td><td>19 a 21 hs</td></tr>
+        <tr><td>Domingo</td><td>11 a 13 hs</td></tr>
+      </table>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-label">Contacto</div>
+      <p><a href="https://wa.me/5491155038905" target="_blank">WhatsApp: +54 9 11 5503 8905</a></p>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-label">¿Por qué Maleu?</div>
+      <p>Sin apps, sin registro.<br>Pedís, confirmamos, entregamos.</p>
+    </div>
+  </div>
+  <hr class="footer-hr" />
+  <p class="footer-copy">© 2025 Maleu · Estancias del Pilar</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════
+   PRODUCTOS — editá este array para cambiar el menú.
+   Campos: id, cat, nombre, desc, precio, img, emoji, bg
+   ══════════════════════════════════════════════════ */
+const PRODUCTOS = [
+
+  /* PIZZAS PREMIUM */
+  { id:1,  cat:"Pizzas Premium",   nombre:"Pizza Margarita",               desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.",                       precio:11000, img:"pizza-margarita.jpg.jpeg",      emoji:"🍕", bg:"#FFF3E8" },
+  { id:2,  cat:"Pizzas Premium",   nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.",                        precio:11000, img:"pizza-jamon-queso-p.jpg.jpeg",  emoji:"🍕", bg:"#FDF0F0" },
+  { id:3,  cat:"Pizzas Premium",   nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.",                       precio:11000, img:"pizza-cebolla-p.jpg.jpeg",       emoji:"🍕", bg:"#FBF0E8" },
+  { id:4,  cat:"Pizzas Premium",   nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.",                           precio:12000, img:"pizza-jamon-morron.jpg.jpeg",   emoji:"🍕", bg:"#F5F0FA" },
+
+  /* PIZZAS CLÁSICAS x2 */
+  { id:5,  cat:"Pizzas Clásicas",  nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.",                    precio:16000, img:"pack-muzarella.jpg.jpg",       emoji:"🍕", bg:"#FFF8E6" },
+  { id:6,  cat:"Pizzas Clásicas",  nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.",              precio:16000, img:"pack-jamon-queso.jpg.jpg",     emoji:"🍕", bg:"#F0F7EE" },
+  { id:7,  cat:"Pizzas Clásicas",  nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.",                    precio:16000, img:"pack-cebolla-queso.jpg.jpg",   emoji:"🍕", bg:"#EEF3F8" },
+
+  /* SORRENTINOS */
+  { id:8,  cat:"Sorrentinos",      nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.",              precio:17500, img:"sorrentinos-cordero.jpg.jpeg",  emoji:"🍝", bg:"#FBF0E8" },
+  { id:9,  cat:"Sorrentinos",      nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.",                          precio:16300, img:"sorrentinos-jamon.jpg.jpeg",    emoji:"🍝", bg:"#FFF3E8" },
+  { id:10, cat:"Sorrentinos",      nombre:"Sorrentinos Calabaza y Queso",  desc:"Suave, dulce y sabroso. Relleno cremoso de calabaza y queso.",                    precio:14700, img:"sorrentinos-calabaza.jpg.jpeg", emoji:"🍝", bg:"#FFF8E6" },
+
+  /* EMPANADAS */
+  { id:11, cat:"Empanadas",        nombre:"Empanadas Carne a Cuchillo x8", desc:"Carne cortada a cuchillo, jugosa y bien condimentada. Las que piden todos.",      precio:18800, img:"empanadas-carne.jpg.jpeg",      emoji:"🥟", bg:"#FFF3E8" },
+  { id:12, cat:"Empanadas",        nombre:"Empanadas Jamón y Queso x8",    desc:"Cremosas por dentro, doraditas por fuera. Para cualquier momento.",               precio:15000, img:"empanadas-jamon.jpg.jpeg",      emoji:"🥟", bg:"#F5F0FA" },
+
+  /* POSTRES Y TORTAS */
+  { id:13, cat:"Postres & Tortas", nombre:"Franui Leche",                  desc:"Frambuesas bañadas en chocolate con leche y blanco. El cierre perfecto.",         precio:8000,  img:"franui.jpg.jpeg",              emoji:"🍫", bg:"#FDF0F0" },
+  { id:14, cat:"Postres & Tortas", nombre:"Torta Golosa",                  desc:"Masa de chocolate, dulce de leche, mousse de chocolate y almendras acarameladas.",precio:24000, img:"torta-golosa.jpg.png",         emoji:"🎂", bg:"#FBF0E8" },
+  { id:15, cat:"Postres & Tortas", nombre:"Torta Lemon Crumble",           desc:"Base sablée, relleno de limón y crumble crocante espolvoreado.",                  precio:24000, img:"torta-lemon.jpg.png",          emoji:"🎂", bg:"#FFFFF0" },
+  { id:16, cat:"Postres & Tortas", nombre:"Torta Coco",                    desc:"Base crocante, dulce de leche y relleno de coco. Generosa y sin vueltas.",        precio:24000, img:"torta-coco.jpg.png",           emoji:"🎂", bg:"#F5F0FA" },
+];
+
+/* ══════════════════════════════════════════════════
+   CATEGORÍAS — orden y descripción de cada sección
+   ══════════════════════════════════════════════════ */
+const CATEGORIAS = [
+  { nombre:"Pizzas Premium",   icono:"🍕", nota:"Pre-cocidas · Listas en minutos · Al horno directo desde el freezer",          tip:null },
+  { nombre:"Pizzas Clásicas",  icono:"🍕", nota:"Pack de 2 unidades · Perfectas para tener siempre a mano",                    tip:null },
+  { nombre:"Sorrentinos",      icono:"🍝", nota:"600g · 16 unidades · Rinde 3 porciones · Solo 4 minutos de cocción",           tip:"Hervir agua · Agregar sorrentinos · 4 min con olla destapada · Retirar con espumadera y servir" },
+  { nombre:"Empanadas",        icono:"🥟", nota:"x8 unidades · Congeladas, listas para el horno · Cocinar hasta dorar",        tip:null },
+  { nombre:"Postres & Tortas", icono:"🎂", nota:"Para cerrar bien la noche",                                                   tip:null },
+];
+
+/* Horarios */
+const HORARIOS = { "Miércoles":"19 a 21 hs", "Viernes":"19 a 21 hs", "Sábado":"19 a 21 hs", "Domingo":"11 a 13 hs" };
+const WA_NUMBER = "5491155038905";
+
+/* Estado */
+let cart = {};
+
+function $id(id){ return document.getElementById(id); }
+function ars(n) { return '$' + n.toLocaleString('es-AR'); }
+function cartTotal(){ return Object.entries(cart).reduce((s,[id,q])=>{ const p=PRODUCTOS.find(p=>p.id===+id); return s+(p?p.precio*q:0); },0); }
+function cartCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
+
+/* RENDER */
+function renderCatalog(){
+  $id('catalog-root').innerHTML = CATEGORIAS.map(cat => {
+    const prods = PRODUCTOS.filter(p => p.cat === cat.nombre);
+    if(!prods.length) return '';
+    return `
+      <section class="cat-section">
+        <div class="cat-header">
+          <div class="cat-title"><span>${cat.icono}</span>${cat.nombre}</div>
+          <div class="cat-nota">${cat.nota}</div>
+          ${cat.tip ? `<div class="cat-tip">🍳 ${cat.tip}</div>` : ''}
+        </div>
+        <div class="products-grid">
+          ${prods.map(p=>`
+            <article class="product-card">
+              <div class="product-thumb" style="background:${p.bg}">
+                <span class="product-thumb-emoji">${p.emoji}</span>
+                <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" onerror="this.remove()">
+              </div>
+              <div class="product-body">
+                <span class="product-pill">${p.cat}</span>
+                <h3 class="product-name">${p.nombre}</h3>
+                <p class="product-desc">${p.desc}</p>
+                <div class="product-footer">
+                  <span class="product-price">${ars(p.precio)}</span>
+                  <button class="add-btn" onclick="addToCart(${p.id})">+ Agregar</button>
+                </div>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </section>`;
+  }).join('');
+}
+
+/* CARRITO */
+function addToCart(id){
+  cart[id]=(cart[id]||0)+1;
+  updateUI();
+  const p=PRODUCTOS.find(p=>p.id===id);
+  toast(`✓ ${p.nombre} agregado`);
+}
+function changeQty(id,delta){
+  if(!cart[id]) return;
+  cart[id]+=delta;
+  if(cart[id]<=0) delete cart[id];
+  updateUI();
+}
+function updateUI(){
+  const count=cartCount(), total=cartTotal();
+  $id('cart-badge').textContent=count;
+  const bodyEl=$id('cart-body'), footEl=$id('cart-foot');
+  if(count===0){
+    bodyEl.innerHTML=`<div class="cart-empty-msg"><span>🛒</span>Todavía no agregaste nada.</div>`;
+    footEl.style.display='none';
+  } else {
+    footEl.style.display='block';
+    bodyEl.innerHTML=Object.entries(cart).map(([id,qty])=>{
+      const p=PRODUCTOS.find(p=>p.id===+id); if(!p) return '';
+      return `<div class="cart-item">
+        <span class="cart-item-emoji">${p.emoji}</span>
+        <div class="cart-item-info">
+          <div class="cart-item-name">${p.nombre}</div>
+          <div class="cart-item-sub">${ars(p.precio)} c/u · <strong>${ars(p.precio*qty)}</strong></div>
+        </div>
+        <div class="qty-controls">
+          <button class="qty-btn" onclick="changeQty(${id},-1)">−</button>
+          <span class="qty-val">${qty}</span>
+          <button class="qty-btn" onclick="changeQty(${id},+1)">+</button>
+        </div>
+      </div>`;
+    }).join('');
+    $id('cart-total').textContent=ars(total);
+  }
+  updateFormSummary();
+}
+function updateFormSummary(){
+  const el=$id('form-summary'), count=cartCount();
+  if(count===0){ el.innerHTML='<p class="summary-empty">Agregá productos para ver el resumen.</p>'; return; }
+  el.innerHTML=Object.entries(cart).map(([id,qty])=>{
+    const p=PRODUCTOS.find(p=>p.id===+id); if(!p) return '';
+    return `<div class="summary-line"><span>${p.nombre} <strong>×${qty}</strong></span><span>${ars(p.precio*qty)}</span></div>`;
+  }).join('')+`<div class="summary-line total-line"><span>Total</span><span>${ars(cartTotal())}</span></div>`;
+}
+
+/* TOGGLE CART */
+function toggleCart(){
+  const s=$id('cart-sidebar'), o=$id('cart-overlay');
+  const open=s.classList.toggle('open');
+  o.classList.toggle('open',open);
+  document.body.style.overflow=open?'hidden':'';
+}
+function goToForm(){
+  toggleCart();
+  setTimeout(()=>document.querySelector('.form-section').scrollIntoView({behavior:'smooth'}),320);
+}
+
+/* HORARIO */
+function onDiaChange(){
+  const dia=$id('f-dia').value;
+  $id('f-horario').value=dia?(HORARIOS[dia]||''):'';
+}
+
+/* WHATSAPP */
+function enviarPedido(){
+  const nombre=$id('f-nombre').value.trim();
+  const direccion=$id('f-direccion').value.trim();
+  const telefono=$id('f-telefono').value.trim();
+  const dia=$id('f-dia').value;
+  const horario=$id('f-horario').value;
+  const pagoEl=document.querySelector('input[name="pago"]:checked');
+  if(cartCount()===0)  { toast('⚠️ Agregá al menos un producto'); return; }
+  if(!nombre)          { toast('⚠️ Completá tu nombre');    $id('f-nombre').focus();    return; }
+  if(!direccion)       { toast('⚠️ Completá tu dirección'); $id('f-direccion').focus(); return; }
+  if(!telefono)        { toast('⚠️ Completá tu teléfono');  $id('f-telefono').focus();  return; }
+  if(!dia)             { toast('⚠️ Elegí un día de entrega'); $id('f-dia').focus();      return; }
+  if(!pagoEl)          { toast('⚠️ Elegí el método de pago'); return; }
+  const lineas=Object.entries(cart).map(([id,qty])=>{
+    const p=PRODUCTOS.find(p=>p.id===+id);
+    return `  • ${p.nombre} ×${qty}  →  ${ars(p.precio*qty)}`;
+  }).join('\n');
+  const msg=`🛍️ *Nuevo pedido — Maleu*\n\n*Productos:*\n${lineas}\n\n*Total: ${ars(cartTotal())}*\n\n──────────────────\n*Datos del pedido:*\n👤 Nombre: ${nombre}\n📍 Dirección: ${direccion}\n📞 Teléfono: ${telefono}\n📅 Entrega: ${dia}, ${horario}\n💳 Pago: ${pagoEl.value}\n──────────────────`;
+  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
+/* TOAST */
+let _tt;
+function toast(msg){ const el=$id('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2700); }
+
+/* INIT */
+renderCatalog();
+</script>
+</body>
+</html>
