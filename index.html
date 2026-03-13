@@ -485,32 +485,26 @@
    Campos: id, cat, nombre, desc, precio, img, emoji, bg
    ══════════════════════════════════════════════════ */
 const PRODUCTOS = [
+  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.", precio:11000, img:"pizza-margarita.jpg",       emoji:"🍕", bg:"#FFF3E8" },
+  { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.", precio:11000, img:"pizza-jamon-queso-p.jpg",   emoji:"🍕", bg:"#FDF0F0" },
+  { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.", precio:11000, img:"pizza-cebolla-p.jpg",       emoji:"🍕", bg:"#FBF0E8" },
+  { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.", precio:12000, img:"pizza-jamon-morron.jpg",    emoji:"🍕", bg:"#F5F0FA" },
 
-  /* PIZZAS PREMIUM */
-  { id:1,  cat:"Pizzas Premium",   nombre:"Pizza Margarita",               desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.",                       precio:11000, img:"pizza-margarita.jpg.jpeg",      emoji:"🍕", bg:"#FFF3E8" },
-  { id:2,  cat:"Pizzas Premium",   nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.",                        precio:11000, img:"pizza-jamon-queso-p.jpg.jpeg",  emoji:"🍕", bg:"#FDF0F0" },
-  { id:3,  cat:"Pizzas Premium",   nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.",                       precio:11000, img:"pizza-cebolla-p.jpg.jpeg",       emoji:"🍕", bg:"#FBF0E8" },
-  { id:4,  cat:"Pizzas Premium",   nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.",                           precio:12000, img:"pizza-jamon-morron.jpg.jpeg",   emoji:"🍕", bg:"#F5F0FA" },
+  { id:5,  cat:"Pizzas Clásicas",   nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.", precio:16000, img:"pack-muzarella.jpg", emoji:"🍕", bg:"#FFF8E6" },
+  { id:6,  cat:"Pizzas Clásicas",   nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.", precio:16000, img:"pack-jamon-queso.jpg", emoji:"🍕", bg:"#F0F7EE" },
+  { id:7,  cat:"Pizzas Clásicas",   nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.", precio:16000, img:"pack-cebolla-queso.jpg", emoji:"🍕", bg:"#EEF3F8" },
 
-  /* PIZZAS CLÁSICAS x2 */
-  { id:5,  cat:"Pizzas Clásicas",  nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.",                    precio:16000, img:"pack-muzarella.jpg.jpg",       emoji:"🍕", bg:"#FFF8E6" },
-  { id:6,  cat:"Pizzas Clásicas",  nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.",              precio:16000, img:"pack-jamon-queso.jpg.jpg",     emoji:"🍕", bg:"#F0F7EE" },
-  { id:7,  cat:"Pizzas Clásicas",  nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.",                    precio:16000, img:"pack-cebolla-queso.jpg.jpg",   emoji:"🍕", bg:"#EEF3F8" },
+  { id:8,  cat:"Sorrentinos",       nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.", precio:17500, img:"sorrentinos-cordero.jpg", emoji:"🍝", bg:"#FBF0E8" },
+  { id:9,  cat:"Sorrentinos",       nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.", precio:16300, img:"sorrentinos-jamon.jpg", emoji:"🍝", bg:"#FFF3E8" },
+  { id:10, cat:"Sorrentinos",       nombre:"Sorrentinos Calabaza y Queso",  desc:"Suave, dulce y sabroso. Relleno cremoso de calabaza y queso.", precio:14700, img:"sorrentinos-calabaza.jpg", emoji:"🍝", bg:"#FFF8E6" },
 
-  /* SORRENTINOS */
-  { id:8,  cat:"Sorrentinos",      nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.",              precio:17500, img:"sorrentinos-cordero.jpg.jpeg",  emoji:"🍝", bg:"#FBF0E8" },
-  { id:9,  cat:"Sorrentinos",      nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.",                          precio:16300, img:"sorrentinos-jamon.jpg.jpeg",    emoji:"🍝", bg:"#FFF3E8" },
-  { id:10, cat:"Sorrentinos",      nombre:"Sorrentinos Calabaza y Queso",  desc:"Suave, dulce y sabroso. Relleno cremoso de calabaza y queso.",                    precio:14700, img:"sorrentinos-calabaza.jpg.jpeg", emoji:"🍝", bg:"#FFF8E6" },
+  { id:11, cat:"Empanadas",         nombre:"Empanadas Carne a Cuchillo x8", desc:"Carne cortada a cuchillo, jugosa y bien condimentada. Las que piden todos.", precio:18800, img:"empanadas-carne.jpg", emoji:"🥟", bg:"#FFF3E8" },
+  { id:12, cat:"Empanadas",         nombre:"Empanadas Jamón y Queso x8",    desc:"Cremosas por dentro, doraditas por fuera. Para cualquier momento.", precio:15000, img:"empanadas-jamon.jpg", emoji:"🥟", bg:"#F5F0FA" },
 
-  /* EMPANADAS */
-  { id:11, cat:"Empanadas",        nombre:"Empanadas Carne a Cuchillo x8", desc:"Carne cortada a cuchillo, jugosa y bien condimentada. Las que piden todos.",      precio:18800, img:"empanadas-carne.jpg.jpeg",      emoji:"🥟", bg:"#FFF3E8" },
-  { id:12, cat:"Empanadas",        nombre:"Empanadas Jamón y Queso x8",    desc:"Cremosas por dentro, doraditas por fuera. Para cualquier momento.",               precio:15000, img:"empanadas-jamon.jpg.jpeg",      emoji:"🥟", bg:"#F5F0FA" },
-
-  /* POSTRES Y TORTAS */
-  { id:13, cat:"Postres & Tortas", nombre:"Franui Leche",                  desc:"Frambuesas bañadas en chocolate con leche y blanco. El cierre perfecto.",         precio:8000,  img:"franui.jpg.jpeg",              emoji:"🍫", bg:"#FDF0F0" },
-  { id:14, cat:"Postres & Tortas", nombre:"Torta Golosa",                  desc:"Masa de chocolate, dulce de leche, mousse de chocolate y almendras acarameladas.",precio:24000, img:"torta-golosa.jpg.png",         emoji:"🎂", bg:"#FBF0E8" },
-  { id:15, cat:"Postres & Tortas", nombre:"Torta Lemon Crumble",           desc:"Base sablée, relleno de limón y crumble crocante espolvoreado.",                  precio:24000, img:"torta-lemon.jpg.png",          emoji:"🎂", bg:"#FFFFF0" },
-  { id:16, cat:"Postres & Tortas", nombre:"Torta Coco",                    desc:"Base crocante, dulce de leche y relleno de coco. Generosa y sin vueltas.",        precio:24000, img:"torta-coco.jpg.png",           emoji:"🎂", bg:"#F5F0FA" },
+  { id:13, cat:"Postres & Tortas",  nombre:"Franui Leche",                  desc:"Frambuesas bañadas en chocolate con leche y blanco. El cierre perfecto.", precio:8000, img:"franui.jpg", emoji:"🍫", bg:"#FDF0F0" },
+  { id:14, cat:"Postres & Tortas",  nombre:"Torta Golosa",                  desc:"Masa de chocolate, dulce de leche, mousse de chocolate y almendras acarameladas.", precio:24000, img:"torta-golosa.png", emoji:"🎂", bg:"#FBF0E8" },
+  { id:15, cat:"Postres & Tortas",  nombre:"Torta Lemon Crumble",           desc:"Base sablée, relleno de limón y crumble crocante espolvoreado.", precio:24000, img:"torta-lemon.png", emoji:"🎂", bg:"#FFFFF0" },
+  { id:16, cat:"Postres & Tortas",  nombre:"Torta Coco",                    desc:"Base crocante, dulce de leche y relleno de coco. Generosa y sin vueltas.", precio:24000, img:"torta-coco.png", emoji:"🎂", bg:"#F5F0FA" }
 ];
 
 /* ══════════════════════════════════════════════════
