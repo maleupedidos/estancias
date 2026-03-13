@@ -343,6 +343,43 @@
       transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s; opacity:0;
     }
     .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    /* CARD QTY CONTROLS */
+.card-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  flex-shrink: 0;
+}
+.card-qty-btn {
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, transform .1s;
+  flex-shrink: 0;
+  /* Área táctil generosa para mobile */
+  min-width: 2rem;
+  min-height: 2rem;
+}
+.card-qty-btn:hover  { background: #e05e20; }
+.card-qty-btn:active { transform: scale(.93); }
+.card-qty-btn.remove { background: var(--cream); color: var(--brown); }
+.card-qty-btn.remove:hover { background: #e8d0c0; }
+.card-qty-val {
+  font-size: .95rem;
+  font-weight: 800;
+  min-width: 1.4rem;
+  text-align: center;
+  color: var(--brown);
+}
     /* VALIDACIÓN INLINE */
 .field-error {
   font-size: .74rem;
@@ -609,7 +646,7 @@ function renderCatalog(){
         </div>
         <div class="products-grid">
           ${prods.map(p=>`
-            <article class="product-card">
+            <article class="product-card" data-id="${p.id}">
               <div class="product-thumb" style="background:${p.bg}">
                 <span class="product-thumb-emoji">${p.emoji}</span>
                 <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" onerror="this.remove()">
@@ -629,36 +666,68 @@ function renderCatalog(){
       </section>`;
   }).join('');
 }
-
+/* RENDER FOOTER DE CARD */
+function renderCardFooter(id) {
+  const card = document.querySelector(`.product-card[data-id="${id}"]`);
+  if (!card) return;
+  const footer = card.querySelector('.product-footer');
+  if (!footer) return;
+  const p = PRODUCTOS.find(p => p.id === +id);
+  if (!p) return;
+  const qty = cart[id] || 0;
+  if (qty === 0) {
+    footer.innerHTML = `
+      <span class="product-price">${ars(p.precio)}</span>
+      <button class="add-btn" onclick="addToCart(${p.id})">+ Agregar</button>`;
+  } else {
+    footer.innerHTML = `
+      <span class="product-price">${ars(p.precio)}</span>
+      <div class="card-qty-controls">
+        <button class="card-qty-btn remove" onclick="cardChangeQty(${p.id},-1)" aria-label="Quitar uno">−</button>
+        <span class="card-qty-val">${qty}</span>
+        <button class="card-qty-btn" onclick="cardChangeQty(${p.id},+1)" aria-label="Agregar uno">+</button>
+      </div>`;
+  }
+}
 /* CARRITO */
 function addToCart(id){
-  cart[id]=(cart[id]||0)+1;
+  cart[id] = (cart[id] || 0) + 1;
   updateUI();
-  const p=PRODUCTOS.find(p=>p.id===id);
+  renderCardFooter(id);
+  const p = PRODUCTOS.find(p => p.id === id);
   toast(`✓ ${p.nombre} agregado`);
 }
-function changeQty(id,delta){
-  if(!cart[id]) return;
-  cart[id]+=delta;
-  if(cart[id]<=0) delete cart[id];
+function changeQty(id, delta){
+  if (!cart[id]) return;
+  cart[id] += delta;
+  if (cart[id] <= 0) delete cart[id];
   updateUI();
+  renderCardFooter(id);
+}
+function cardChangeQty(id, delta){
+  if (delta < 0 && !cart[id]) return;
+  cart[id] = (cart[id] || 0) + delta;
+  if (cart[id] <= 0) delete cart[id];
+  updateUI();
+  renderCardFooter(id);
 }
 function updateUI(){
-  const count=cartCount(), total=cartTotal();
-  $id('cart-badge').textContent=count;
-  const bodyEl=$id('cart-body'), footEl=$id('cart-foot');
-  if(count===0){
-    bodyEl.innerHTML=`<div class="cart-empty-msg"><span>🛒</span>Todavía no agregaste nada.</div>`;
-    footEl.style.display='none';
+  const count = cartCount(), total = cartTotal();
+  $id('cart-badge').textContent = count;
+  const bodyEl = $id('cart-body'), footEl = $id('cart-foot');
+  if (count === 0) {
+    bodyEl.innerHTML = `<div class="cart-empty-msg"><span>🛒</span>Todavía no agregaste nada.</div>`;
+    footEl.style.display = 'none';
   } else {
-    footEl.style.display='block';
-    bodyEl.innerHTML=Object.entries(cart).map(([id,qty])=>{
-      const p=PRODUCTOS.find(p=>p.id===+id); if(!p) return '';
+    footEl.style.display = 'block';
+    bodyEl.innerHTML = Object.entries(cart).map(([id, qty]) => {
+      const p = PRODUCTOS.find(p => p.id === +id);
+      if (!p) return '';
       return `<div class="cart-item">
         <span class="cart-item-emoji">${p.emoji}</span>
         <div class="cart-item-info">
           <div class="cart-item-name">${p.nombre}</div>
-          <div class="cart-item-sub">${ars(p.precio)} c/u · <strong>${ars(p.precio*qty)}</strong></div>
+          <div class="cart-item-sub">${ars(p.precio)} c/u · <strong>${ars(p.precio * qty)}</strong></div>
         </div>
         <div class="qty-controls">
           <button class="qty-btn" onclick="changeQty(${id},-1)">−</button>
@@ -667,17 +736,9 @@ function updateUI(){
         </div>
       </div>`;
     }).join('');
-    $id('cart-total').textContent=ars(total);
+    $id('cart-total').textContent = ars(total);
   }
   updateFormSummary();
-}
-function updateFormSummary(){
-  const el=$id('form-summary'), count=cartCount();
-  if(count===0){ el.innerHTML='<p class="summary-empty">Agregá productos para ver el resumen.</p>'; return; }
-  el.innerHTML=Object.entries(cart).map(([id,qty])=>{
-    const p=PRODUCTOS.find(p=>p.id===+id); if(!p) return '';
-    return `<div class="summary-line"><span>${p.nombre} <strong>×${qty}</strong></span><span>${ars(p.precio*qty)}</span></div>`;
-  }).join('')+`<div class="summary-line total-line"><span>Total</span><span>${ars(cartTotal())}</span></div>`;
 }
 
 /* TOGGLE CART */
