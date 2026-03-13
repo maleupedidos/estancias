@@ -128,6 +128,74 @@
     }
     .hero-cta:hover { background:#5a2a10; transform:translateY(-1px); }
 
+    /* CÓMO FUNCIONA */
+.how-section {
+  background: var(--white);
+  padding: 2.25rem 1.25rem 2.5rem;
+  border-bottom: 2px solid var(--cream);
+}
+.how-inner {
+  max-width: 680px;
+  margin: 0 auto;
+}
+.how-label {
+  display: block;
+  text-align: center;
+  font-size: .67rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 1.5rem;
+}
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+.how-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: .45rem;
+}
+.how-step-num {
+  font-family: 'Montserrat', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--orange);
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+.how-step-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+.how-step-title {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--brown);
+  line-height: 1.2;
+}
+.how-step-desc {
+  font-size: .73rem;
+  color: var(--brown-mid);
+  line-height: 1.4;
+}
+.how-divider {
+  display: none;
+}
+@media(min-width: 480px) {
+  .how-steps {
+    gap: 1.5rem;
+    position: relative;
+  }
+  .how-step-num { font-size: 2.4rem; }
+  .how-step-title { font-size: .88rem; }
+  .how-step-desc  { font-size: .78rem; }
+}
+    
     /* CATÁLOGO */
     .catalog { padding:2.5rem 1.25rem 3rem; max-width:1140px; margin:0 auto; }
 
@@ -451,6 +519,33 @@
   <h2>Hoy no tenés que<br>pensar <span>qué cocinar.</span></h2>
   <p class="hero-sub">Comida lista en minutos, con sabor de verdad. Te la dejamos en la puerta de tu casa.</p>
   <a href="#catalogo" class="hero-cta">Ver productos ↓</a>
+</section>
+
+<!-- CÓMO FUNCIONA -->
+<section class="how-section">
+  <div class="how-inner">
+    <span class="how-label">¿Cómo funciona?</span>
+    <div class="how-steps">
+      <div class="how-step">
+        <span class="how-step-num">1</span>
+        <span class="how-step-icon">🛒</span>
+        <span class="how-step-title">Elegís lo que querés</span>
+        <span class="how-step-desc">Armá tu pedido directamente desde acá, sin registrarte.</span>
+      </div>
+      <div class="how-step">
+        <span class="how-step-num">2</span>
+        <span class="how-step-icon">💬</span>
+        <span class="how-step-title">Lo enviamos por WhatsApp</span>
+        <span class="how-step-desc">Con un tap abrimos WhatsApp con tu pedido completo listo para confirmar.</span>
+      </div>
+      <div class="how-step">
+        <span class="how-step-num">3</span>
+        <span class="how-step-icon">🏠</span>
+        <span class="how-step-title">Lo recibís en tu casa</span>
+        <span class="how-step-desc">Confirmamos el pedido y te lo dejamos en la puerta el día que elegiste.</span>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- CATÁLOGO -->
