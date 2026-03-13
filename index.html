@@ -645,9 +645,30 @@
         <span class="field-error" id="err-nombre">⚠ Completá tu nombre y apellido</span>
       </div>
       <div class="field-group">
-        <label for="f-direccion">Dirección en Estancias del Pilar</label>
-        <input type="text" id="f-direccion" placeholder="Ej: Los Álamos 250, barrio..." autocomplete="street-address" onblur="validateOnBlur('direccion')">
-        <span class="field-error" id="err-direccion">⚠ Completá tu dirección</span>
+        <label for="f-barrio">Sub Barrio</label>
+        <div class="select-wrapper">
+          <select id="f-barrio" onblur="validateOnBlur('barrio')">
+            <option value="">Elegí tu barrio</option>
+            <option value="Champagnat Alto">Champagnat Alto</option>
+            <option value="Champagnat Bajo">Champagnat Bajo</option>
+            <option value="La Pionera">La Pionera</option>
+            <option value="La Paz">La Paz</option>
+            <option value="El Recuerdo">El Recuerdo</option>
+            <option value="Golf">Golf</option>
+            <option value="Argentina 1">Argentina 1</option>
+            <option value="Argentina 2">Argentina 2</option>
+            <option value="Argentina 3">Argentina 3</option>
+            <option value="Argentina 4">Argentina 4</option>
+            <option value="Barrio Los Alcanfores">Barrio Los Alcanfores</option>
+            <option value="Barrio Estancias del Rio">Barrio Estancias del Rio</option>
+          </select>
+        </div>
+        <span class="field-error" id="err-barrio">⚠ Elegí tu sub barrio</span>
+      </div>
+      <div class="field-group">
+        <label for="f-direccion">Lote</label>
+        <input type="text" id="f-direccion" placeholder="Ej: Lote 45" autocomplete="street-address" onblur="validateOnBlur('direccion')">
+        <span class="field-error" id="err-direccion">⚠ Completá tu lote</span>
       </div>
       <div class="form-row form-row-2">
         <div class="field-group">
@@ -938,6 +959,10 @@ function validateOnBlur(campo) {
     const v = $id('f-nombre').value.trim();
     v ? clearError('f-nombre','err-nombre') : showError('f-nombre','err-nombre');
   }
+  if(campo === 'barrio') {
+    const v = $id('f-barrio').value;
+    v ? clearError('f-barrio','err-barrio') : showError('f-barrio','err-barrio');
+  }
   if(campo === 'direccion') {
     const v = $id('f-direccion').value.trim();
     v ? clearError('f-direccion','err-direccion') : showError('f-direccion','err-direccion');
@@ -954,6 +979,7 @@ function validateOnBlur(campo) {
 /* WHATSAPP */
 function enviarPedido(){
   const nombre    = $id('f-nombre').value.trim();
+  const barrio    = $id('f-barrio').value;
   const direccion = $id('f-direccion').value.trim();
   const telefono  = $id('f-telefono').value.trim();
   const dia       = $id('f-dia').value;
@@ -961,6 +987,7 @@ function enviarPedido(){
   const pagoEl    = document.querySelector('input[name="pago"]:checked');
   /* Limpiar todos los errores previos */
   clearError('f-nombre',   'err-nombre');
+  clearError('f-barrio',   'err-barrio');
   clearError('f-direccion','err-direccion');
   clearError('f-telefono', 'err-telefono');
   clearError('f-dia',      'err-dia');
@@ -972,9 +999,13 @@ function enviarPedido(){
   }
   /* Validar campos — recolectar todos los errores de una vez */
   let primerCampoInvalido = null;
-  if(!nombre) {
+ if(!nombre) {
     showError('f-nombre','err-nombre');
     if(!primerCampoInvalido) primerCampoInvalido = $id('f-nombre');
+  }
+  if(!barrio) {
+    showError('f-barrio','err-barrio');
+    if(!primerCampoInvalido) primerCampoInvalido = $id('f-barrio');
   }
   if(!direccion) {
     showError('f-direccion','err-direccion');
@@ -1021,10 +1052,29 @@ ${lineas}
 💰 *TOTAL: ${totalStr}*
 ━━━━━━━━━━━━━━━
 👤 *${nombre}*
-📍 ${direccion}
+🏘 Barrio: ${barrio}
+📍 Lote: ${direccion}
 📞 ${telefono}
 📅 *Entrega:* ${dia} · ${horario}
 💳 *Pago:* ${pagoEl.value}
+━━━━━━━━━━━━━━━`;
+```
+---
+## Cómo va a quedar el mensaje para vos
+```
+🧾 NUEVO PEDIDO — MALEU
+📦 1 producto
+Postres & Tortas
+   · Franui Leche ×1  $8.000
+━━━━━━━━━━━━━━━
+💰 TOTAL: $8.000
+━━━━━━━━━━━━━━━
+👤 Tadeo
+🏘 Barrio: Champagnat Alto
+📍 Lote: 289
+📞 1136887500
+📅 Entrega: Viernes · 19 a 21 hs
+💳 Pago: Transferencia
 ━━━━━━━━━━━━━━━
 _Pedido enviado desde maleupedidos.github.io_`;
 window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
