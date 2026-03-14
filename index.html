@@ -1044,26 +1044,28 @@ function enviarPedido(){
   }).join('\n\n');
   const cantidadItems = Object.values(cart).reduce((a, b) => a + b, 0);
   const totalStr = ars(cartTotal());
-  const msg =
-`🧾 *NUEVO PEDIDO — MALEU*
-📦 *${cantidadItems} producto${cantidadItems !== 1 ? 's' : ''}*
-
-${lineas}
-
-━━━━━━━━━━━━━━━
-💰 *TOTAL: ${totalStr}*
-━━━━━━━━━━━━━━━
-
-👤 *Nombre:* ${nombre}
-🏘 *Barrio:* ${barrio}
-📍 *Lote:* ${direccion}
-📞 *Tel:* ${telefono}
-📅 *Entrega:* ${dia} · ${horario}
-💳 *Pago:* ${pagoEl.value}
-
-━━━━━━━━━━━━━━━
-_Pedido generado en maleupedidos.github.io_`;
-  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
+  const sep = '\u2501'.repeat(15);
+  const msg = [
+    '\u{1F9FE} *NUEVO PEDIDO \u2014 MALEU*',
+    '\u{1F4E6} *' + cantidadItems + ' producto' + (cantidadItems !== 1 ? 's' : '') + '*',
+    '',
+    lineas,
+    '',
+    sep,
+    '\u{1F4B0} *TOTAL: ' + totalStr + '*',
+    sep,
+    '',
+    '\u{1F464} *Nombre:* ' + nombre,
+    '\u{1F3D8} *Barrio:* ' + barrio,
+    '\u{1F4CD} *Lote:* ' + direccion,
+    '\u{1F4DE} *Tel:* ' + telefono,
+    '\u{1F4C5} *Entrega:* ' + dia + ' \u00B7 ' + horario,
+    '\u{1F4B3} *Pago:* ' + pagoEl.value,
+    '',
+    sep,
+    '_Pedido generado en maleupedidos.github.io_',
+  ].join('\n');
+  window.open('https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg), '_blank');
 }
 /* TOAST */
 /* TOAST */
