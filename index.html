@@ -1039,9 +1039,9 @@ function enviarPedido(){
     porCategoria[p.cat].push({ nombre: p.nombre, qty, subtotal: p.precio * qty });
   });
   const lineas = Object.entries(porCategoria).map(([cat, items]) => {
-    const itemsStr = items.map(i => `   · ${i.nombre} ×${i.qty}  ${ars(i.subtotal)}`).join('\\n');
-    return `*${cat}*\\n${itemsStr}`;
-  }).join('\\n\\n');
+const itemsStr = items.map(i => `   · ${i.nombre} ×${i.qty}  ${ars(i.subtotal)}`).join('\n');
+return `*${cat}*\n${itemsStr}`;
+}).join('\n\n');
   const cantidadItems = Object.values(cart).reduce((a, b) => a + b, 0);
   const totalStr = ars(cartTotal());
   const msg =
