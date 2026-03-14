@@ -1038,29 +1038,30 @@ function enviarPedido(){
     if (!porCategoria[p.cat]) porCategoria[p.cat] = [];
     porCategoria[p.cat].push({ nombre: p.nombre, qty, subtotal: p.precio * qty });
   });
-  const lineas = Object.entries(porCategoria).map(([cat, items]) => {
-const itemsStr = items.map(i => `   · ${i.nombre} ×${i.qty}  ${ars(i.subtotal)}`).join('\n');
-return `*${cat}*\n${itemsStr}`;
+const lineas = Object.entries(porCategoria).map(([cat, items]) => {
+  const itemsStr = items.map(i => `   \u00B7 ${i.nombre} \u00D7${i.qty}  ${ars(i.subtotal)}`).join('\n');
+  return `*${cat}*\n${itemsStr}`;
 }).join('\n\n');
-  const cantidadItems = Object.values(cart).reduce((a, b) => a + b, 0);
-  const totalStr = ars(cartTotal());
-  const msg =
-`🧾 *NUEVO PEDIDO — MALEU*
-📦 ${cantidadItems} producto${cantidadItems !== 1 ? 's' : ''}
+const cantidadItems = Object.values(cart).reduce((a, b) => a + b, 0);
+const totalStr = ars(cartTotal());
+const msg =
+`\u{1F9FE} *NUEVO PEDIDO \u2014 MALEU*
+\u{1F4E6} ${cantidadItems} producto${cantidadItems !== 1 ? 's' : ''}
 ${lineas}
-━━━━━━━━━━━━━━━
-💰 *TOTAL: ${totalStr}*
-━━━━━━━━━━━━━━━
-👤 *${nombre}*
-🏘 Barrio: ${barrio}
-📍 Lote: ${direccion}
-📞 ${telefono}
-📅 *Entrega:* ${dia} · ${horario}
-💳 *Pago:* ${pagoEl.value}
-━━━━━━━━━━━━━━━
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\u{1F4B0} *TOTAL: ${totalStr}*
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\u{1F464} *${nombre}*
+\u{1F3D8} Barrio: ${barrio}
+\u{1F4CD} Lote: ${direccion}
+\u{1F4DE} ${telefono}
+\u{1F4C5} *Entrega:* ${dia} \u00B7 ${horario}
+\u{1F4B3} *Pago:* ${pagoEl.value}
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 _Pedido enviado desde maleupedidos.github.io_`;
   window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
 }
+
 /* TOAST */
 let _tt;
 function toast(msg){ const el=$id('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2700); }
