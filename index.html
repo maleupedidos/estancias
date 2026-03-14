@@ -1044,28 +1044,45 @@ function enviarPedido(){
   }).join('\n\n');
   const cantidadItems = Object.values(cart).reduce((a, b) => a + b, 0);
   const totalStr = ars(cartTotal());
-  const sep = '\u2501'.repeat(15);
-  const msg = [
-    '\u{1F9FE} *NUEVO PEDIDO \u2014 MALEU*',
-    '\u{1F4E6} *' + cantidadItems + ' producto' + (cantidadItems !== 1 ? 's' : '') + '*',
+  // Emoji pre-codificados en UTF-8 puro para evitar bugs de encodeURIComponent con chars fuera del BMP
+  const _sep = '%E2%94%81'.repeat(15);  // ━ × 15
+  const _nl  = '%0A';
+  const EM = {
+    r: '%F0%9F%A7%BE',  // 🧾
+    p: '%F0%9F%93%A6',  // 📦
+    m: '%F0%9F%92%B0',  // 💰
+    u: '%F0%9F%91%A4',  // 👤
+    h: '%F0%9F%8F%98',  // 🏘
+    n: '%F0%9F%93%8D',  // 📍
+    t: '%F0%9F%93%9E',  // 📞
+    c: '%F0%9F%93%85',  // 📅
+    k: '%F0%9F%92%B3',  // 💳
+  };
+  const enc = s => encodeURIComponent(String(s));
+  const plural = cantidadItems !== 1 ? 's' : '';
+
+  const urlText = [
+    EM.r + '%20*NUEVO%20PEDIDO%20%E2%80%94%20MALEU*',
+    EM.p + '%20*' + cantidadItems + '%20producto' + plural + '*',
     '',
-    lineas,
+    enc(lineas),
     '',
-    sep,
-    '\u{1F4B0} *TOTAL: ' + totalStr + '*',
-    sep,
+    _sep,
+    EM.m + '%20*TOTAL%3A%20' + enc(totalStr) + '*',
+    _sep,
     '',
-    '\u{1F464} *Nombre:* ' + nombre,
-    '\u{1F3D8} *Barrio:* ' + barrio,
-    '\u{1F4CD} *Lote:* ' + direccion,
-    '\u{1F4DE} *Tel:* ' + telefono,
-    '\u{1F4C5} *Entrega:* ' + dia + ' \u00B7 ' + horario,
-    '\u{1F4B3} *Pago:* ' + pagoEl.value,
+    EM.u + '%20*Nombre%3A*%20' + enc(nombre),
+    EM.h + '%20*Barrio%3A*%20' + enc(barrio),
+    EM.n + '%20*Lote%3A*%20' + enc(direccion),
+    EM.t + '%20*Tel%3A*%20' + enc(telefono),
+    EM.c + '%20*Entrega%3A*%20' + enc(dia) + '%20%C2%B7%20' + enc(horario),
+    EM.k + '%20*Pago%3A*%20' + enc(pagoEl.value),
     '',
-    sep,
-    '_Pedido generado en maleupedidos.github.io_',
-  ].join('\n');
-  window.open('https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg), '_blank');
+    _sep,
+    '_Pedido%20generado%20en%20maleupedidos.github.io_',
+  ].join(_nl);
+
+  window.open('https://wa.me/' + WA_NUMBER + '?text=' + urlText, '_blank');
 }
 /* TOAST */
 /* TOAST */
