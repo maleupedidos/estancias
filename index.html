@@ -794,6 +794,7 @@ const CATEGORIAS = [
 /* Horarios */
 const HORARIOS = { "Miércoles":"19 a 21 hs", "Viernes":"19 a 21 hs", "Sábado":"19 a 21 hs", "Domingo":"11 a 13 hs" };
 const WA_NUMBER = "5491155038905";
+const APPS_SCRIPT_URL = "REEMPLAZAR_CON_TU_URL";
 
 /* Estado */
 let cart = {};
@@ -1081,6 +1082,29 @@ function enviarPedido(){
     _sep,
     '_Pedido%20generado%20en%20maleupedidos.github.io_',
   ].join(_nl);
+
+  /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
+  const resumen = Object.entries(cart).map(([id, qty]) => {
+    const p = PRODUCTOS.find(p => p.id === +id);
+    return p ? p.nombre + ' \u00D7' + qty : '';
+  }).filter(Boolean).join(' | ');
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      fecha:     new Date().toLocaleString('es-AR'),
+      nombre,
+      barrio,
+      lote:      direccion,
+      telefono,
+      dia,
+      horario,
+      pago:      pagoEl.value,
+      productos: resumen,
+      total:     cartTotal()
+    })
+  }).catch(() => {});
 
   window.open('https://wa.me/' + WA_NUMBER + '?text=' + urlText, '_blank');
 }
