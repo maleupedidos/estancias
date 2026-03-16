@@ -550,6 +550,33 @@
     @media(min-width:540px){ .products-grid{ grid-template-columns:repeat(2,1fr); } }
     @media(min-width:820px){ .products-grid{ grid-template-columns:repeat(3,1fr); } }
     @media(min-width:1080px){ .products-grid{ grid-template-columns:repeat(4,1fr); } }
+
+    /* FLOATING CART BUTTON (mobile only) */
+    .float-cart-btn {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      padding: .9rem 1.4rem;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      z-index: 150;
+      box-shadow: 0 4px 20px rgba(249,112,53,.45);
+      transition: background .15s, transform .1s;
+    }
+    .float-cart-btn:hover  { background: #e05e20; }
+    .float-cart-btn:active { transform: scale(.97); }
+    @media(min-width:640px) { .float-cart-btn { display: none !important; } }
   </style>
 </head>
 <body>
@@ -747,9 +774,10 @@
     </div>
   </div>
   <hr class="footer-hr" />
-  <p class="footer-copy">© 2025 Maleu · Estancias del Pilar</p>
+  <p class="footer-copy">© 2026 Maleu · Estancias del Pilar</p>
 </footer>
 
+<button class="float-cart-btn" id="float-cart-btn" onclick="toggleCart()"></button>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -798,6 +826,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzt2cXLxdsyHJGM
 
 /* Estado */
 let cart = {};
+let _enviando = false;
 
 function $id(id){ return document.getElementById(id); }
 function ars(n) { return '$' + n.toLocaleString('es-AR'); }
@@ -821,7 +850,7 @@ function renderCatalog(){
             <article class="product-card" data-id="${p.id}">
               <div class="product-thumb" style="background:${p.bg}">
                 <span class="product-thumb-emoji">${p.emoji}</span>
-                <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" onerror="this.remove()">
+                <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" loading="lazy" onerror="this.remove()">
               </div>
               <div class="product-body">
                 <span class="product-pill">${p.cat}</span>
@@ -885,7 +914,14 @@ function cardChangeQty(id, delta){
 }
 function updateUI(){
   const count = cartCount(), total = cartTotal();
-  $id('cart-badge').textContent = count;
+  const badge = $id('cart-badge');
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'flex' : 'none';
+  const floatBtn = $id('float-cart-btn');
+  if (floatBtn) {
+    floatBtn.style.display = count > 0 ? 'flex' : 'none';
+    if (count > 0) floatBtn.textContent = '\uD83D\uDED2 Ver pedido \u00B7 ' + ars(total) + ' \u2192';
+  }
   const bodyEl = $id('cart-body'), footEl = $id('cart-foot');
   if (count === 0) {
     bodyEl.innerHTML = `<div class="cart-empty-msg"><span>🛒</span>Todavía no agregaste nada.</div>`;
@@ -969,8 +1005,8 @@ function validateOnBlur(campo) {
     v ? clearError('f-direccion','err-direccion') : showError('f-direccion','err-direccion');
   }
   if(campo === 'telefono') {
-    const v = $id('f-telefono').value.trim();
-    v ? clearError('f-telefono','err-telefono') : showError('f-telefono','err-telefono');
+    const digits = $id('f-telefono').value.replace(/\D/g,'');
+    digits.length >= 8 ? clearError('f-telefono','err-telefono') : showError('f-telefono','err-telefono');
   }
   if(campo === 'dia') {
     const v = $id('f-dia').value;
@@ -979,6 +1015,7 @@ function validateOnBlur(campo) {
 }
 /* WHATSAPP */
 function enviarPedido(){
+  if (_enviando) return;
   const nombre    = $id('f-nombre').value.trim();
   const barrio    = $id('f-barrio').value;
   const direccion = $id('f-direccion').value.trim();
@@ -1012,7 +1049,8 @@ function enviarPedido(){
     showError('f-direccion','err-direccion');
     if(!primerCampoInvalido) primerCampoInvalido = $id('f-direccion');
   }
-  if(!telefono) {
+  const telefonoDigits = telefono.replace(/\D/g,'');
+  if(telefonoDigits.length < 8) {
     showError('f-telefono','err-telefono');
     if(!primerCampoInvalido) primerCampoInvalido = $id('f-telefono');
   }
@@ -1030,6 +1068,11 @@ function enviarPedido(){
     primerCampoInvalido.focus && primerCampoInvalido.focus();
     return;
   }
+  /* Guardar datos del cliente en localStorage */
+  try {
+    localStorage.setItem('maleu_cliente', JSON.stringify({ nombre, barrio, direccion, telefono }));
+  } catch(e) {}
+
   /* Todo válido — construir y enviar mensaje */
 /* Agrupar productos por categoría */
   const porCategoria = {};
@@ -1106,28 +1149,70 @@ function enviarPedido(){
     })
   }).catch(() => {});
 
+  /* Bloquear botón y dar feedback visual */
+  _enviando = true;
+  const waBtn = document.querySelector('.whatsapp-btn');
+  const waBtnOrigHTML = waBtn ? waBtn.innerHTML : '';
+  if (waBtn) {
+    waBtn.disabled = true;
+    waBtn.innerHTML = '<span>\u2713</span> \u00A1Listo! Abrimos WhatsApp\u2026';
+  }
+
   window.open('https://wa.me/' + WA_NUMBER + '?text=' + urlText, '_blank');
+
+  /* Limpiar estado tras envío */
+  setTimeout(() => {
+    cart = {};
+    updateUI();
+    Object.values(PRODUCTOS).forEach(p => renderCardFooter(p.id));
+    $id('f-nombre').value    = '';
+    $id('f-barrio').value    = '';
+    $id('f-direccion').value = '';
+    $id('f-telefono').value  = '';
+    $id('f-dia').value       = '';
+    $id('f-horario').value   = '';
+    document.querySelectorAll('input[name="pago"]').forEach(r => r.checked = false);
+    if (waBtn) { waBtn.disabled = false; waBtn.innerHTML = waBtnOrigHTML; }
+    _enviando = false;
+  }, 1800);
 }
 /* TOAST */
 /* TOAST */
 let _tt;
 function toast(msg){ const el=$id('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2700); }
 
+/* UTILS */
+function slugify(str) {
+  return str.toLowerCase()
+    .replace(/[áäâà]/g,'a').replace(/[éëêè]/g,'e')
+    .replace(/[íïîì]/g,'i').replace(/[óöôò]/g,'o')
+    .replace(/[úüûù]/g,'u').replace(/ñ/g,'n')
+    .replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+}
+
+/* PRECARGAR DATOS CLIENTE */
+function loadClientData() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('maleu_cliente') || 'null');
+    if (!saved) return;
+    if (saved.nombre)    $id('f-nombre').value    = saved.nombre;
+    if (saved.barrio)    $id('f-barrio').value    = saved.barrio;
+    if (saved.direccion) $id('f-direccion').value = saved.direccion;
+    if (saved.telefono)  $id('f-telefono').value  = saved.telefono;
+  } catch(e) {}
+}
+
 /* INIT */
 renderCatalog();
 renderCatNav();
+loadClientData();
 /* BARRA DE CATEGORÍAS */
 function renderCatNav() {
   const nav = $id('cat-nav');
   if (!nav) return;
   nav.innerHTML = `<div class="cat-nav-inner" id="cat-nav-inner">
     ${CATEGORIAS.map((cat, i) => {
-      // Generar slug para el id de la sección
-      const slug = cat.nombre.toLowerCase()
-        .replace(/[áäâà]/g,'a').replace(/[éëêè]/g,'e')
-        .replace(/[íïîì]/g,'i').replace(/[óöôò]/g,'o')
-        .replace(/[úüûù]/g,'u').replace(/ñ/g,'n')
-        .replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+      const slug = slugify(cat.nombre);
       return `<button class="cat-nav-btn${i===0?' active':''}" data-slug="${slug}" onclick="scrollToCat('${slug}')">
         <span>${cat.icono}</span> ${cat.nombre}
       </button>`;
@@ -1137,12 +1222,7 @@ function renderCatNav() {
   document.querySelectorAll('.cat-section').forEach((section, i) => {
     const cat = CATEGORIAS[i];
     if (!cat) return;
-    const slug = cat.nombre.toLowerCase()
-      .replace(/[áäâà]/g,'a').replace(/[éëêè]/g,'e')
-      .replace(/[íïîì]/g,'i').replace(/[óöôò]/g,'o')
-      .replace(/[úüûù]/g,'u').replace(/ñ/g,'n')
-      .replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-    section.id = 'cat-' + slug;
+    section.id = 'cat-' + slugify(cat.nombre);
   });
   // Intersection Observer para resaltar el botón activo al hacer scroll
   const observer = new IntersectionObserver((entries) => {
