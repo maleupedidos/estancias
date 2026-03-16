@@ -169,19 +169,19 @@ function _setupPedidos() {
   sh.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('pendiente')
-      .setBackground('#FFF9C4').setFontColor('#7A6000').setFontWeight('bold')
+      .setBackground('#FFF9C4').setFontColor('#7A6000').setBold(true)
       .setRanges([kRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('confirmado')
-      .setBackground('#BBDEFB').setFontColor('#0D47A1').setFontWeight('bold')
+      .setBackground('#BBDEFB').setFontColor('#0D47A1').setBold(true)
       .setRanges([kRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('entregado')
-      .setBackground('#C8E6C9').setFontColor('#1B5E20').setFontWeight('bold')
+      .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
       .setRanges([kRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('cancelado')
-      .setBackground('#FFCDD2').setFontColor('#B71C1C').setFontWeight('bold')
+      .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true)
       .setRanges([kRange]).build(),
   ]);
 
@@ -212,11 +212,11 @@ function _setupProductos() {
   sh.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule()
       .whenNumberEqualTo(0)
-      .setBackground('#FFCDD2').setFontColor('#B71C1C').setFontWeight('bold')
+      .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true)
       .setRanges([eRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenNumberBetween(1, 5)
-      .setBackground('#FFE0B2').setFontColor('#E65100').setFontWeight('bold')
+      .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
       .setRanges([eRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenNumberGreaterThan(5)
@@ -369,7 +369,7 @@ function _setupPanel() {
     .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center');
 
   sh.getRange('C18')
-    .setFormula('=IFERROR(QUERY(Productos!B:E,"SELECT B, E WHERE E <= 5 AND E IS NOT NULL ORDER BY E ASC LABEL B \'\', E \'\'",0),"✅  Todo el stock OK")');
+    .setFormula("=IFERROR(QUERY(Productos!B:E,\"SELECT B, E WHERE E <= 5 AND E IS NOT NULL ORDER BY E ASC\",0),\"Sin stock critico\")");
   sh.getRange('C18:C35').setFontSize(10).setFontColor(BROWN);
   sh.getRange('D18:D35').setFontSize(10).setFontColor('#E65100').setFontWeight('bold').setHorizontalAlignment('center');
 
