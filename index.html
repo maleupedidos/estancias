@@ -121,80 +121,17 @@
     }
     .hero h2 span { color:var(--orange); }
     .hero-sub { font-size:.98rem; color:var(--brown-mid); max-width:420px; margin:0 auto 1.6rem; }
+    .hero-delivery {
+      font-size:.78rem; color:var(--brown-mid); margin-bottom:1.2rem;
+      background:rgba(61,28,10,.07); display:inline-block;
+      padding:.3rem .85rem; border-radius:50px;
+    }
     .hero-cta {
       display:inline-block; background:var(--brown); color:var(--cream);
       text-decoration:none; padding:.72rem 1.65rem; border-radius:10px;
       font-weight:700; font-size:.93rem; transition:background .15s, transform .1s;
     }
     .hero-cta:hover { background:#5a2a10; transform:translateY(-1px); }
-
-    /* CÓMO FUNCIONA */
-.how-section {
-  background: var(--white);
-  padding: 2.25rem 1.25rem 2.5rem;
-  border-bottom: 2px solid var(--cream);
-}
-.how-inner {
-  max-width: 680px;
-  margin: 0 auto;
-}
-.how-label {
-  display: block;
-  text-align: center;
-  font-size: .67rem;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--orange);
-  margin-bottom: 1.5rem;
-}
-.how-steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-.how-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: .45rem;
-}
-.how-step-num {
-  font-family: 'Montserrat', 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--orange);
-  line-height: 1;
-  letter-spacing: -.04em;
-}
-.how-step-icon {
-  font-size: 1.75rem;
-  line-height: 1;
-}
-.how-step-title {
-  font-size: .82rem;
-  font-weight: 700;
-  color: var(--brown);
-  line-height: 1.2;
-}
-.how-step-desc {
-  font-size: .73rem;
-  color: var(--brown-mid);
-  line-height: 1.4;
-}
-.how-divider {
-  display: none;
-}
-@media(min-width: 480px) {
-  .how-steps {
-    gap: 1.5rem;
-    position: relative;
-  }
-  .how-step-num { font-size: 2.4rem; }
-  .how-step-title { font-size: .88rem; }
-  .how-step-desc  { font-size: .78rem; }
-}
 
   /* BARRA DE CATEGORÍAS */
 .cat-nav {
@@ -298,6 +235,12 @@
       display:inline-block; background:var(--cream); color:var(--brown);
       font-size:.63rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
       padding:.18rem .5rem; border-radius:50px; margin-bottom:.48rem; width:fit-content;
+    }
+    .product-top-badge {
+      display:inline-flex; align-items:center; gap:.25rem;
+      background:#FFF3CD; color:#7a5a00; border:1px solid #f0d060;
+      font-size:.63rem; font-weight:700; letter-spacing:.03em;
+      padding:.18rem .5rem; border-radius:50px; margin-bottom:.35rem; width:fit-content;
     }
     .product-name   { font-size:.97rem; font-weight:700; color:var(--brown); margin-bottom:.3rem; line-height:1.25; }
     .product-desc   { font-size:.79rem; color:var(--brown-mid); line-height:1.45; flex:1; margin-bottom:.8rem; }
@@ -598,34 +541,8 @@
   <span class="hero-pill">Estancias del Pilar · Delivery</span>
   <h2>Hoy no tenés que<br>pensar <span>qué cocinar.</span></h2>
   <p class="hero-sub">Comida lista en minutos, con sabor de verdad. Te la dejamos en la puerta de tu casa.</p>
-  <a href="#catalogo" class="hero-cta">Ver productos ↓</a>
-</section>
-
-<!-- CÓMO FUNCIONA -->
-<section class="how-section">
-  <div class="how-inner">
-    <span class="how-label">¿Cómo funciona?</span>
-    <div class="how-steps">
-      <div class="how-step">
-        <span class="how-step-num">1</span>
-        <span class="how-step-icon">🛒</span>
-        <span class="how-step-title">Elegís lo que querés</span>
-        <span class="how-step-desc">Armá tu pedido directamente desde acá, sin registrarte.</span>
-      </div>
-      <div class="how-step">
-        <span class="how-step-num">2</span>
-        <span class="how-step-icon">💬</span>
-        <span class="how-step-title">Lo enviamos por WhatsApp</span>
-        <span class="how-step-desc">Con un tap abrimos WhatsApp con tu pedido completo listo para confirmar.</span>
-      </div>
-      <div class="how-step">
-        <span class="how-step-num">3</span>
-        <span class="how-step-icon">🏠</span>
-        <span class="how-step-title">Lo recibís en tu casa</span>
-        <span class="how-step-desc">Confirmamos el pedido y te lo dejamos en la puerta el día que elegiste.</span>
-      </div>
-    </div>
-  </div>
+  <p class="hero-delivery">📅 Próxima entrega: Viernes · Pedidos hasta el jueves 20 hs</p>
+  <a href="#catalogo" class="hero-cta">Armar mi pedido →</a>
 </section>
 
 <!-- BARRA DE CATEGORÍAS -->
@@ -650,7 +567,7 @@
       <span>Total</span>
       <span id="cart-total">$0</span>
     </div>
-    <button class="go-form-btn" onclick="goToForm()">Completar pedido →</button>
+    <button class="go-form-btn" onclick="goToForm()">Confirmar pedido →</button>
   </div>
 </aside>
 
@@ -738,11 +655,11 @@
       </div>
     </div>
 
+    <p class="form-note">Abrimos WhatsApp con tu pedido completo — vos confirmás antes de que salga.</p>
     <button class="whatsapp-btn" onclick="enviarPedido()">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
       Pedir por WhatsApp
     </button>
-    <p class="form-note">Abrimos WhatsApp con el resumen completo para que lo confirmés vos.</p>
   </div>
 </section>
 
@@ -786,20 +703,20 @@
    Campos: id, cat, nombre, desc, precio, img, emoji, bg
    ══════════════════════════════════════════════════ */
 const PRODUCTOS = [
-  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.", precio:11000, img:"pizza-margarita.jpg",       emoji:"🍕", bg:"#FFF3E8" },
+  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.", precio:11000, img:"pizza-margarita.jpg",       emoji:"🍕", bg:"#FFF3E8", top:true },
   { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.", precio:11000, img:"pizza-jamon-queso-p.jpg",   emoji:"🍕", bg:"#FDF0F0" },
   { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.", precio:11000, img:"pizza-cebolla-p.jpg",       emoji:"🍕", bg:"#FBF0E8" },
   { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.", precio:12000, img:"pizza-jamon-morron.jpg",    emoji:"🍕", bg:"#F5F0FA" },
 
-  { id:5,  cat:"Pizzas Clásicas",   nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.", precio:16000, img:"pack-muzarella.jpg", emoji:"🍕", bg:"#FFF8E6" },
+  { id:5,  cat:"Pizzas Clásicas",   nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.", precio:16000, img:"pack-muzarella.jpg", emoji:"🍕", bg:"#FFF8E6", top:true },
   { id:6,  cat:"Pizzas Clásicas",   nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.", precio:16000, img:"pack-jamon-queso.jpg", emoji:"🍕", bg:"#F0F7EE" },
   { id:7,  cat:"Pizzas Clásicas",   nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.", precio:16000, img:"pack-cebolla-queso.jpg", emoji:"🍕", bg:"#EEF3F8" },
 
   { id:8,  cat:"Sorrentinos",       nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.", precio:17500, img:"sorrentinos-cordero.jpg", emoji:"🍝", bg:"#FBF0E8" },
-  { id:9,  cat:"Sorrentinos",       nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.", precio:16300, img:"sorrentinos-jamon.jpg", emoji:"🍝", bg:"#FFF3E8" },
+  { id:9,  cat:"Sorrentinos",       nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.", precio:16300, img:"sorrentinos-jamon.jpg", emoji:"🍝", bg:"#FFF3E8", top:true },
   { id:10, cat:"Sorrentinos",       nombre:"Sorrentinos Calabaza y Queso",  desc:"Suave, dulce y sabroso. Relleno cremoso de calabaza y queso.", precio:14700, img:"sorrentinos-calabaza.jpg", emoji:"🍝", bg:"#FFF8E6" },
 
-  { id:11, cat:"Empanadas",         nombre:"Empanadas Carne a Cuchillo x8", desc:"Carne cortada a cuchillo, jugosa y bien condimentada. Las que piden todos.", precio:18800, img:"empanadas-carne.jpg", emoji:"🥟", bg:"#FFF3E8" },
+  { id:11, cat:"Empanadas",         nombre:"Empanadas Carne a Cuchillo x8", desc:"Carne cortada a cuchillo, jugosa y bien condimentada. Las que piden todos.", precio:18800, img:"empanadas-carne.jpg", emoji:"🥟", bg:"#FFF3E8", top:true },
   { id:12, cat:"Empanadas",         nombre:"Empanadas Jamón y Queso x8",    desc:"Cremosas por dentro, doraditas por fuera. Para cualquier momento.", precio:15000, img:"empanadas-jamon.jpg", emoji:"🥟", bg:"#F5F0FA" },
 
   { id:13, cat:"Postres & Tortas",  nombre:"Franui Leche",                  desc:"Frambuesas bañadas en chocolate con leche y blanco. El cierre perfecto.", precio:8000, img:"franui.jpg", emoji:"🍫", bg:"#FDF0F0" },
@@ -853,6 +770,7 @@ function renderCatalog(){
                 <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" loading="lazy" onerror="this.remove()">
               </div>
               <div class="product-body">
+                ${p.top ? '<span class="product-top-badge">⭐ Lo más pedido</span>' : ''}
                 <span class="product-pill">${p.cat}</span>
                 <h3 class="product-name">${p.nombre}</h3>
                 <p class="product-desc">${p.desc}</p>
