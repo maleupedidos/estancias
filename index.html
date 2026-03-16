@@ -576,6 +576,20 @@
     .float-cart-btn:hover  { background: #e05e20; }
     .float-cart-btn:active { transform: scale(.97); }
     @media(min-width:640px) { .float-cart-btn { display: none !important; } }
+
+    /* STOCK */
+    .stock-indicator { display: block; }
+    .stock-badge {
+      display: inline-flex; align-items: center; gap: .2rem;
+      font-size: .62rem; font-weight: 700; letter-spacing: .02em;
+      padding: .15rem .5rem; border-radius: 50px; margin-bottom: .35rem;
+      width: fit-content;
+    }
+    .stock-out { background: #fce8e8; color: #c0392b; border: 1px solid #f5c6c6; }
+    .stock-low { background: #fff3e0; color: #e67e22; border: 1px solid #ffd59a; }
+    .add-btn:disabled { background: #d0ccc8; color: #888; cursor: not-allowed; box-shadow: none; transform: none !important; }
+    .add-btn:disabled:hover { background: #d0ccc8; box-shadow: none; }
+    .card-qty-btn:disabled { opacity: .3; cursor: not-allowed; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -800,10 +814,14 @@ const CATEGORIAS = [
 const HORARIOS = { "Miércoles":"19 a 21 hs", "Viernes":"19 a 21 hs", "Sábado":"19 a 21 hs", "Domingo":"11 a 13 hs" };
 const WA_NUMBER = "5491155038905";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzt2cXLxdsyHJGMLmC9uqFclIzrZfAatNlhcp2qHYNUeyfuHF9gIyY-_ygCsuQpoofLuA/exec";
+// URL del CSV público de la hoja "Productos" en Google Sheets.
+// Instrucciones: Archivo → Compartir → Publicar en la web → Hoja "Productos" → Valores separados por comas
+const STOCK_CSV_URL = '';
 
 /* Estado */
 let cart = {};
 let _enviando = false;
+let stockMap = {}; // { id: stockDisponible } — cargado desde Sheets al inicio
 
 function $id(id){ return document.getElementById(id); }
 function ars(n) { return '$' + n.toLocaleString('es-AR'); }
@@ -836,6 +854,7 @@ function renderCatalog(){
                 ${p.top ? '<span class="product-top-badge">⭐ Lo más pedido</span>' : ''}
                 <h3 class="product-name">${p.nombre}</h3>
                 <p class="product-desc">${p.desc}</p>
+                <span class="stock-indicator" id="stock-${p.id}"></span>
                 <div class="product-footer">
                   <span class="product-price">${ars(p.precio)}</span>
                   <button class="add-btn" onclick="addToCart(${p.id})">+ Agregar</button>
@@ -856,22 +875,32 @@ function renderCardFooter(id) {
   const p = PRODUCTOS.find(p => p.id === +id);
   if (!p) return;
   const qty = cart[id] || 0;
+  const avail = stockMap[+id];
+  const sinStock = avail !== undefined && avail === 0;
+  const atLimit  = avail !== undefined && qty >= avail;
   if (qty === 0) {
     footer.innerHTML = `
       <span class="product-price">${ars(p.precio)}</span>
-      <button class="add-btn" onclick="addToCart(${p.id})">+ Agregar</button>`;
+      <button class="add-btn" onclick="addToCart(${p.id})"${sinStock ? ' disabled' : ''}>
+        ${sinStock ? 'Sin stock' : '+ Agregar'}
+      </button>`;
   } else {
     footer.innerHTML = `
       <span class="product-price">${ars(p.precio)}</span>
       <div class="card-qty-controls">
         <button class="card-qty-btn remove" onclick="cardChangeQty(${p.id},-1)" aria-label="Quitar uno">−</button>
         <span class="card-qty-val">${qty}</span>
-        <button class="card-qty-btn" onclick="cardChangeQty(${p.id},+1)" aria-label="Agregar uno">+</button>
+        <button class="card-qty-btn" onclick="cardChangeQty(${p.id},+1)" aria-label="Agregar uno"${atLimit ? ' disabled' : ''}>+</button>
       </div>`;
   }
 }
 /* CARRITO */
 function addToCart(id){
+  const avail = stockMap[+id];
+  if (avail !== undefined && (cart[id] || 0) >= avail) {
+    toast('⚠️ No hay más stock de este producto');
+    return;
+  }
   cart[id] = (cart[id] || 0) + 1;
   updateUI();
   renderCardFooter(id);
@@ -887,6 +916,13 @@ function changeQty(id, delta){
 }
 function cardChangeQty(id, delta){
   if (delta < 0 && !cart[id]) return;
+  if (delta > 0) {
+    const avail = stockMap[+id];
+    if (avail !== undefined && (cart[id] || 0) >= avail) {
+      toast('⚠️ No hay más stock de este producto');
+      return;
+    }
+  }
   cart[id] = (cart[id] || 0) + delta;
   if (cart[id] <= 0) delete cart[id];
   updateUI();
@@ -1115,10 +1151,10 @@ function enviarPedido(){
   ].join(_nl);
 
   /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
-  const resumen = Object.entries(cart).map(([id, qty]) => {
+  const items = Object.entries(cart).map(([id, qty]) => {
     const p = PRODUCTOS.find(p => p.id === +id);
-    return p ? p.nombre + ' \u00D7' + qty : '';
-  }).filter(Boolean).join(' | ');
+    return p ? { id: p.id, nombre: p.nombre, qty, precio: p.precio } : null;
+  }).filter(Boolean);
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
     mode: 'no-cors',
@@ -1132,7 +1168,7 @@ function enviarPedido(){
       dia,
       horario,
       pago:      pagoEl.value,
-      productos: resumen,
+      items,
       total:     cartTotal()
     })
   }).catch(() => {});
@@ -1222,12 +1258,47 @@ function repeatLastOrder() {
   } catch(e) {}
 }
 
+/* STOCK — carga desde Google Sheets CSV */
+async function fetchStock() {
+  if (!STOCK_CSV_URL) return;
+  try {
+    const res  = await fetch(STOCK_CSV_URL);
+    const text = await res.text();
+    const rows = text.trim().split('\n');
+    // Fila 0 = headers (id, nombre, stock_fisico, reservado, stock_disponible, ...)
+    rows.slice(1).forEach(row => {
+      // El CSV de Sheets puede tener valores entre comillas
+      const cols = row.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+      const id   = parseInt(cols[0]);
+      const disp = parseInt(cols[4]); // columna stock_disponible
+      if (!isNaN(id) && !isNaN(disp)) stockMap[id] = disp;
+    });
+    updateStockDisplay();
+  } catch(e) { console.warn('fetchStock:', e); }
+}
+
+function updateStockDisplay() {
+  PRODUCTOS.forEach(p => {
+    const el    = document.getElementById('stock-' + p.id);
+    const avail = stockMap[p.id];
+    if (!el) return;
+    if (avail === undefined)  { el.innerHTML = ''; }
+    else if (avail === 0)     { el.innerHTML = '<span class="stock-badge stock-out">🚫 Sin stock</span>'; }
+    else if (avail <= 3)      { el.innerHTML = `<span class="stock-badge stock-low">⚡ Últimas ${avail} unidades</span>`; }
+    else if (avail <= 5)      { el.innerHTML = '<span class="stock-badge stock-low">⚡ Últimas unidades</span>'; }
+    else                      { el.innerHTML = ''; }
+    // Actualizar botón de la card (por si ya estaba renderizado)
+    renderCardFooter(p.id);
+  });
+}
+
 /* INIT */
 renderCatalog();
 renderCatNav();
 loadClientData();
 loadLastOrder();
 $id('cart-badge').style.display = 'none';
+fetchStock();
 /* BARRA DE CATEGORÍAS */
 function renderCatNav() {
   const nav = $id('cat-nav');
