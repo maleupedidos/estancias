@@ -120,8 +120,7 @@
       line-height:1.1; letter-spacing:-.02em; margin-bottom:.75rem;
     }
     .hero h2 span { color:var(--orange); }
-    .hero-sub { font-size:.98rem; color:var(--brown-mid); max-width:420px; margin:0 auto .7rem; }
-    .hero-flow { font-size:.78rem; color:var(--brown-mid); opacity:.7; margin-bottom:1.4rem; letter-spacing:.01em; }
+    .hero-sub { font-size:.98rem; color:var(--brown-mid); max-width:420px; margin:0 auto 1.4rem; }
     .hero-delivery {
       font-size:.78rem; color:var(--brown-mid); margin-bottom:1.2rem;
       background:rgba(61,28,10,.07); display:inline-block;
@@ -357,8 +356,9 @@
       content:'▾'; position:absolute; right:1rem; top:50%; transform:translateY(-50%);
       color:var(--brown-mid); pointer-events:none; font-size:.9rem;
     }
-    input[readonly] { background:#f0ebe0; cursor:default; color:var(--brown-mid); }
-    input[readonly]:focus { border-color:var(--cream-dark); box-shadow:none; }
+    .horario-hint {
+      font-size:.78rem; color:var(--brown-mid); margin-top:.3rem; display:none;
+    }
     .pago-label { font-size:.82rem; font-weight:700; color:var(--brown); margin-bottom:.45rem; display:block; }
     .radio-row { display:flex; gap:.75rem; }
     .radio-opt { flex:1; position:relative; }
@@ -408,6 +408,8 @@
       transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s; opacity:0;
     }
     .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    /* En mobile el botón flotante vive en bottom:16px, subimos el toast para no superponerse */
+    @media(max-width:639px) { .toast { bottom: 5rem; } }
     /* CARD QTY CONTROLS */
 .card-qty-controls {
   display: flex;
@@ -565,8 +567,7 @@
 <section class="hero">
   <span class="hero-pill">Estancias del Pilar · Delivery</span>
   <h2>Hoy no tenés que<br>pensar <span>qué cocinar.</span></h2>
-  <p class="hero-sub">Comida lista en minutos, con sabor de verdad. Te la dejamos en la puerta de tu casa.</p>
-  <p class="hero-flow">Elegís. Pedís por WhatsApp. Listo.</p>
+  <p class="hero-sub">Elegís. Pedís por WhatsApp. Listo.</p>
   <p class="hero-delivery">📅 Entregas: Mié · Vie · Sáb 19–21 hs · Dom 11–13 hs</p>
   <a href="#catalogo" class="hero-cta">Armar mi pedido →</a>
 </section>
@@ -608,7 +609,7 @@
 <section class="form-section">
   <div class="form-wrap">
     <h2 class="section-heading">Completá tu pedido</h2>
-    <p class="section-sub">Te confirmamos todo por WhatsApp.</p>
+    <p class="section-sub">Revisá el resumen y completá tus datos.</p>
 
     <div class="order-summary-box">
       <h4>Resumen</h4>
@@ -667,10 +668,7 @@
           <span class="field-error" id="err-dia">⚠ Elegí un día de entrega</span>
         </div>
       </div>
-      <div class="field-group">
-        <label for="f-horario">Horario de entrega</label>
-        <input type="text" id="f-horario" readonly placeholder="Se completa al elegir el día" />
-      </div>
+      <p class="horario-hint" id="horario-hint"></p>
       <div id="pago-group">
   <span class="pago-label">Método de pago</span>
   <div class="radio-row">
@@ -805,7 +803,6 @@ function renderCatalog(){
               </div>
               <div class="product-body">
                 ${p.top ? '<span class="product-top-badge">⭐ Lo más pedido</span>' : ''}
-                <span class="product-pill">${p.cat}</span>
                 <h3 class="product-name">${p.nombre}</h3>
                 <p class="product-desc">${p.desc}</p>
                 <div class="product-footer">
@@ -926,8 +923,14 @@ function goToForm(){
 
 /* HORARIO */
 function onDiaChange(){
-  const dia=$id('f-dia').value;
-  $id('f-horario').value=dia?(HORARIOS[dia]||''):'';
+  const dia = $id('f-dia').value;
+  const hint = $id('horario-hint');
+  if (dia && HORARIOS[dia]) {
+    hint.textContent = 'Horario: ' + HORARIOS[dia];
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
 }
 
 /* VALIDACIÓN INLINE */
@@ -973,7 +976,7 @@ function enviarPedido(){
   const direccion = $id('f-direccion').value.trim();
   const telefono  = $id('f-telefono').value.trim();
   const dia       = $id('f-dia').value;
-  const horario   = $id('f-horario').value;
+  const horario   = HORARIOS[dia] || '';
   const pagoEl    = document.querySelector('input[name="pago"]:checked');
   /* Limpiar todos los errores previos */
   clearError('f-nombre',   'err-nombre');
@@ -1124,13 +1127,12 @@ function enviarPedido(){
     $id('f-direccion').value = '';
     $id('f-telefono').value  = '';
     $id('f-dia').value       = '';
-    $id('f-horario').value   = '';
+    onDiaChange();
     document.querySelectorAll('input[name="pago"]').forEach(r => r.checked = false);
     if (waBtn) { waBtn.disabled = false; waBtn.innerHTML = waBtnOrigHTML; }
     _enviando = false;
   }, 1800);
 }
-/* TOAST */
 /* TOAST */
 let _tt;
 function toast(msg){ const el=$id('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2700); }
@@ -1194,6 +1196,7 @@ renderCatalog();
 renderCatNav();
 loadClientData();
 loadLastOrder();
+$id('cart-badge').style.display = 'none';
 /* BARRA DE CATEGORÍAS */
 function renderCatNav() {
   const nav = $id('cat-nav');
