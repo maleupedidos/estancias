@@ -120,7 +120,8 @@
       line-height:1.1; letter-spacing:-.02em; margin-bottom:.75rem;
     }
     .hero h2 span { color:var(--orange); }
-    .hero-sub { font-size:.98rem; color:var(--brown-mid); max-width:420px; margin:0 auto 1.6rem; }
+    .hero-sub { font-size:.98rem; color:var(--brown-mid); max-width:420px; margin:0 auto .7rem; }
+    .hero-flow { font-size:.78rem; color:var(--brown-mid); opacity:.7; margin-bottom:1.4rem; letter-spacing:.01em; }
     .hero-delivery {
       font-size:.78rem; color:var(--brown-mid); margin-bottom:1.2rem;
       background:rgba(61,28,10,.07); display:inline-block;
@@ -237,10 +238,10 @@
       padding:.18rem .5rem; border-radius:50px; margin-bottom:.48rem; width:fit-content;
     }
     .product-top-badge {
-      display:inline-flex; align-items:center; gap:.25rem;
+      display:inline-flex; align-items:center; gap:.2rem;
       background:#FFF3CD; color:#7a5a00; border:1px solid #f0d060;
-      font-size:.63rem; font-weight:700; letter-spacing:.03em;
-      padding:.18rem .5rem; border-radius:50px; margin-bottom:.35rem; width:fit-content;
+      font-size:.58rem; font-weight:700; letter-spacing:.03em;
+      padding:.12rem .4rem; border-radius:50px; margin-bottom:.3rem; width:fit-content;
     }
     .product-name   { font-size:.97rem; font-weight:700; color:var(--brown); margin-bottom:.3rem; line-height:1.25; }
     .product-desc   { font-size:.79rem; color:var(--brown-mid); line-height:1.45; flex:1; margin-bottom:.8rem; }
@@ -494,6 +495,30 @@
     @media(min-width:820px){ .products-grid{ grid-template-columns:repeat(3,1fr); } }
     @media(min-width:1080px){ .products-grid{ grid-template-columns:repeat(4,1fr); } }
 
+    /* BLOQUE REPETIR PEDIDO */
+    .repeat-block {
+      background:#fff; border:1.5px solid var(--cream-dark); border-radius:14px;
+      padding:1rem 1.15rem 1.1rem; margin-bottom:2rem;
+    }
+    .repeat-block-head {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:.65rem;
+    }
+    .repeat-block-title {
+      font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--orange);
+    }
+    .repeat-block-items { margin-bottom:.8rem; }
+    .repeat-item {
+      display:flex; justify-content:space-between; font-size:.82rem; padding:.18rem 0; color:var(--brown);
+    }
+    .repeat-item-name { flex:1; }
+    .repeat-item-qty  { font-weight:700; color:var(--brown-mid); margin-left:.5rem; white-space:nowrap; }
+    .repeat-btn {
+      display:block; width:100%; background:var(--orange); color:#fff; border:none; border-radius:9px;
+      padding:.62rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer;
+      transition:background .15s;
+    }
+    .repeat-btn:hover { background:#e05e20; }
+
     /* FLOATING CART BUTTON (mobile only) */
     .float-cart-btn {
       position: fixed;
@@ -541,7 +566,8 @@
   <span class="hero-pill">Estancias del Pilar · Delivery</span>
   <h2>Hoy no tenés que<br>pensar <span>qué cocinar.</span></h2>
   <p class="hero-sub">Comida lista en minutos, con sabor de verdad. Te la dejamos en la puerta de tu casa.</p>
-  <p class="hero-delivery">📅 Próxima entrega: Viernes · Pedidos hasta el jueves 20 hs</p>
+  <p class="hero-flow">Elegís. Pedís por WhatsApp. Listo.</p>
+  <p class="hero-delivery">📅 Entregas: Mié · Vie · Sáb 19–21 hs · Dom 11–13 hs</p>
   <a href="#catalogo" class="hero-cta">Armar mi pedido →</a>
 </section>
 
@@ -549,6 +575,13 @@
 <nav class="cat-nav" id="cat-nav" aria-label="Categorías"></nav>
 <!-- CATÁLOGO -->
 <div class="catalog" id="catalogo">
+  <div id="repeat-block" style="display:none" class="repeat-block">
+    <div class="repeat-block-head">
+      <span class="repeat-block-title">Tu último pedido</span>
+    </div>
+    <div class="repeat-block-items" id="repeat-items"></div>
+    <button class="repeat-btn" onclick="repeatLastOrder()">Agregar todo de nuevo →</button>
+  </div>
   <div id="catalog-root"></div>
 </div>
 
@@ -753,7 +786,8 @@ function cartCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
 /* RENDER */
 function renderCatalog(){
   $id('catalog-root').innerHTML = CATEGORIAS.map(cat => {
-    const prods = PRODUCTOS.filter(p => p.cat === cat.nombre);
+    const prods = PRODUCTOS.filter(p => p.cat === cat.nombre)
+      .sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0));
     if(!prods.length) return '';
     return `
       <section class="cat-section">
@@ -986,9 +1020,11 @@ function enviarPedido(){
     primerCampoInvalido.focus && primerCampoInvalido.focus();
     return;
   }
-  /* Guardar datos del cliente en localStorage */
+  /* Guardar datos del cliente y último pedido en localStorage */
   try {
     localStorage.setItem('maleu_cliente', JSON.stringify({ nombre, barrio, direccion, telefono }));
+    const cartSnapshot = Object.entries(cart).map(([id, qty]) => ({ id: +id, qty }));
+    localStorage.setItem('maleu_ultimo_pedido', JSON.stringify(cartSnapshot));
   } catch(e) {}
 
   /* Todo válido — construir y enviar mensaje */
@@ -1120,10 +1156,44 @@ function loadClientData() {
   } catch(e) {}
 }
 
+/* ÚLTIMO PEDIDO */
+function loadLastOrder() {
+  try {
+    const items = JSON.parse(localStorage.getItem('maleu_ultimo_pedido') || 'null');
+    if (!items || !items.length) return;
+    const block = $id('repeat-block');
+    const list  = $id('repeat-items');
+    if (!block || !list) return;
+    const lines = items.map(({ id, qty }) => {
+      const p = PRODUCTOS.find(p => p.id === id);
+      if (!p) return '';
+      return `<div class="repeat-item"><span class="repeat-item-name">${p.nombre}</span><span class="repeat-item-qty">\u00D7${qty}</span></div>`;
+    }).filter(Boolean).join('');
+    if (!lines) return;
+    list.innerHTML = lines;
+    block.style.display = 'block';
+  } catch(e) {}
+}
+function repeatLastOrder() {
+  try {
+    const items = JSON.parse(localStorage.getItem('maleu_ultimo_pedido') || 'null');
+    if (!items || !items.length) return;
+    items.forEach(({ id, qty }) => {
+      const p = PRODUCTOS.find(p => p.id === id);
+      if (!p) return;
+      cart[id] = (cart[id] || 0) + qty;
+      renderCardFooter(id);
+    });
+    updateUI();
+    toast('\u2713 Productos del pedido anterior agregados');
+  } catch(e) {}
+}
+
 /* INIT */
 renderCatalog();
 renderCatNav();
 loadClientData();
+loadLastOrder();
 /* BARRA DE CATEGORÍAS */
 function renderCatNav() {
   const nav = $id('cat-nav');
