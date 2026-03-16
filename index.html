@@ -587,6 +587,7 @@
     }
     .stock-out { background: #fce8e8; color: #c0392b; border: 1px solid #f5c6c6; }
     .stock-low { background: #fff3e0; color: #e67e22; border: 1px solid #ffd59a; }
+    .stock-ok  { background: #edf7ee; color: #2e7d32; border: 1px solid #b6ddb8; }
     .add-btn:disabled { background: #d0ccc8; color: #888; cursor: not-allowed; box-shadow: none; transform: none !important; }
     .add-btn:disabled:hover { background: #d0ccc8; box-shadow: none; }
     .card-qty-btn:disabled { opacity: .3; cursor: not-allowed; pointer-events: none; }
@@ -1285,9 +1286,8 @@ function updateStockDisplay() {
     if (!el) return;
     if (avail === undefined)  { el.innerHTML = ''; }
     else if (avail === 0)     { el.innerHTML = '<span class="stock-badge stock-out">🚫 Sin stock</span>'; }
-    else if (avail <= 3)      { el.innerHTML = `<span class="stock-badge stock-low">⚡ Últimas ${avail} unidades</span>`; }
-    else if (avail <= 5)      { el.innerHTML = '<span class="stock-badge stock-low">⚡ Últimas unidades</span>'; }
-    else                      { el.innerHTML = ''; }
+    else if (avail <= 5)      { el.innerHTML = `<span class="stock-badge stock-low">⚡ Últimas ${avail} unidades</span>`; }
+    else                      { el.innerHTML = `<span class="stock-badge stock-ok">✓ ${avail} disponibles</span>`; }
     // Actualizar botón de la card (por si ya estaba renderizado)
     renderCardFooter(p.id);
   });
