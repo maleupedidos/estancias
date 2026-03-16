@@ -207,53 +207,60 @@
     }
 
     .products-grid {
-      display:grid; grid-template-columns:repeat(auto-fill, minmax(255px,1fr)); gap:1.1rem;
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:1.25rem;
     }
 
     /* PRODUCT CARD */
     .product-card {
-      background:#fff; border-radius:16px; overflow:hidden;
-      border:1.5px solid var(--cream);
-      transition:transform .2s, box-shadow .2s;
+      background:#fff; border-radius:20px; overflow:hidden;
+      box-shadow:0 2px 12px rgba(61,28,10,.07), 0 1px 3px rgba(61,28,10,.05);
+      transition:transform .22s cubic-bezier(.2,0,.2,1), box-shadow .22s cubic-bezier(.2,0,.2,1);
       display:flex; flex-direction:column;
     }
-    .product-card:hover { transform:translateY(-4px); box-shadow:0 10px 28px rgba(61,28,10,.1); }
+    .product-card:hover {
+      transform:translateY(-6px);
+      box-shadow:0 20px 48px rgba(61,28,10,.14), 0 6px 16px rgba(61,28,10,.08);
+    }
 
     .product-thumb {
-      width:100%; height:160px;
+      width:100%; height:220px;
       display:flex; align-items:center; justify-content:center;
       position:relative; overflow:hidden; flex-shrink:0;
     }
-    .product-thumb-emoji { font-size:3.8rem; user-select:none; }
+    /* Gradiente sutil en la base de la imagen para que el paso a la card sea suave */
+    .product-thumb::after {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(to top, rgba(20,8,2,.22) 0%, transparent 45%);
+      pointer-events:none; z-index:1;
+    }
+    .product-thumb-emoji { font-size:4.2rem; user-select:none; }
     .product-thumb-img {
       position:absolute; top:0; left:0; right:0; bottom:0;
       width:100%; height:100%; object-fit:cover;
+      transition:transform .45s cubic-bezier(.2,0,.2,1);
     }
+    .product-card:hover .product-thumb-img { transform:scale(1.05); }
 
-    .product-body { padding:.95rem 1.05rem 1.15rem; flex:1; display:flex; flex-direction:column; }
-    .product-pill {
-      display:inline-block; background:var(--cream); color:var(--brown);
-      font-size:.63rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
-      padding:.18rem .5rem; border-radius:50px; margin-bottom:.48rem; width:fit-content;
-    }
+    .product-body { padding:1rem 1.1rem 1.2rem; flex:1; display:flex; flex-direction:column; }
     .product-top-badge {
       display:inline-flex; align-items:center; gap:.2rem;
       background:#FFF3CD; color:#7a5a00; border:1px solid #f0d060;
       font-size:.58rem; font-weight:700; letter-spacing:.03em;
       padding:.12rem .4rem; border-radius:50px; margin-bottom:.3rem; width:fit-content;
     }
-    .product-name   { font-size:.97rem; font-weight:700; color:var(--brown); margin-bottom:.3rem; line-height:1.25; }
-    .product-desc   { font-size:.79rem; color:var(--brown-mid); line-height:1.45; flex:1; margin-bottom:.8rem; }
+    .product-name   { font-size:1.01rem; font-weight:700; color:var(--brown); margin-bottom:.32rem; line-height:1.25; }
+    .product-desc   { font-size:.79rem; color:var(--brown-mid); line-height:1.48; flex:1; margin-bottom:.85rem; }
     .product-footer { display:flex; align-items:center; justify-content:space-between; }
-    .product-price  { font-size:1.2rem; font-weight:800; color:var(--brown); letter-spacing:-.01em; }
+    .product-price  { font-size:1.25rem; font-weight:800; color:var(--brown); letter-spacing:-.01em; }
 
     .add-btn {
-      background:var(--orange); color:#fff; border:none; border-radius:9px;
-      padding:.46rem .9rem; font-family:var(--font); font-size:.87rem; font-weight:700;
-      cursor:pointer; transition:background .15s, transform .1s; flex-shrink:0;
+      background:var(--orange); color:#fff; border:none; border-radius:10px;
+      padding:.5rem .95rem; font-family:var(--font); font-size:.87rem; font-weight:700;
+      cursor:pointer; transition:background .15s, transform .1s, box-shadow .15s; flex-shrink:0;
+      box-shadow:0 2px 8px rgba(249,112,53,.35);
     }
-    .add-btn:hover  { background:#e05e20; }
-    .add-btn:active { transform:scale(.95); }
+    .add-btn:hover  { background:#e05e20; box-shadow:0 4px 14px rgba(249,112,53,.45); }
+    .add-btn:active { transform:scale(.95); box-shadow:none; }
 
     /* CART */
     .cart-overlay {
@@ -743,7 +750,7 @@ const PRODUCTOS = [
   { id:6,  cat:"Pizzas Clásicas",   nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.", precio:16000, img:"pack-jamon-queso.jpg", emoji:"🍕", bg:"#F0F7EE" },
   { id:7,  cat:"Pizzas Clásicas",   nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.", precio:16000, img:"pack-cebolla-queso.jpg", emoji:"🍕", bg:"#EEF3F8" },
 
-  { id:8,  cat:"Sorrentinos",       nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.", precio:17500, img:"sorrentinos-cordero.jpg", emoji:"🍝", bg:"#FBF0E8" },
+  { id:8,  cat:"Sorrentinos",       nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.", precio:17500, img:"sorrentinos-plato.jpg", imgPos:"center 62%", emoji:"🍝", bg:"#1c1210" },
   { id:9,  cat:"Sorrentinos",       nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.", precio:16300, img:"sorrentinos-jamon.jpg", emoji:"🍝", bg:"#FFF3E8", top:true },
   { id:10, cat:"Sorrentinos",       nombre:"Sorrentinos Calabaza y Queso",  desc:"Suave, dulce y sabroso. Relleno cremoso de calabaza y queso.", precio:14700, img:"sorrentinos-calabaza.jpg", emoji:"🍝", bg:"#FFF8E6" },
 
@@ -799,7 +806,7 @@ function renderCatalog(){
             <article class="product-card" data-id="${p.id}">
               <div class="product-thumb" style="background:${p.bg}">
                 <span class="product-thumb-emoji">${p.emoji}</span>
-                <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" loading="lazy" onerror="this.remove()">
+                <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" loading="lazy" style="object-position:${p.imgPos||'center'}" onerror="this.remove()">
               </div>
               <div class="product-body">
                 ${p.top ? '<span class="product-top-badge">⭐ Lo más pedido</span>' : ''}
