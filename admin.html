@@ -195,6 +195,22 @@
     .canal-top-prod { font-size:.73rem; color:#a08060; padding:.45rem .65rem; background:#f7f2eb; border-radius:8px; line-height:1.4; }
     .canal-top-prod strong { color:var(--brown); }
 
+    /* COMPRAS TAB */
+    .compras-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem 1rem; margin-bottom:1rem; }
+    @media(max-width:640px) { .compras-form-grid { grid-template-columns:1fr; } }
+    .form-group { display:flex; flex-direction:column; gap:.3rem; }
+    .form-group-full { grid-column:1/-1; }
+    .form-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#a08060; }
+    .form-input { padding:.6rem .9rem; border:1.5px solid #ede5db; border-radius:9px; font-family:var(--font); font-size:.85rem; color:var(--brown); background:#fff; outline:none; transition:border-color .15s; width:100%; }
+    .form-input:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(240,125,71,.1); }
+    .btn-compra-submit { background:var(--orange); color:#fff; border:none; border-radius:10px; padding:.72rem 1.5rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer; transition:background .15s; margin-top:.25rem; }
+    .btn-compra-submit:hover { background:#e05e20; }
+    .btn-compra-submit:disabled { opacity:.5; cursor:default; }
+    .estado-compra-select { padding:.28rem .55rem; border:none; border-radius:6px; font-family:var(--font); font-size:.74rem; font-weight:700; cursor:pointer; outline:none; }
+    .est-pendiente { background:#FEF9C3; color:#854D0E; }
+    .est-pedido    { background:#DBEAFE; color:#1E40AF; }
+    .est-entregado { background:#DCFCE7; color:#166534; }
+
     /* MOBILE */
     @media (max-width:768px) {
       .sidebar { top:auto; bottom:0; left:0; right:0; width:100%; height:62px; padding:0; flex-direction:row; overflow-x:auto; overflow-y:visible; border-top:1px solid rgba(255,255,255,.1); }
@@ -252,6 +268,7 @@
       <button class="nav-item"        data-tab="ventas"    onclick="showTab('ventas')"><span class="nav-icon">💰</span><span>Ventas</span></button>
       <button class="nav-item"        data-tab="pedidos"   onclick="showTab('pedidos')"><span class="nav-icon">📋</span><span>Pedidos</span></button>
       <button class="nav-item"        data-tab="stock"     onclick="showTab('stock')"><span class="nav-icon">📦</span><span>Stock</span></button>
+      <button class="nav-item"        data-tab="compras"   onclick="showTab('compras')"><span class="nav-icon">🛒</span><span>Compras</span></button>
       <div class="nav-spacer"></div>
       <div class="nav-divider"></div>
       <button class="nav-item" onclick="logout()" style="opacity:.45;font-size:.82rem"><span class="nav-icon">🚪</span><span>Salir</span></button>
@@ -522,13 +539,85 @@
         <div id="stock-display"></div>
       </div>
 
+      <!-- ══ TAB: COMPRAS ══ -->
+      <div id="tab-compras" class="tab-panel">
+        <div class="page-title">Compras a proveedores</div>
+        <div class="page-sub">Gestión de pedidos internos de insumos</div>
+
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr))">
+          <div class="kpi-card"><div class="kpi-label">Pendientes</div><div class="kpi-val c-orange" id="ck-pendientes">—</div><div class="kpi-sub">por enviar al proveedor</div></div>
+          <div class="kpi-card"><div class="kpi-label">Pedidos</div><div class="kpi-val c-blue" id="ck-pedidos">—</div><div class="kpi-sub">enviados · esperando</div></div>
+          <div class="kpi-card"><div class="kpi-label">Entregados</div><div class="kpi-val c-green" id="ck-entregados">—</div><div class="kpi-sub">este mes</div></div>
+        </div>
+
+        <!-- Nuevo pedido -->
+        <div class="section-box">
+          <div class="section-hd"><span class="section-title">Nuevo pedido a proveedor</span></div>
+          <form class="compras-form" id="compras-form" onsubmit="submitCompra(event)">
+            <div class="compras-form-grid">
+              <div class="form-group">
+                <label class="form-label">Proveedor *</label>
+                <input type="text" class="form-input" id="cf-proveedor" placeholder="Ej: La Salteña" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Producto *</label>
+                <input type="text" class="form-input" id="cf-producto" placeholder="Ej: Muzarella" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cantidad *</label>
+                <input type="number" class="form-input" id="cf-cantidad" placeholder="Ej: 10" min="0.01" step="any" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Unidad</label>
+                <select class="form-input" id="cf-unidad">
+                  <option>kg</option>
+                  <option>unidades</option>
+                  <option>litros</option>
+                  <option>cajas</option>
+                  <option>bolsas</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Precio unit. (opcional)</label>
+                <input type="number" class="form-input" id="cf-precio" placeholder="Ej: 2500" min="0" step="any" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha entrega estimada</label>
+                <input type="date" class="form-input" id="cf-fecha" />
+              </div>
+              <div class="form-group form-group-full">
+                <label class="form-label">Notas (opcional)</label>
+                <input type="text" class="form-input" id="cf-notas" placeholder="Ej: Confirmar precio antes de enviar" />
+              </div>
+            </div>
+            <button type="submit" class="btn-compra-submit" id="btn-compra-submit">+ Agregar pedido</button>
+          </form>
+        </div>
+
+        <!-- Historial -->
+        <div class="section-box">
+          <div class="section-hd">
+            <span class="section-title">Historial de pedidos</span>
+            <button class="top-btn" style="font-size:.75rem" onclick="loadCompras()">↺ Actualizar</button>
+          </div>
+          <div id="compras-loading" style="display:none" class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando...</div></div>
+          <div class="table-wrap" id="compras-table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Estado</th><th>Notas</th><th>Entrega est.</th></tr></thead>
+              <tbody id="compras-tbody"><tr><td colspan="9" class="no-data">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────
-const ADMIN_PASSWORD = 'maleu2026';
+const ADMIN_PASSWORD  = 'maleu2026';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby7HR-op6KSz2a-B2Dvloua6sJ63tsUmkEOWJACqQHAHeG8hOZ3a5HCNjiljjTpWSs/exec';
 const CSV_PEDIDOS   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU90rLSsMLIZysclthumNVS-wWma0g0ugJJlUBkO_lk1e_xhjmoIbqpmPFpTSVdYkyI1rk4BUCJyrd/pub?gid=1002295063&single=true&output=csv';
 const CSV_DETALLE   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU90rLSsMLIZysclthumNVS-wWma0g0ugJJlUBkO_lk1e_xhjmoIbqpmPFpTSVdYkyI1rk4BUCJyrd/pub?gid=747417680&single=true&output=csv';
 const CSV_PRODUCTOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU90rLSsMLIZysclthumNVS-wWma0g0ugJJlUBkO_lk1e_xhjmoIbqpmPFpTSVdYkyI1rk4BUCJyrd/pub?gid=0&single=true&output=csv';
@@ -545,7 +634,7 @@ const CANAL_COLOR = { 'Estancias':'#331C1C', 'Delivery':'#2980B9', 'Clubes':'#27
 const CANAL_EMOJI = { 'Estancias':'🏡', 'Delivery':'🚗', 'Clubes':'🏆' };
 
 // ── STATE ────────────────────────────────────────────────────────
-let pedidos = [], detalle = [], productos = [];
+let pedidos = [], detalle = [], productos = [], compras = [];
 let charts  = {}, rendered = new Set(), currentTab = 'operacion';
 
 // ── AUTH ─────────────────────────────────────────────────────────
@@ -651,6 +740,7 @@ function renderTab(tab) {
   if (tab === 'ventas')    renderVentas();
   if (tab === 'pedidos')   renderPedidosTable();
   if (tab === 'stock')     renderStock();
+  if (tab === 'compras')   loadCompras();
 }
 
 // ── DELIVERY SCHEDULE ──────────────────────────────────────────────
@@ -1088,6 +1178,130 @@ function renderStock() {
   if (!productos.length) html = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Sin datos de stock</div></div>';
 
   document.getElementById('stock-display').innerHTML = html;
+}
+
+// ── COMPRAS ───────────────────────────────────────────────────────
+async function loadCompras() {
+  document.getElementById('compras-loading').style.display = 'block';
+  document.getElementById('compras-table-wrap').style.display = 'none';
+  try {
+    const r = await fetch(APPS_SCRIPT_URL + '?action=compras&t=' + Date.now());
+    compras = await r.json();
+    renderComprasUI();
+  } catch(err) {
+    console.error('Error cargando compras:', err);
+    document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="9" class="no-data">Error al cargar · verificá la conexión</td></tr>';
+  } finally {
+    document.getElementById('compras-loading').style.display = 'none';
+    document.getElementById('compras-table-wrap').style.display = 'block';
+  }
+}
+
+function renderComprasUI() {
+  const now    = new Date();
+  const mesKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  const pendientes = compras.filter(c => c['Estado'] === 'Pendiente').length;
+  const pedidosC   = compras.filter(c => c['Estado'] === 'Pedido').length;
+  const entregados = compras.filter(c => {
+    if (c['Estado'] !== 'Entregado') return false;
+    const d = parseDate(c['Fecha']);
+    return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey;
+  }).length;
+
+  document.getElementById('ck-pendientes').textContent = pendientes;
+  document.getElementById('ck-pedidos').textContent    = pedidosC;
+  document.getElementById('ck-entregados').textContent = entregados;
+
+  const tbody = document.getElementById('compras-tbody');
+  if (!compras.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="no-data">Sin pedidos registrados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = [...compras].reverse().map(c => {
+    const est      = c['Estado'] || 'Pendiente';
+    const estClass = est === 'Entregado' ? 'est-entregado' : est === 'Pedido' ? 'est-pedido' : 'est-pendiente';
+    const precio   = parseFloat(String(c['Precio unit.']).replace(/[$\s]/g,'').replace(',','.')) || 0;
+    const total    = parseFloat(String(c['Total']).replace(/[$\s]/g,'').replace(',','.')) || 0;
+    const id       = c['ID'] || '';
+    return `
+    <tr>
+      <td style="color:#b09880;font-size:.74rem">${c['Fecha']||''}</td>
+      <td><strong>${c['Proveedor']||''}</strong></td>
+      <td>${c['Producto']||''}</td>
+      <td>${c['Cantidad']||''} ${c['Unidad']||''}</td>
+      <td>${precio ? ars(precio) : '—'}</td>
+      <td>${total ? ars(total) : '—'}</td>
+      <td>
+        <select class="estado-compra-select ${estClass}" data-id="${id}" onchange="updateEstadoCompra(this)">
+          <option${est==='Pendiente'?' selected':''}>Pendiente</option>
+          <option${est==='Pedido'?' selected':''}>Pedido</option>
+          <option${est==='Entregado'?' selected':''}>Entregado</option>
+        </select>
+      </td>
+      <td style="color:#a08060;font-size:.78rem">${c['Notas']||''}</td>
+      <td style="font-size:.78rem">${c['Fecha entrega']||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function submitCompra(evt) {
+  evt.preventDefault();
+  const btn = document.getElementById('btn-compra-submit');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const cantidad = parseFloat(document.getElementById('cf-cantidad').value) || 0;
+  const precio   = parseFloat(document.getElementById('cf-precio').value)   || 0;
+
+  const payload = {
+    action:    'compra',
+    proveedor: document.getElementById('cf-proveedor').value.trim(),
+    producto:  document.getElementById('cf-producto').value.trim(),
+    cantidad,
+    unidad:    document.getElementById('cf-unidad').value,
+    precio,
+    notas:     document.getElementById('cf-notas').value.trim(),
+    fecha:     document.getElementById('cf-fecha').value,
+  };
+
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    document.getElementById('compras-form').reset();
+    setTimeout(loadCompras, 1800);
+  } catch(err) {
+    console.error(err);
+    alert('Error al guardar. Intentá de nuevo.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '+ Agregar pedido';
+  }
+}
+
+function updateEstadoCompra(sel) {
+  const id      = sel.dataset.id;
+  const estado  = sel.value;
+  const estClass = estado === 'Entregado' ? 'est-entregado' : estado === 'Pedido' ? 'est-pedido' : 'est-pendiente';
+
+  // Optimistic UI
+  sel.className = `estado-compra-select ${estClass}`;
+
+  fetch(APPS_SCRIPT_URL, {
+    method:  'POST',
+    mode:    'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ action: 'updateCompra', id, estado }),
+  });
+
+  // Update local state + re-render KPIs
+  const c = compras.find(c => c['ID'] === id);
+  if (c) { c['Estado'] = estado; renderComprasUI(); }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────

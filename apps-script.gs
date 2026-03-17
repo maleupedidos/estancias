@@ -19,14 +19,60 @@ const ORANGE  = '#F97035';
 const CREAM   = '#E8DFC4';
 
 // ════════════════════════════════════════════════════════════
-//  doPost — recibe pedidos desde la página
+//  doGet — lectura de datos (compras)
+// ════════════════════════════════════════════════════════════
+function doGet(e) {
+  const action = e && e.parameter && e.parameter.action;
+  if (action === 'compras') {
+    return _doGetCompras();
+  }
+  return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
+}
+
+function _doGetCompras() {
+  const sh = SS.getSheetByName('Pedidos_Proveedores');
+  if (!sh) {
+    return ContentService.createTextOutput('[]').setMimeType(ContentService.MimeType.JSON);
+  }
+  const data = sh.getDataRange().getValues();
+  if (data.length <= 1) {
+    return ContentService.createTextOutput('[]').setMimeType(ContentService.MimeType.JSON);
+  }
+  const headers = data[0];
+  const rows = data.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = row[i] instanceof Date
+      ? Utilities.formatDate(row[i], 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
+      : (row[i] !== undefined && row[i] !== null ? String(row[i]) : ''); });
+    return obj;
+  });
+  return ContentService
+    .createTextOutput(JSON.stringify(rows))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  doPost — recibe pedidos desde la página + acciones internas
 // ════════════════════════════════════════════════════════════
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
 
   try {
-    const data     = JSON.parse(e.postData.contents);
+    const data = JSON.parse(e.postData.contents);
+    if (data.action === 'compra')       return _doPostCompra(data);
+    if (data.action === 'updateCompra') return _doUpdateCompra(data);
+    return _doPostPedido(data);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _doPostPedido(data) {
     const ahora    = new Date();
     const idPedido = 'P-' + ahora.getTime();
     const fecha    = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
@@ -77,14 +123,54 @@ function doPost(e) {
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true, id: idPedido }))
       .setMimeType(ContentService.MimeType.JSON);
+}
 
-  } catch(err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } finally {
-    lock.releaseLock();
+function _doPostCompra(data) {
+  const sh = SS.getSheetByName('Pedidos_Proveedores');
+  if (!sh) throw new Error('Hoja Pedidos_Proveedores no encontrada. Ejecutá setupSheets().');
+
+  const ahora    = new Date();
+  const id       = 'C-' + ahora.getTime();
+  const fecha    = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+  const cantidad = parseFloat(data.cantidad) || 0;
+  const precio   = parseFloat(data.precio)   || 0;
+  const total    = precio ? cantidad * precio : 0;
+
+  sh.appendRow([
+    id,
+    fecha,
+    data.proveedor    || '',
+    data.producto     || '',
+    cantidad,
+    data.unidad       || '',
+    precio            || '',
+    total             || '',
+    'Pendiente',
+    data.notas        || '',
+    data.fecha        || ''   // fecha entrega estimada (yyyy-MM-dd o vacío)
+  ]);
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: true, id }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doUpdateCompra(data) {
+  const sh = SS.getSheetByName('Pedidos_Proveedores');
+  if (!sh) throw new Error('Hoja Pedidos_Proveedores no encontrada.');
+
+  const shData = sh.getDataRange().getValues();
+  for (let r = 1; r < shData.length; r++) {
+    if (String(shData[r][0]) === String(data.id)) {
+      sh.getRange(r + 1, 9).setValue(data.estado); // col 9 = Estado
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: true }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
   }
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: false, error: 'ID no encontrado' }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -146,6 +232,7 @@ function setupSheets() {
   _setupProductos();
   _setupDetalle();
   _setupPanel();
+  _setupProveedores();
   SS.toast('✅  Sheets de Maleu configurados correctamente', 'Setup completo', 5);
 }
 
@@ -395,4 +482,53 @@ function _setupPanel() {
   sh.getRange('B38')
     .setFormula('="Actualizado: "&TEXT(NOW(),"dd/mm/yyyy HH:mm")')
     .setFontSize(8).setFontColor('#AAAAAA').setFontStyle('italic');
+}
+
+// ── Hoja: Pedidos_Proveedores ─────────────────────────────
+function _setupProveedores() {
+  let sh = SS.getSheetByName('Pedidos_Proveedores');
+  if (!sh) sh = SS.insertSheet('Pedidos_Proveedores');
+
+  const headers = ['ID','Fecha','Proveedor','Producto','Cantidad','Unidad',
+                   'Precio unit.','Total','Estado','Notas','Fecha entrega'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground(BROWN).setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  sh.setFrozenRows(1);
+  sh.setRowHeight(1, 36);
+
+  [120, 140, 160, 180, 80, 80, 110, 110, 100, 220, 110].forEach((w, i) => {
+    sh.setColumnWidth(i + 1, w);
+  });
+
+  sh.getRange('G2:H1000').setNumberFormat('$#,##0.##');
+  sh.getRange('E2:E1000').setHorizontalAlignment('center');
+
+  // Dropdown de estado
+  const dropRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Pendiente', 'Pedido', 'Entregado'], true)
+    .setAllowInvalid(false).build();
+  sh.getRange(2, 9, 1000, 1).setDataValidation(dropRule);
+
+  // Conditional formatting — Estado (col I)
+  const iRange = sh.getRange('I2:I1000');
+  sh.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Pendiente')
+      .setBackground('#FFF9C4').setFontColor('#7A6000').setBold(true)
+      .setRanges([iRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Pedido')
+      .setBackground('#BBDEFB').setFontColor('#0D47A1').setBold(true)
+      .setRanges([iRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Entregado')
+      .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
+      .setRanges([iRange]).build(),
+  ]);
+
+  try { sh.getRange('A2:K1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
+  catch(ex) {}
 }
