@@ -119,6 +119,15 @@ function onEdit(e) {
       }
     }
   });
+
+  // Cancelado: eliminar filas del Detalle (de abajo hacia arriba para no correr índices)
+  if (nuevoEstado === 'cancelado') {
+    for (let r = detalleData.length - 1; r >= 1; r--) {
+      if (detalleData[r][0] === idPedido) {
+        hDetalle.deleteRow(r + 1);
+      }
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════════
