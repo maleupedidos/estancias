@@ -195,21 +195,42 @@
     .canal-top-prod { font-size:.73rem; color:#a08060; padding:.45rem .65rem; background:#f7f2eb; border-radius:8px; line-height:1.4; }
     .canal-top-prod strong { color:var(--brown); }
 
-    /* COMPRAS TAB */
-    .compras-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem 1rem; margin-bottom:1rem; }
-    @media(max-width:640px) { .compras-form-grid { grid-template-columns:1fr; } }
+    /* COMPRAS TAB — shared form inputs */
     .form-group { display:flex; flex-direction:column; gap:.3rem; }
     .form-group-full { grid-column:1/-1; }
     .form-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#a08060; }
     .form-input { padding:.6rem .9rem; border:1.5px solid #ede5db; border-radius:9px; font-family:var(--font); font-size:.85rem; color:var(--brown); background:#fff; outline:none; transition:border-color .15s; width:100%; }
     .form-input:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(240,125,71,.1); }
-    .btn-compra-submit { background:var(--orange); color:#fff; border:none; border-radius:10px; padding:.72rem 1.5rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer; transition:background .15s; margin-top:.25rem; }
+    .btn-compra-submit { background:var(--orange); color:#fff; border:none; border-radius:10px; padding:.82rem 1.5rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer; transition:background .15s; width:100%; margin-top:.25rem; }
     .btn-compra-submit:hover { background:#e05e20; }
-    .btn-compra-submit:disabled { opacity:.5; cursor:default; }
+    .btn-compra-submit:disabled { opacity:.45; cursor:default; }
+    /* Estado select (historial) */
     .estado-compra-select { padding:.28rem .55rem; border:none; border-radius:6px; font-family:var(--font); font-size:.74rem; font-weight:700; cursor:pointer; outline:none; }
     .est-pendiente { background:#FEF9C3; color:#854D0E; }
     .est-pedido    { background:#DBEAFE; color:#1E40AF; }
     .est-entregado { background:#DCFCE7; color:#166534; }
+    /* Product picker grid */
+    .cp-section-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); margin:1.3rem 0 .6rem; }
+    .cp-section-label:first-child { margin-top:0; }
+    .cp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:.55rem; margin-bottom:.25rem; }
+    .cp-card { background:#f9f5ef; border:2px solid transparent; border-radius:13px; padding:.85rem .9rem .8rem; cursor:pointer; transition:border-color .15s, background .15s; position:relative; user-select:none; }
+    .cp-card:hover { background:#f2ebe0; border-color:#e0d5c8; }
+    .cp-card.cp-selected { background:#fff8f2; border-color:var(--orange); }
+    .cp-card-name { font-size:.78rem; font-weight:700; color:var(--brown); line-height:1.35; margin-bottom:.55rem; min-height:2.1em; }
+    .cp-card-controls { display:flex; align-items:center; justify-content:center; gap:.45rem; height:0; overflow:hidden; opacity:0; transition:height .12s, opacity .12s; }
+    .cp-card-controls.cp-vis { height:1.9rem; opacity:1; }
+    .cp-qty-btn { background:var(--orange); color:#fff; border:none; border-radius:6px; width:1.55rem; height:1.55rem; font-size:1rem; font-weight:800; cursor:pointer; line-height:1; transition:background .1s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .cp-qty-btn:hover { background:#e05e20; }
+    .cp-qty-num { font-size:.95rem; font-weight:800; color:var(--brown); min-width:1.4rem; text-align:center; }
+    /* Cart summary */
+    .cp-cart-box { background:#fff8f2; border:1.5px solid rgba(240,125,71,.3); border-radius:14px; padding:1rem 1.2rem; margin:1.1rem 0 .85rem; }
+    .cp-cart-hd { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.09em; color:var(--orange); margin-bottom:.6rem; }
+    .cp-cart-row { display:flex; justify-content:space-between; font-size:.82rem; padding:.3rem 0; border-bottom:1px solid rgba(240,125,71,.12); }
+    .cp-cart-row:last-child { border-bottom:none; }
+    .cp-cart-qty { font-weight:700; color:var(--orange); }
+    /* Order details */
+    .cp-order-form { border-top:1.5px solid #f0ebe4; margin-top:.9rem; padding-top:1rem; display:grid; grid-template-columns:1fr 1fr; gap:.7rem 1rem; }
+    @media(max-width:600px){ .cp-order-form { grid-template-columns:1fr; } }
 
     /* MOBILE */
     @media (max-width:768px) {
@@ -542,7 +563,7 @@
       <!-- ══ TAB: COMPRAS ══ -->
       <div id="tab-compras" class="tab-panel">
         <div class="page-title">Compras a proveedores</div>
-        <div class="page-sub">Gestión de pedidos internos de insumos</div>
+        <div class="page-sub">Pedido interno de mercadería</div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr))">
           <div class="kpi-card"><div class="kpi-label">Pendientes</div><div class="kpi-val c-orange" id="ck-pendientes">—</div><div class="kpi-sub">por enviar al proveedor</div></div>
@@ -550,48 +571,35 @@
           <div class="kpi-card"><div class="kpi-label">Entregados</div><div class="kpi-val c-green" id="ck-entregados">—</div><div class="kpi-sub">este mes</div></div>
         </div>
 
-        <!-- Nuevo pedido -->
+        <!-- Picker de productos + formulario -->
         <div class="section-box">
-          <div class="section-hd"><span class="section-title">Nuevo pedido a proveedor</span></div>
-          <form class="compras-form" id="compras-form" onsubmit="submitCompra(event)">
-            <div class="compras-form-grid">
-              <div class="form-group">
-                <label class="form-label">Proveedor *</label>
-                <input type="text" class="form-input" id="cf-proveedor" placeholder="Ej: La Salteña" required />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Producto *</label>
-                <input type="text" class="form-input" id="cf-producto" placeholder="Ej: Muzarella" required />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Cantidad *</label>
-                <input type="number" class="form-input" id="cf-cantidad" placeholder="Ej: 10" min="0.01" step="any" required />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Unidad</label>
-                <select class="form-input" id="cf-unidad">
-                  <option>kg</option>
-                  <option>unidades</option>
-                  <option>litros</option>
-                  <option>cajas</option>
-                  <option>bolsas</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Precio unit. (opcional)</label>
-                <input type="number" class="form-input" id="cf-precio" placeholder="Ej: 2500" min="0" step="any" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Fecha entrega estimada</label>
-                <input type="date" class="form-input" id="cf-fecha" />
-              </div>
-              <div class="form-group form-group-full">
-                <label class="form-label">Notas (opcional)</label>
-                <input type="text" class="form-input" id="cf-notas" placeholder="Ej: Confirmar precio antes de enviar" />
-              </div>
+          <div class="section-hd"><span class="section-title">Nuevo pedido — seleccioná los productos</span></div>
+          <div id="cp-picker"><!-- renderizado por JS --></div>
+
+          <!-- Resumen del carrito -->
+          <div id="cp-cart-box" class="cp-cart-box" style="display:none">
+            <div class="cp-cart-hd">Resumen del pedido</div>
+            <div id="cp-cart-items"></div>
+          </div>
+
+          <!-- Detalles del pedido -->
+          <div class="cp-order-form">
+            <div class="form-group">
+              <label class="form-label">Proveedor *</label>
+              <input type="text" class="form-input" id="cf-proveedor" placeholder="Ej: La Salteña" />
             </div>
-            <button type="submit" class="btn-compra-submit" id="btn-compra-submit">+ Agregar pedido</button>
-          </form>
+            <div class="form-group">
+              <label class="form-label">Fecha entrega estimada</label>
+              <input type="date" class="form-input" id="cf-fecha" />
+            </div>
+            <div class="form-group form-group-full">
+              <label class="form-label">Notas (opcional)</label>
+              <input type="text" class="form-input" id="cf-notas" placeholder="Ej: Confirmar precio antes de enviar" />
+            </div>
+          </div>
+          <button class="btn-compra-submit" id="btn-compra-submit" onclick="submitCompraLote()" disabled>
+            Seleccioná productos para armar el pedido
+          </button>
         </div>
 
         <!-- Historial -->
@@ -603,8 +611,8 @@
           <div id="compras-loading" style="display:none" class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando...</div></div>
           <div class="table-wrap" id="compras-table-wrap">
             <table>
-              <thead><tr><th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Estado</th><th>Notas</th><th>Entrega est.</th></tr></thead>
-              <tbody id="compras-tbody"><tr><td colspan="9" class="no-data">—</td></tr></tbody>
+              <thead><tr><th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Estado</th><th>Notas</th><th>Entrega est.</th></tr></thead>
+              <tbody id="compras-tbody"><tr><td colspan="7" class="no-data">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1181,7 +1189,138 @@ function renderStock() {
 }
 
 // ── COMPRAS ───────────────────────────────────────────────────────
+const COMPRAS_PRODUCTOS = [
+  { cat: '🍕 Pizzas', items: [
+    { id: 'p1',  nombre: 'Pizza Margarita',            unidad: 'unidades' },
+    { id: 'p2',  nombre: 'Pizza Jamón y Queso',        unidad: 'unidades' },
+    { id: 'p3',  nombre: 'Pizza Cebolla Caramelizada', unidad: 'unidades' },
+    { id: 'p4',  nombre: 'Pizza Jamón y Morrón',       unidad: 'unidades' },
+  ]},
+  { cat: '📦 Packs', items: [
+    { id: 'pp1', nombre: 'Pack x2 Muzzarella',         unidad: 'packs' },
+    { id: 'pp2', nombre: 'Pack x2 Jamón y Queso',      unidad: 'packs' },
+    { id: 'pp3', nombre: 'Pack x2 Cebolla y Queso',    unidad: 'packs' },
+  ]},
+  { cat: '🥟 Sorrentinos', items: [
+    { id: 's1',  nombre: 'Sorrentinos Cordero',        unidad: 'docenas' },
+    { id: 's2',  nombre: 'Sorrentinos Jamón y Queso',  unidad: 'docenas' },
+    { id: 's3',  nombre: 'Sorrentinos Calabaza',       unidad: 'docenas' },
+  ]},
+  { cat: '🥐 Empanadas', items: [
+    { id: 'e1',  nombre: 'Empanadas Carne a Cuchillo', unidad: 'docenas' },
+    { id: 'e2',  nombre: 'Empanadas Jamón y Queso',    unidad: 'docenas' },
+  ]},
+  { cat: '🍰 Dulces', items: [
+    { id: 'd1',  nombre: 'Pote de Franui',             unidad: 'unidades' },
+    { id: 'd2',  nombre: 'Torta Golosa',               unidad: 'unidades' },
+    { id: 'd3',  nombre: 'Torta Lemon Crumble',        unidad: 'unidades' },
+    { id: 'd4',  nombre: 'Torta Coco',                 unidad: 'unidades' },
+  ]},
+];
+
+let comprasCart = {}, cpPickerReady = false;
+
+function cpAllItems() { return COMPRAS_PRODUCTOS.flatMap(c => c.items); }
+function cpItem(id)    { return cpAllItems().find(p => p.id === id); }
+
+function renderCpPicker() {
+  document.getElementById('cp-picker').innerHTML = COMPRAS_PRODUCTOS.map(({ cat, items }) => `
+    <div class="cp-section-label">${cat}</div>
+    <div class="cp-grid">
+      ${items.map(({ id, nombre }) => `
+        <div class="cp-card" id="cpc-${id}" onclick="cpCardClick('${id}')">
+          <div class="cp-card-name">${nombre}</div>
+          <div class="cp-card-controls" id="cpc-ctrl-${id}">
+            <button class="cp-qty-btn" onclick="event.stopPropagation();cpChangeQty('${id}',-1)">−</button>
+            <span class="cp-qty-num" id="cpc-qty-${id}">0</span>
+            <button class="cp-qty-btn" onclick="event.stopPropagation();cpChangeQty('${id}',+1)">+</button>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+  cpPickerReady = true;
+}
+
+function cpCardClick(id) { if (!(comprasCart[id] > 0)) cpChangeQty(id, 1); }
+
+function cpChangeQty(id, delta) {
+  const next = Math.max(0, (comprasCart[id] || 0) + delta);
+  if (next === 0) delete comprasCart[id]; else comprasCart[id] = next;
+  cpUpdateCard(id);
+  cpUpdateSummary();
+}
+
+function cpUpdateCard(id) {
+  const qty  = comprasCart[id] || 0;
+  const card = document.getElementById(`cpc-${id}`);
+  const ctrl = document.getElementById(`cpc-ctrl-${id}`);
+  const qnum = document.getElementById(`cpc-qty-${id}`);
+  if (!card) return;
+  qnum.textContent = qty;
+  card.classList.toggle('cp-selected', qty > 0);
+  ctrl.classList.toggle('cp-vis', qty > 0);
+}
+
+function cpUpdateSummary() {
+  const sel   = Object.entries(comprasCart).filter(([,q]) => q > 0);
+  const boxEl = document.getElementById('cp-cart-box');
+  const btn   = document.getElementById('btn-compra-submit');
+
+  if (!sel.length) {
+    boxEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Seleccioná productos para armar el pedido';
+    return;
+  }
+
+  boxEl.style.display = 'block';
+  document.getElementById('cp-cart-items').innerHTML = sel.map(([id, qty]) => {
+    const p = cpItem(id);
+    return `<div class="cp-cart-row"><span>${p.nombre}</span><span class="cp-cart-qty">${qty} ${p.unidad}</span></div>`;
+  }).join('');
+
+  const nProd = sel.length;
+  const nUni  = sel.reduce((s,[,q]) => s+q, 0);
+  btn.disabled = false;
+  btn.textContent = `Enviar pedido · ${nProd} producto${nProd!==1?'s':''} · ${nUni} ${nUni!==1?'unidades':'unidad'}`;
+}
+
+async function submitCompraLote() {
+  const sel = Object.entries(comprasCart).filter(([,q]) => q > 0);
+  if (!sel.length) return;
+  const proveedor = (document.getElementById('cf-proveedor').value || '').trim();
+  if (!proveedor) { document.getElementById('cf-proveedor').focus(); return; }
+
+  const btn = document.getElementById('btn-compra-submit');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const payload = {
+    action:    'compraLote',
+    proveedor,
+    items:     sel.map(([id, qty]) => { const p = cpItem(id); return { producto: p.nombre, cantidad: qty, unidad: p.unidad }; }),
+    notas:     document.getElementById('cf-notas').value.trim(),
+    fecha:     document.getElementById('cf-fecha').value,
+  };
+
+  try {
+    await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    // Reset cart
+    comprasCart = {};
+    cpAllItems().forEach(p => cpUpdateCard(p.id));
+    cpUpdateSummary();
+    document.getElementById('cf-proveedor').value = '';
+    document.getElementById('cf-notas').value     = '';
+    document.getElementById('cf-fecha').value     = '';
+    setTimeout(loadCompras, 1800);
+  } catch(err) {
+    console.error(err);
+    alert('Error al enviar. Intentá de nuevo.');
+    cpUpdateSummary(); // restore button
+  }
+}
+
 async function loadCompras() {
+  if (!cpPickerReady) renderCpPicker();
   document.getElementById('compras-loading').style.display = 'block';
   document.getElementById('compras-table-wrap').style.display = 'none';
   try {
@@ -1190,7 +1329,7 @@ async function loadCompras() {
     renderComprasUI();
   } catch(err) {
     console.error('Error cargando compras:', err);
-    document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="9" class="no-data">Error al cargar · verificá la conexión</td></tr>';
+    document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="7" class="no-data">Error al cargar · verificá la conexión</td></tr>';
   } finally {
     document.getElementById('compras-loading').style.display = 'none';
     document.getElementById('compras-table-wrap').style.display = 'block';
@@ -1201,29 +1340,22 @@ function renderComprasUI() {
   const now    = new Date();
   const mesKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
-  const pendientes = compras.filter(c => c['Estado'] === 'Pendiente').length;
-  const pedidosC   = compras.filter(c => c['Estado'] === 'Pedido').length;
-  const entregados = compras.filter(c => {
+  document.getElementById('ck-pendientes').textContent = compras.filter(c => c['Estado']==='Pendiente').length;
+  document.getElementById('ck-pedidos').textContent    = compras.filter(c => c['Estado']==='Pedido').length;
+  document.getElementById('ck-entregados').textContent = compras.filter(c => {
     if (c['Estado'] !== 'Entregado') return false;
     const d = parseDate(c['Fecha']);
     return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey;
   }).length;
 
-  document.getElementById('ck-pendientes').textContent = pendientes;
-  document.getElementById('ck-pedidos').textContent    = pedidosC;
-  document.getElementById('ck-entregados').textContent = entregados;
-
   const tbody = document.getElementById('compras-tbody');
   if (!compras.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="no-data">Sin pedidos registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="no-data">Sin pedidos registrados aún</td></tr>';
     return;
   }
-
   tbody.innerHTML = [...compras].reverse().map(c => {
     const est      = c['Estado'] || 'Pendiente';
-    const estClass = est === 'Entregado' ? 'est-entregado' : est === 'Pedido' ? 'est-pedido' : 'est-pendiente';
-    const precio   = parseFloat(String(c['Precio unit.']).replace(/[$\s]/g,'').replace(',','.')) || 0;
-    const total    = parseFloat(String(c['Total']).replace(/[$\s]/g,'').replace(',','.')) || 0;
+    const estClass = est==='Entregado' ? 'est-entregado' : est==='Pedido' ? 'est-pedido' : 'est-pendiente';
     const id       = c['ID'] || '';
     return `
     <tr>
@@ -1231,75 +1363,23 @@ function renderComprasUI() {
       <td><strong>${c['Proveedor']||''}</strong></td>
       <td>${c['Producto']||''}</td>
       <td>${c['Cantidad']||''} ${c['Unidad']||''}</td>
-      <td>${precio ? ars(precio) : '—'}</td>
-      <td>${total ? ars(total) : '—'}</td>
-      <td>
-        <select class="estado-compra-select ${estClass}" data-id="${id}" onchange="updateEstadoCompra(this)">
-          <option${est==='Pendiente'?' selected':''}>Pendiente</option>
-          <option${est==='Pedido'?' selected':''}>Pedido</option>
-          <option${est==='Entregado'?' selected':''}>Entregado</option>
-        </select>
-      </td>
+      <td><select class="estado-compra-select ${estClass}" data-id="${id}" onchange="updateEstadoCompra(this)">
+        <option${est==='Pendiente'?' selected':''}>Pendiente</option>
+        <option${est==='Pedido'?' selected':''}>Pedido</option>
+        <option${est==='Entregado'?' selected':''}>Entregado</option>
+      </select></td>
       <td style="color:#a08060;font-size:.78rem">${c['Notas']||''}</td>
       <td style="font-size:.78rem">${c['Fecha entrega']||'—'}</td>
     </tr>`;
   }).join('');
 }
 
-async function submitCompra(evt) {
-  evt.preventDefault();
-  const btn = document.getElementById('btn-compra-submit');
-  btn.disabled = true;
-  btn.textContent = 'Guardando...';
-
-  const cantidad = parseFloat(document.getElementById('cf-cantidad').value) || 0;
-  const precio   = parseFloat(document.getElementById('cf-precio').value)   || 0;
-
-  const payload = {
-    action:    'compra',
-    proveedor: document.getElementById('cf-proveedor').value.trim(),
-    producto:  document.getElementById('cf-producto').value.trim(),
-    cantidad,
-    unidad:    document.getElementById('cf-unidad').value,
-    precio,
-    notas:     document.getElementById('cf-notas').value.trim(),
-    fecha:     document.getElementById('cf-fecha').value,
-  };
-
-  try {
-    await fetch(APPS_SCRIPT_URL, {
-      method:  'POST',
-      mode:    'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
-    });
-    document.getElementById('compras-form').reset();
-    setTimeout(loadCompras, 1800);
-  } catch(err) {
-    console.error(err);
-    alert('Error al guardar. Intentá de nuevo.');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '+ Agregar pedido';
-  }
-}
-
 function updateEstadoCompra(sel) {
-  const id      = sel.dataset.id;
-  const estado  = sel.value;
-  const estClass = estado === 'Entregado' ? 'est-entregado' : estado === 'Pedido' ? 'est-pedido' : 'est-pendiente';
-
-  // Optimistic UI
-  sel.className = `estado-compra-select ${estClass}`;
-
-  fetch(APPS_SCRIPT_URL, {
-    method:  'POST',
-    mode:    'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ action: 'updateCompra', id, estado }),
-  });
-
-  // Update local state + re-render KPIs
+  const id       = sel.dataset.id;
+  const estado   = sel.value;
+  const estClass = estado==='Entregado' ? 'est-entregado' : estado==='Pedido' ? 'est-pedido' : 'est-pendiente';
+  sel.className  = `estado-compra-select ${estClass}`;
+  fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateCompra',id,estado}) });
   const c = compras.find(c => c['ID'] === id);
   if (c) { c['Estado'] = estado; renderComprasUI(); }
 }

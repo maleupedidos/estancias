@@ -61,6 +61,7 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.action === 'compra')       return _doPostCompra(data);
+    if (data.action === 'compraLote')  return _doPostCompraLote(data);
     if (data.action === 'updateCompra') return _doUpdateCompra(data);
     return _doPostPedido(data);
   } catch(err) {
@@ -152,6 +153,38 @@ function _doPostCompra(data) {
 
   return ContentService
     .createTextOutput(JSON.stringify({ ok: true, id }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doPostCompraLote(data) {
+  const sh = SS.getSheetByName('Pedidos_Proveedores');
+  if (!sh) throw new Error('Hoja Pedidos_Proveedores no encontrada. Ejecutá setupSheets().');
+
+  const ahora     = new Date();
+  const loteId    = 'C-' + ahora.getTime();
+  const fecha     = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+  const items     = data.items || [];
+
+  items.forEach((item, i) => {
+    const id  = loteId + (items.length > 1 ? '-' + (i + 1) : '');
+    const qty = parseFloat(item.cantidad) || 0;
+    sh.appendRow([
+      id,
+      fecha,
+      data.proveedor || '',
+      item.producto  || '',
+      qty,
+      item.unidad    || '',
+      '',            // Precio unit. (vacío por ahora)
+      '',            // Total
+      'Pendiente',
+      data.notas     || '',
+      data.fecha     || ''
+    ]);
+  });
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: true, id: loteId, count: items.length }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
