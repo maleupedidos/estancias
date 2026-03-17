@@ -51,6 +51,8 @@ function doPost(e) {
     ]);
 
     // Hoja Detalle_Pedidos + reservar stock
+    // Clubes es por encargo: NO toca el stock del depósito
+    const esClub     = String(data.barrio || '').startsWith('Club-');
     const hDetalle   = SS.getSheetByName('Detalle_Pedidos');
     const hProductos = SS.getSheetByName('Productos');
     const prodData   = hProductos.getDataRange().getValues();
@@ -61,11 +63,13 @@ function doPost(e) {
         item.qty * item.precio
       ]);
 
-      for (let r = 1; r < prodData.length; r++) {
-        if (prodData[r][0] === item.id) {
-          const cell = hProductos.getRange(r + 1, 4);
-          cell.setValue((cell.getValue() || 0) + item.qty);
-          break;
+      if (!esClub) {
+        for (let r = 1; r < prodData.length; r++) {
+          if (prodData[r][0] === item.id) {
+            const cell = hProductos.getRange(r + 1, 4);
+            cell.setValue((cell.getValue() || 0) + item.qty);
+            break;
+          }
         }
       }
     });
@@ -95,30 +99,34 @@ function onEdit(e) {
   if (nuevoEstado !== 'entregado' && nuevoEstado !== 'cancelado') return;
 
   const idPedido   = sheet.getRange(e.range.getRow(), 1).getValue();
+  const barrio     = sheet.getRange(e.range.getRow(), 4).getValue(); // col 4 = Barrio
+  const esClub     = String(barrio).startsWith('Club-'); // Clubes no toca stock
   const hDetalle   = SS.getSheetByName('Detalle_Pedidos');
   const hProductos = SS.getSheetByName('Productos');
   const detalleData = hDetalle.getDataRange().getValues();
   const prodData    = hProductos.getDataRange().getValues();
 
-  detalleData.slice(1).forEach(row => {
-    if (row[0] !== idPedido) return;
-    const idProd = row[1];
-    const qty    = row[3];
+  if (!esClub) {
+    detalleData.slice(1).forEach(row => {
+      if (row[0] !== idPedido) return;
+      const idProd = row[1];
+      const qty    = row[3];
 
-    for (let r = 1; r < prodData.length; r++) {
-      if (prodData[r][0] === idProd) {
-        const celdaRes = hProductos.getRange(r + 1, 4);
-        const celdaFis = hProductos.getRange(r + 1, 3);
-        if (nuevoEstado === 'entregado') {
-          celdaFis.setValue(Math.max(0, celdaFis.getValue() - qty));
-          celdaRes.setValue(Math.max(0, celdaRes.getValue() - qty));
-        } else {
-          celdaRes.setValue(Math.max(0, celdaRes.getValue() - qty));
+      for (let r = 1; r < prodData.length; r++) {
+        if (prodData[r][0] === idProd) {
+          const celdaRes = hProductos.getRange(r + 1, 4);
+          const celdaFis = hProductos.getRange(r + 1, 3);
+          if (nuevoEstado === 'entregado') {
+            celdaFis.setValue(Math.max(0, celdaFis.getValue() - qty));
+            celdaRes.setValue(Math.max(0, celdaRes.getValue() - qty));
+          } else {
+            celdaRes.setValue(Math.max(0, celdaRes.getValue() - qty));
+          }
+          break;
         }
-        break;
       }
-    }
-  });
+    });
+  }
 
   // Cancelado: eliminar filas del Detalle (de abajo hacia arriba para no correr índices)
   if (nuevoEstado === 'cancelado') {
