@@ -593,6 +593,22 @@
     .add-btn:disabled { background: #d0ccc8; color: #888; cursor: not-allowed; box-shadow: none; transform: none !important; }
     .add-btn:disabled:hover { background: #d0ccc8; box-shadow: none; }
     .card-qty-btn:disabled { opacity: .3; cursor: not-allowed; pointer-events: none; }
+
+    /* PRODUCT CHIPS — info de porción, cantidad y preparación */
+    .product-chips {
+      display: flex; flex-wrap: wrap; gap: .28rem;
+      margin-top: -.1rem; margin-bottom: .75rem;
+    }
+    .chip {
+      display: inline-flex; align-items: center;
+      background: var(--cream); color: var(--brown-mid);
+      border-radius: 50px; font-size: .62rem; font-weight: 700;
+      padding: .18rem .52rem; white-space: nowrap; letter-spacing: .01em;
+    }
+    /* El último chip (preparación) tiene tono levemente distinto para destacar */
+    .chip-prep {
+      background: #e8f5e8; color: #2d6a2d;
+    }
   </style>
 </head>
 <body>
@@ -784,26 +800,47 @@
    Campos: id, cat, nombre, desc, precio, img, emoji, bg
    ══════════════════════════════════════════════════ */
 const PRODUCTOS = [
-  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.", precio:11000, img:"pizza-margarita-cocida.jpg",    imgPack:"pizza-margarita.jpg",    emoji:"🍕", bg:"#FFF3E8", top:true },
-  { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.", precio:11000, img:"pizza-jamon-queso-p.jpg",                                        emoji:"🍕", bg:"#FDF0F0" },
-  { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.", precio:11000, img:"pizza-cebolla-cocida.jpg",      imgPack:"pizza-cebolla-p.jpg",    emoji:"🍕", bg:"#FBF0E8" },
-  { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.", precio:12000,   img:"pizza-jamon-morron-cocida.jpg", imgPack:"pizza-jamon-morron.jpg", emoji:"🍕", bg:"#F5F0FA" },
+  // ── PIZZAS PREMIUM (individuales) ───────────────────────────────────────
+  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.",                        precio:11000, img:"pizza-margarita-cocida.jpg",    imgPack:"pizza-margarita.jpg",    emoji:"🍕", bg:"#FFF3E8", top:true,
+    chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
+  { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.",                        precio:11000, img:"pizza-jamon-queso-p.jpg",                                        emoji:"🍕", bg:"#FDF0F0",
+    chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
+  { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.",                       precio:11000, img:"pizza-cebolla-cocida.jpg",      imgPack:"pizza-cebolla-p.jpg",    emoji:"🍕", bg:"#FBF0E8",
+    chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
+  { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.",                           precio:12000, img:"pizza-jamon-morron-cocida.jpg", imgPack:"pizza-jamon-morron.jpg", emoji:"🍕", bg:"#F5F0FA",
+    chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
 
-  { id:5,  cat:"Pizzas Clásicas",   nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.", precio:16000,    img:"pack-muzarella-cocida.jpg",    imgPos:"center 40%", imgPack:"pack-muzarella.jpg",    emoji:"🍕", bg:"#FFF8E6", top:true },
-  { id:6,  cat:"Pizzas Clásicas",   nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.", precio:16000, img:"pack-jamon-queso-cocida.jpg",  imgPos:"center 45%", imgPack:"pack-jamon-queso.jpg",  emoji:"🍕", bg:"#F0F7EE" },
-  { id:7,  cat:"Pizzas Clásicas",   nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.", precio:16000,     img:"pack-cebolla-queso-cocida.jpg", imgPos:"center 50%", imgPack:"pack-cebolla-queso.jpg", emoji:"🍕", bg:"#EEF3F8" },
+  // ── PIZZAS CLÁSICAS (pack x2) ───────────────────────────────────────────
+  { id:5,  cat:"Pizzas Clásicas",   nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.",                   precio:16000, img:"pack-muzarella-cocida.jpg",    imgPos:"center 40%", imgPack:"pack-muzarella.jpg",    emoji:"🍕", bg:"#FFF8E6", top:true,
+    chips:["Para 3–4 personas", "2 pizzas grandes", "Al horno en 12 min"] },
+  { id:6,  cat:"Pizzas Clásicas",   nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.",             precio:16000, img:"pack-jamon-queso-cocida.jpg",  imgPos:"center 45%", imgPack:"pack-jamon-queso.jpg",  emoji:"🍕", bg:"#F0F7EE",
+    chips:["Para 3–4 personas", "2 pizzas grandes", "Al horno en 12 min"] },
+  { id:7,  cat:"Pizzas Clásicas",   nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.",                   precio:16000, img:"pack-cebolla-queso-cocida.jpg", imgPos:"center 50%", imgPack:"pack-cebolla-queso.jpg", emoji:"🍕", bg:"#EEF3F8",
+    chips:["Para 3–4 personas", "2 pizzas grandes", "Al horno en 12 min"] },
 
-  { id:8,  cat:"Sorrentinos",       nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.", precio:17500, img:"sorrentinos-plato.jpg", imgPos:"center 62%", imgPack:"sorrentinos-cordero.jpg", emoji:"🍝", bg:"#1c1210" },
-  { id:9,  cat:"Sorrentinos",       nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.", precio:16300,            img:"sorrentinos-plato.jpg", imgPos:"center 62%", imgPack:"sorrentinos-jamon.jpg",   emoji:"🍝", bg:"#1c1210", top:true },
-  { id:10, cat:"Sorrentinos",       nombre:"Sorrentinos Calabaza y Queso",  desc:"Suave, dulce y sabroso. Relleno cremoso de calabaza y queso.", precio:14700,       img:"sorrentinos-plato.jpg", imgPos:"center 62%", imgPack:"sorrentinos-calabaza.jpg",emoji:"🍝", bg:"#1c1210" },
+  // ── SORRENTINOS ─────────────────────────────────────────────────────────
+  { id:8,  cat:"Sorrentinos",       nombre:"Sorrentinos Cordero al Malbec", desc:"Cordero, zanahoria, apio, cebolla y especias. Distinto y muy rico.",             precio:17500, img:"sorrentinos-plato.jpg", imgPos:"center 62%", imgPack:"sorrentinos-cordero.jpg", emoji:"🍝", bg:"#1c1210",
+    chips:["Para 2–3 personas", "600g · 16 unidades", "Listos en 4 min"] },
+  { id:9,  cat:"Sorrentinos",       nombre:"Sorrentinos Jamón y Queso",     desc:"Relleno cremoso y generoso. El favorito de la familia.",                         precio:16300, img:"sorrentinos-plato.jpg", imgPos:"center 62%", imgPack:"sorrentinos-jamon.jpg",   emoji:"🍝", bg:"#1c1210", top:true,
+    chips:["Para 2–3 personas", "600g · 16 unidades", "Listos en 4 min"] },
+  { id:10, cat:"Sorrentinos",       nombre:"Sorrentinos Calabaza y Queso",  desc:"Suave, dulce y sabroso. Relleno cremoso de calabaza y queso.",                   precio:14700, img:"sorrentinos-plato.jpg", imgPos:"center 62%", imgPack:"sorrentinos-calabaza.jpg",emoji:"🍝", bg:"#1c1210",
+    chips:["Para 2–3 personas", "600g · 16 unidades", "Listos en 4 min"] },
 
-  { id:11, cat:"Empanadas",         nombre:"Empanadas Carne a Cuchillo x8", desc:"Carne cortada a cuchillo, jugosa y bien condimentada. Las que piden todos.", precio:18800, img:"empanadas-cocidas.jpg", imgPack:"empanadas-carne.jpg", emoji:"🥟", bg:"#2a1a0a", top:true },
-  { id:12, cat:"Empanadas",         nombre:"Empanadas Jamón y Queso x8",    desc:"Cremosas por dentro, doraditas por fuera. Para cualquier momento.", precio:15000,         img:"empanadas-cocidas.jpg", imgPack:"empanadas-jamon.jpg", emoji:"🥟", bg:"#2a1a0a" },
+  // ── EMPANADAS ────────────────────────────────────────────────────────────
+  { id:11, cat:"Empanadas",         nombre:"Empanadas Carne a Cuchillo x8", desc:"Carne cortada a cuchillo, jugosa y bien condimentada. Las que piden todos.",     precio:18800, img:"empanadas-cocidas.jpg", imgPack:"empanadas-carne.jpg", emoji:"🥟", bg:"#2a1a0a", top:true,
+    chips:["Para 2–4 personas", "8 empanadas", "Al horno hasta dorar"] },
+  { id:12, cat:"Empanadas",         nombre:"Empanadas Jamón y Queso x8",    desc:"Cremosas por dentro, doraditas por fuera. Para cualquier momento.",              precio:15000, img:"empanadas-cocidas.jpg", imgPack:"empanadas-jamon.jpg", emoji:"🥟", bg:"#2a1a0a",
+    chips:["Para 2–4 personas", "8 empanadas", "Al horno hasta dorar"] },
 
-  { id:13, cat:"Postres & Tortas",  nombre:"Franui Leche",                  desc:"Frambuesas bañadas en chocolate con leche y blanco. El cierre perfecto.", precio:8000, img:"franui.jpg", emoji:"🍫", bg:"#FDF0F0" },
-  { id:14, cat:"Postres & Tortas",  nombre:"Torta Golosa",                  desc:"Masa de chocolate, dulce de leche, mousse de chocolate y almendras acarameladas.", precio:24000, img:"torta-golosa.png", emoji:"🎂", bg:"#FBF0E8" },
-  { id:15, cat:"Postres & Tortas",  nombre:"Torta Lemon Crumble",           desc:"Base sablée, relleno de limón y crumble crocante espolvoreado.", precio:24000, img:"torta-lemon.png", emoji:"🎂", bg:"#FFFFF0" },
-  { id:16, cat:"Postres & Tortas",  nombre:"Torta Coco",                    desc:"Base crocante, dulce de leche y relleno de coco. Generosa y sin vueltas.", precio:24000, img:"torta-coco.png", emoji:"🎂", bg:"#F5F0FA" }
+  // ── POSTRES & TORTAS ─────────────────────────────────────────────────────
+  { id:13, cat:"Postres & Tortas",  nombre:"Franui Leche",                  desc:"Frambuesas bañadas en chocolate con leche y blanco. El cierre perfecto.",        precio:8000,  img:"franui.jpg", emoji:"🍫", bg:"#FDF0F0",
+    chips:["Para 2–3 personas", "Listo para servir"] },
+  { id:14, cat:"Postres & Tortas",  nombre:"Torta Golosa",                  desc:"Masa de chocolate, dulce de leche, mousse de chocolate y almendras acarameladas.", precio:24000, img:"torta-golosa.png", emoji:"🎂", bg:"#FBF0E8",
+    chips:["Para 8–10 personas", "Torta entera", "Lista para cortar y servir"] },
+  { id:15, cat:"Postres & Tortas",  nombre:"Torta Lemon Crumble",           desc:"Base sablée, relleno de limón y crumble crocante espolvoreado.",                 precio:24000, img:"torta-lemon.png", emoji:"🎂", bg:"#FFFFF0",
+    chips:["Para 8–10 personas", "Torta entera", "Lista para cortar y servir"] },
+  { id:16, cat:"Postres & Tortas",  nombre:"Torta Coco",                    desc:"Base crocante, dulce de leche y relleno de coco. Generosa y sin vueltas.",       precio:24000, img:"torta-coco.png", emoji:"🎂", bg:"#F5F0FA",
+    chips:["Para 8–10 personas", "Torta entera", "Lista para cortar y servir"] },
 ];
 
 /* ══════════════════════════════════════════════════
@@ -861,6 +898,7 @@ function renderCatalog(){
                 ${p.top ? '<span class="product-top-badge">⭐ Lo más pedido</span>' : ''}
                 <h3 class="product-name">${p.nombre}</h3>
                 <p class="product-desc">${p.desc}</p>
+                ${p.chips?.length ? `<div class="product-chips">${p.chips.map((c,i,a) => `<span class="chip${i===a.length-1?' chip-prep':''}">${c}</span>`).join('')}</div>` : ''}
                 <span class="stock-indicator" id="stock-${p.id}"></span>
                 <div class="product-footer">
                   <span class="product-price">${ars(p.precio)}</span>
