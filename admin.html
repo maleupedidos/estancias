@@ -6,16 +6,16 @@
   <title>Maleu · Admin</title>
   <meta name="robots" content="noindex, nofollow" />
   <link rel="icon" href="img/favicon.png" />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --brown:  #2A1208;
-      --orange: #E8744A;
-      --cream:  #EDE8D4;
-      --bg:     #F0EBE3;
+      --brown:  #331C1C;
+      --orange: #F07D47;
+      --cream:  #F2E8C7;
+      --bg:     #F5F0E8;
       --white:  #FFFFFF;
-      --font:   'Plus Jakarta Sans', system-ui, sans-serif;
+      --font:   'Montserrat', system-ui, sans-serif;
       --sw: 200px;
       --th: 56px;
     }
@@ -29,7 +29,7 @@
     .gate-logo img { height:52px; width:auto; }
     .gate-sub  { font-size:.75rem; color:#999; margin-top:.3rem; margin-bottom:2rem; letter-spacing:.05em; text-transform:uppercase; }
     .gate-input { width:100%; padding:.9rem 1rem; border:2px solid #eee; border-radius:12px; font-family:var(--font); font-size:1.1rem; text-align:center; letter-spacing:.25em; outline:none; margin-bottom:1rem; transition:border-color .15s; }
-    .gate-input:focus { border-color:var(--orange); box-shadow:0 0 0 4px rgba(232,116,74,.1); }
+    .gate-input:focus { border-color:var(--orange); box-shadow:0 0 0 4px rgba(240,125,71,.1); }
     .gate-btn { width:100%; background:var(--orange); color:#fff; border:none; border-radius:12px; padding:.9rem; font-family:var(--font); font-size:1rem; font-weight:700; cursor:pointer; transition:background .15s; }
     .gate-btn:hover { background:#e05e20; }
     .gate-error { color:#e53935; font-size:.78rem; margin-top:.7rem; display:none; }
@@ -55,7 +55,7 @@
     .sidebar { position:fixed; left:0; top:var(--th); bottom:0; width:var(--sw); background:var(--brown); display:flex; flex-direction:column; padding:1.25rem 0; overflow-y:auto; z-index:50; }
     .nav-item { display:flex; align-items:center; gap:.8rem; padding:.82rem 1.4rem; cursor:pointer; background:transparent; border:none; color:rgba(255,255,255,.45); font-family:var(--font); font-size:.88rem; font-weight:600; text-align:left; transition:color .15s, background .15s; width:100%; border-left:3px solid transparent; }
     .nav-item:hover { color:rgba(255,255,255,.85); background:rgba(255,255,255,.06); }
-    .nav-item.active { color:#fff; background:rgba(232,116,74,.15); border-left-color:var(--orange); }
+    .nav-item.active { color:#fff; background:rgba(240,125,71,.15); border-left-color:var(--orange); }
     .nav-icon { font-size:1.1rem; flex-shrink:0; }
     .nav-spacer { flex:1; }
     .nav-divider { height:1px; background:rgba(255,255,255,.08); margin:.65rem 1.25rem; }
@@ -71,7 +71,7 @@
 
     /* KPI CARDS */
     .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:.85rem; margin-bottom:1.4rem; }
-    .kpi-card { background:var(--white); border-radius:16px; padding:1.2rem 1.3rem; box-shadow:0 1px 8px rgba(42,18,8,.07); }
+    .kpi-card { background:var(--white); border-radius:16px; padding:1.2rem 1.3rem; box-shadow:0 1px 8px rgba(51,28,28,.07); }
     .kpi-label { font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#b09880; margin-bottom:.55rem; }
     .kpi-val   { font-size:2rem; font-weight:800; line-height:1; letter-spacing:-.03em; }
     .kpi-sub   { font-size:.67rem; color:#c0a888; margin-top:.4rem; }
@@ -82,7 +82,7 @@
     .c-red    { color:#E74C3C; }
 
     /* SECTION BOX */
-    .section-box { background:var(--white); border-radius:16px; padding:1.35rem 1.5rem; box-shadow:0 1px 8px rgba(42,18,8,.07); margin-bottom:1.2rem; }
+    .section-box { background:var(--white); border-radius:16px; padding:1.35rem 1.5rem; box-shadow:0 1px 8px rgba(51,28,28,.07); margin-bottom:1.2rem; }
     .section-hd  { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
     .section-title { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); }
     .section-badge { font-size:.72rem; font-weight:700; background:#f2ede6; color:#a08060; padding:.2rem .65rem; border-radius:50px; }
@@ -106,7 +106,7 @@
     .filter-input, .filter-select { padding:.52rem .9rem; border:1.5px solid #ede5db; border-radius:9px; font-family:var(--font); font-size:.82rem; color:var(--brown); background:#fff; outline:none; transition:border-color .15s; appearance:none; }
     .filter-input  { flex:1; min-width:180px; }
     .filter-select { min-width:148px; }
-    .filter-input:focus, .filter-select:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(232,116,74,.1); }
+    .filter-input:focus, .filter-select:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(240,125,71,.1); }
     .table-wrap { overflow-x:auto; border-radius:10px; border:1.5px solid #ede5db; }
     table { width:100%; border-collapse:collapse; font-size:.82rem; }
     thead tr { background:var(--brown); }
@@ -121,7 +121,7 @@
     .entrega-banner { background:linear-gradient(135deg,var(--brown) 0%,#5a2c12 100%); border-radius:18px; padding:1.5rem 1.75rem; margin-bottom:1.2rem; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
     .entrega-day  { font-size:1.55rem; font-weight:800; letter-spacing:-.02em; display:flex; align-items:center; gap:.65rem; }
     .entrega-date { font-size:.83rem; color:rgba(255,255,255,.55); margin-top:.2rem; }
-    .entrega-horario { background:rgba(232,116,74,.2); border:1px solid rgba(232,116,74,.4); color:var(--orange); border-radius:10px; padding:.5rem 1rem; font-size:.82rem; font-weight:700; }
+    .entrega-horario { background:rgba(240,125,71,.2); border:1px solid rgba(240,125,71,.4); color:var(--orange); border-radius:10px; padding:.5rem 1rem; font-size:.82rem; font-weight:700; }
     .tag-hoy { background:var(--orange); color:#fff; font-size:.62rem; font-weight:800; padding:.22rem .6rem; border-radius:50px; text-transform:uppercase; letter-spacing:.06em; }
     .barrio-group { margin-bottom:.85rem; }
     .barrio-header { display:flex; align-items:center; justify-content:space-between; padding:.52rem .85rem; background:#f7f2eb; border-radius:9px; font-weight:700; font-size:.82rem; margin-bottom:.4rem; }
@@ -136,7 +136,7 @@
     .stock-section-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#b09880; margin:1.25rem 0 .75rem; }
     .stock-section-label:first-child { margin-top:0; }
     .stock-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.75rem; }
-    .stock-card { background:#fff; border-radius:14px; padding:1rem 1.15rem; box-shadow:0 1px 6px rgba(42,18,8,.06); border-left:4px solid #ccc; }
+    .stock-card { background:#fff; border-radius:14px; padding:1rem 1.15rem; box-shadow:0 1px 6px rgba(51,28,28,.06); border-left:4px solid #ccc; }
     .stock-card.s-ok   { border-left-color:#27AE60; }
     .stock-card.s-low  { border-left-color:#F39C12; }
     .stock-card.s-zero { border-left-color:#E74C3C; background:#fff8f8; }
@@ -162,7 +162,7 @@
     @media (max-width:768px) {
       .sidebar { top:auto; bottom:0; left:0; right:0; width:100%; height:62px; padding:0; flex-direction:row; overflow-x:auto; overflow-y:visible; border-top:1px solid rgba(255,255,255,.1); }
       .nav-item { flex:1; flex-direction:column; gap:3px; padding:8px 4px; font-size:.62rem; border-left:none; border-top:3px solid transparent; justify-content:center; align-items:center; min-width:56px; }
-      .nav-item.active { border-top-color:var(--orange); border-left:none; background:rgba(232,116,74,.1); }
+      .nav-item.active { border-top-color:var(--orange); border-left:none; background:rgba(240,125,71,.1); }
       .nav-icon { font-size:1.25rem; }
       .nav-spacer, .nav-divider { display:none; }
       .main-content { margin-left:0; padding:1.25rem 1rem 5rem; }
@@ -260,6 +260,7 @@
 
         <div class="kpi-grid">
           <div class="kpi-card"><div class="kpi-label">Total pedidos</div><div class="kpi-val c-brown" id="rk-total">—</div><div class="kpi-sub">histórico</div></div>
+          <div class="kpi-card"><div class="kpi-label">Confirmados</div><div class="kpi-val c-blue" id="rk-confirmados">—</div><div class="kpi-sub">listos para entregar</div></div>
           <div class="kpi-card"><div class="kpi-label">Total facturado</div><div class="kpi-val c-green" id="rk-facturado">—</div><div class="kpi-sub">pedidos entregados</div></div>
           <div class="kpi-card"><div class="kpi-label">Ticket promedio</div><div class="kpi-val c-orange" id="rk-ticket">—</div><div class="kpi-sub">por pedido entregado</div></div>
           <div class="kpi-card"><div class="kpi-label">Pendiente cobro</div><div class="kpi-val c-blue" id="rk-pendiente">—</div><div class="kpi-sub">pendiente + confirmado</div></div>
@@ -406,7 +407,7 @@ function getWeekKey(date) {
   return `${d.getFullYear()}-W${String(w).padStart(2,'0')}`;
 }
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-const FONT   = 'Plus Jakarta Sans';
+const FONT   = 'Montserrat';
 
 // ── LOAD ──────────────────────────────────────────────────────────
 async function loadData() {
@@ -541,8 +542,9 @@ function renderResumen() {
   pedidos.forEach(p => { const b = p['Barrio']; if (b) barrioCnt[b] = (barrioCnt[b]||0)+1; });
   const topBarrio  = Object.entries(barrioCnt).sort((a,b) => b[1]-a[1])[0];
 
-  document.getElementById('rk-total').textContent     = pedidos.length;
-  document.getElementById('rk-facturado').textContent = ars(facturado);
+  document.getElementById('rk-total').textContent        = pedidos.length;
+  document.getElementById('rk-confirmados').textContent  = pedidos.filter(p => p['Estado'] === 'confirmado').length;
+  document.getElementById('rk-facturado').textContent    = ars(facturado);
   document.getElementById('rk-ticket').textContent    = ars(ticket);
   document.getElementById('rk-pendiente').textContent = ars(pendiente);
   document.getElementById('rk-mes').textContent       = estesMes.length;
@@ -560,8 +562,8 @@ function renderResumen() {
   const weeks = Object.keys(weekRev).sort().slice(-10);
   const ctx   = document.getElementById('chart-revenue').getContext('2d');
   const grad  = ctx.createLinearGradient(0, 0, 0, 180);
-  grad.addColorStop(0, 'rgba(232,116,74,.35)');
-  grad.addColorStop(1, 'rgba(232,116,74,0)');
+  grad.addColorStop(0, 'rgba(240,125,71,.35)');
+  grad.addColorStop(1, 'rgba(240,125,71,0)');
   makeChart('chart-revenue', {
     type: 'line',
     data: {
@@ -585,7 +587,7 @@ function renderResumen() {
   const barrioArr = Object.entries(barrioCnt).sort((a,b) => b[1]-a[1]);
   makeChart('chart-barrios', {
     type: 'bar',
-    data: { labels: barrioArr.map(([b]) => b), datasets: [{ label:'Pedidos', data: barrioArr.map(([,v]) => v), backgroundColor:'rgba(42,18,8,.7)', borderRadius:8, borderWidth:0 }] },
+    data: { labels: barrioArr.map(([b]) => b), datasets: [{ label:'Pedidos', data: barrioArr.map(([,v]) => v), backgroundColor:'rgba(51,28,28,.7)', borderRadius:8, borderWidth:0 }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, grid:{color:'#f0ebe4'}, ticks:{stepSize:1,font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 
@@ -593,7 +595,7 @@ function renderResumen() {
   const dias = ['Miércoles','Viernes','Sábado','Domingo'];
   makeChart('chart-dias', {
     type: 'bar',
-    data: { labels: dias, datasets: [{ label:'Pedidos', data: dias.map(d => pedidos.filter(p => p['Día entrega']===d).length), backgroundColor:'rgba(232,116,74,.75)', borderRadius:8, borderWidth:0 }] },
+    data: { labels: dias, datasets: [{ label:'Pedidos', data: dias.map(d => pedidos.filter(p => p['Día entrega']===d).length), backgroundColor:'rgba(240,125,71,.75)', borderRadius:8, borderWidth:0 }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, grid:{color:'#f0ebe4'}, ticks:{stepSize:1,font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 }
@@ -614,7 +616,7 @@ function renderVentas() {
   const topRev = Object.entries(pRev).sort((a,b) => b[1]-a[1]).slice(0,10);
   makeChart('chart-top-rev', {
     type: 'bar',
-    data: { labels: topRev.map(([n])=>n), datasets: [{ data: topRev.map(([,v])=>v), backgroundColor: topRev.map((_,i) => `rgba(232,116,74,${1-i*.07})`), borderRadius:6, borderWidth:0 }] },
+    data: { labels: topRev.map(([n])=>n), datasets: [{ data: topRev.map(([,v])=>v), backgroundColor: topRev.map((_,i) => `rgba(240,125,71,${1-i*.07})`), borderRadius:6, borderWidth:0 }] },
     options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>ars(c.raw)}}}, scales:{ x:{beginAtZero:true,grid:{color:'#f0ebe4'},ticks:{callback:v=>ars(v),font:{family:FONT,size:9}}}, y:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 
@@ -624,7 +626,7 @@ function renderVentas() {
   const topUnits = Object.entries(pUnits).sort((a,b) => b[1]-a[1]).slice(0,10);
   makeChart('chart-top-units', {
     type: 'bar',
-    data: { labels: topUnits.map(([n])=>n), datasets: [{ data: topUnits.map(([,v])=>v), backgroundColor: topUnits.map((_,i) => `rgba(42,18,8,${.85-i*.06})`), borderRadius:6, borderWidth:0 }] },
+    data: { labels: topUnits.map(([n])=>n), datasets: [{ data: topUnits.map(([,v])=>v), backgroundColor: topUnits.map((_,i) => `rgba(51,28,28,${.85-i*.06})`), borderRadius:6, borderWidth:0 }] },
     options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{beginAtZero:true,ticks:{stepSize:1,font:{family:FONT,size:9}},grid:{color:'#f0ebe4'}}, y:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 
