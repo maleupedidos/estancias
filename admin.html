@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maleu — Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --brown:  #3D1C0A;
+      --orange: #F97035;
+      --cream:  #E8DFC4;
+      --white:  #FAFAF5;
+      --font:   'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:var(--font); background:#F2EDE6; color:var(--brown); -webkit-font-smoothing:antialiased; }
+
+    /* ── GATE ─────────────────────────────────────────────── */
+    #gate {
+      position:fixed; inset:0; background:var(--brown);
+      display:flex; align-items:center; justify-content:center; z-index:9999;
+    }
+    .gate-box {
+      background:#fff; border-radius:22px; padding:2.5rem 2rem;
+      text-align:center; width:min(380px,90vw);
+      box-shadow:0 24px 64px rgba(0,0,0,.35);
+    }
+    .gate-logo { font-size:2.2rem; font-weight:800; color:var(--orange); letter-spacing:-.02em; }
+    .gate-sub  { font-size:.8rem; color:#aaa; margin-top:.2rem; margin-bottom:1.8rem; }
+    .gate-input {
+      width:100%; padding:.85rem 1rem; border:1.5px solid #ddd; border-radius:12px;
+      font-family:var(--font); font-size:1.05rem; text-align:center; letter-spacing:.2em;
+      outline:none; margin-bottom:1rem; transition:border-color .15s;
+    }
+    .gate-input:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(249,112,53,.12); }
+    .gate-btn {
+      width:100%; background:var(--orange); color:#fff; border:none; border-radius:12px;
+      padding:.88rem; font-family:var(--font); font-size:.97rem; font-weight:700; cursor:pointer;
+      transition:background .15s;
+    }
+    .gate-btn:hover { background:#e05e20; }
+    .gate-error { color:#e53935; font-size:.78rem; margin-top:.6rem; display:none; }
+
+    /* ── HEADER ───────────────────────────────────────────── */
+    header {
+      background:var(--brown); padding:.85rem 1.5rem;
+      display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; z-index:100;
+      box-shadow:0 2px 14px rgba(0,0,0,.28);
+    }
+    .hd-logo { font-size:1.55rem; font-weight:800; color:var(--orange); letter-spacing:-.02em; }
+    .hd-tag  { font-size:.65rem; color:var(--cream); opacity:.65; margin-top:1px; letter-spacing:.04em; }
+    .hd-right { display:flex; align-items:center; gap:.65rem; }
+    .refresh-btn {
+      background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18);
+      color:#fff; border-radius:9px; padding:.44rem .9rem;
+      font-family:var(--font); font-size:.8rem; font-weight:600; cursor:pointer;
+      transition:background .15s;
+    }
+    .refresh-btn:hover { background:rgba(255,255,255,.2); }
+    .logout-btn {
+      background:transparent; border:none; color:rgba(255,255,255,.4);
+      font-family:var(--font); font-size:.75rem; cursor:pointer; transition:color .15s;
+    }
+    .logout-btn:hover { color:rgba(255,255,255,.8); }
+
+    /* ── MAIN ─────────────────────────────────────────────── */
+    main { max-width:1200px; margin:0 auto; padding:1.5rem 1.25rem 4rem; }
+    #dashboard { display:none; }
+    .updated-row { font-size:.72rem; color:#aaa; text-align:right; margin-bottom:1.25rem; }
+
+    /* ── CARDS ────────────────────────────────────────────── */
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+    .card {
+      background:#fff; border-radius:16px; padding:1.2rem 1.35rem;
+      box-shadow:0 2px 10px rgba(61,28,10,.07);
+    }
+    .card-label { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#aaa; margin-bottom:.55rem; }
+    .card-value { font-size:1.95rem; font-weight:800; line-height:1; color:var(--brown); }
+    .card-value.green  { color:#2e7d32; }
+    .card-value.blue   { color:#0d47a1; }
+    .card-value.orange { color:var(--orange); }
+    .card-sub { font-size:.7rem; color:#bbb; margin-top:.4rem; }
+
+    /* ── CHARTS ───────────────────────────────────────────── */
+    .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; }
+    @media(max-width:620px){ .charts-row{ grid-template-columns:1fr; } }
+    .chart-box {
+      background:#fff; border-radius:16px; padding:1.25rem;
+      box-shadow:0 2px 10px rgba(61,28,10,.07);
+    }
+    .section-title {
+      font-size:.7rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.08em; color:var(--orange); margin-bottom:1rem;
+    }
+    .chart-wrap      { position:relative; height:210px; }
+    .chart-wrap-wide { position:relative; height:270px; }
+
+    /* ── SECTION BOX ──────────────────────────────────────── */
+    .section-box {
+      background:#fff; border-radius:16px; padding:1.25rem;
+      box-shadow:0 2px 10px rgba(61,28,10,.07); margin-bottom:1.5rem;
+    }
+
+    /* ── FILTROS ──────────────────────────────────────────── */
+    .filters { display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:1rem; }
+    .filter-input, .filter-select {
+      padding:.52rem .9rem; border:1.5px solid #e0d8d0; border-radius:9px;
+      font-family:var(--font); font-size:.83rem; color:var(--brown);
+      background:#fff; outline:none; transition:border-color .15s;
+      appearance:none;
+    }
+    .filter-input  { flex:1; min-width:180px; }
+    .filter-select { min-width:150px; }
+    .filter-input:focus, .filter-select:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(249,112,53,.1); }
+
+    /* ── TABLA ────────────────────────────────────────────── */
+    .table-wrap { overflow-x:auto; border-radius:11px; border:1.5px solid #ede6dc; }
+    table { width:100%; border-collapse:collapse; font-size:.83rem; }
+    thead tr { background:var(--brown); }
+    thead th { padding:.72rem 1rem; text-align:left; font-weight:700; color:#fff; white-space:nowrap; font-size:.78rem; }
+    tbody tr { border-bottom:1px solid #f2ede6; transition:background .1s; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:#faf6f0; }
+    tbody td { padding:.68rem 1rem; white-space:nowrap; }
+    .no-data { text-align:center; padding:2.5rem; color:#bbb; font-size:.88rem; }
+    .badge {
+      display:inline-block; font-size:.67rem; font-weight:700;
+      padding:.2rem .55rem; border-radius:50px;
+    }
+    .badge-pendiente  { background:#FFF9C4; color:#7A6000; }
+    .badge-confirmado { background:#BBDEFB; color:#0D47A1; }
+    .badge-entregado  { background:#C8E6C9; color:#1B5E20; }
+    .badge-cancelado  { background:#FFCDD2; color:#B71C1C; }
+
+    /* ── STOCK ────────────────────────────────────────────── */
+    .stock-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.6rem; }
+    .stock-item {
+      display:flex; justify-content:space-between; align-items:center;
+      background:#fff8f0; border:1.5px solid #ffd59a; border-radius:10px;
+      padding:.6rem .9rem;
+    }
+    .stock-item.zero { background:#fff0f0; border-color:#f5c6c6; }
+    .stock-item-name { font-size:.82rem; font-weight:600; }
+    .stock-item-qty  { font-size:.88rem; font-weight:800; }
+    .stock-item.zero .stock-item-qty { color:#c0392b; }
+    .stock-item:not(.zero) .stock-item-qty { color:#e67e22; }
+    .stock-ok { font-size:.88rem; font-weight:600; color:#2e7d32; }
+  </style>
+</head>
+<body>
+
+<!-- GATE -->
+<div id="gate">
+  <div class="gate-box">
+    <div class="gate-logo">Maleu</div>
+    <div class="gate-sub">Panel de administración interno</div>
+    <input type="password" class="gate-input" id="gate-input" placeholder="••••••••" />
+    <button class="gate-btn" onclick="checkPassword()">Entrar</button>
+    <p class="gate-error" id="gate-error">Contraseña incorrecta</p>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div>
+    <div class="hd-logo">Maleu</div>
+    <div class="hd-tag">PANEL DE ADMINISTRACIÓN</div>
+  </div>
+  <div class="hd-right">
+    <button class="refresh-btn" onclick="loadData()">↺ Actualizar</button>
+    <button class="logout-btn" onclick="logout()">Salir</button>
+  </div>
+</header>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <main>
+    <div class="updated-row" id="updated-row">Cargando...</div>
+
+    <!-- CARDS -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Total pedidos</div>
+        <div class="card-value" id="c-total">—</div>
+        <div class="card-sub">histórico</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Total facturado</div>
+        <div class="card-value green" id="c-facturado">—</div>
+        <div class="card-sub">pedidos entregados</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Pendiente de cobro</div>
+        <div class="card-value blue" id="c-pendiente">—</div>
+        <div class="card-sub">pendiente + confirmado</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Pedidos activos</div>
+        <div class="card-value orange" id="c-activos">—</div>
+        <div class="card-sub">sin resolver</div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="charts-row">
+      <div class="chart-box">
+        <div class="section-title">Pedidos por estado</div>
+        <div class="chart-wrap"><canvas id="chart-estados"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="section-title">Pedidos por día de entrega</div>
+        <div class="chart-wrap"><canvas id="chart-dias"></canvas></div>
+      </div>
+    </div>
+
+    <!-- TOP PRODUCTOS -->
+    <div class="section-box">
+      <div class="section-title">Top productos — unidades pedidas</div>
+      <div class="chart-wrap-wide"><canvas id="chart-productos"></canvas></div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="section-box">
+      <div class="section-title">Todos los pedidos</div>
+      <div class="filters">
+        <input type="search" class="filter-input" id="f-search" placeholder="🔍  Buscar por nombre..." oninput="renderTable()" />
+        <select class="filter-select" id="f-estado" onchange="renderTable()">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="confirmado">Confirmado</option>
+          <option value="entregado">Entregado</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+        <select class="filter-select" id="f-dia" onchange="renderTable()">
+          <option value="">Todos los días</option>
+          <option>Miércoles</option>
+          <option>Viernes</option>
+          <option>Sábado</option>
+          <option>Domingo</option>
+        </select>
+        <select class="filter-select" id="f-barrio" onchange="renderTable()">
+          <option value="">Todos los barrios</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Nombre</th>
+              <th>Barrio · Lote</th>
+              <th>Día</th>
+              <th>Pago</th>
+              <th>Total</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- STOCK -->
+    <div class="section-box">
+      <div class="section-title">⚠️ Alertas de stock (≤ 5 unidades)</div>
+      <div id="stock-content"></div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── CONFIGURACIÓN ─────────────────────────────────────────────
+const ADMIN_PASSWORD = 'maleu2026'; // Cambiá esto
+
+const CSV_PEDIDOS   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU90rLSsMLIZysclthumNVS-wWma0g0ugJJlUBkO_lk1e_xhjmoIbqpmPFpTSVdYkyI1rk4BUCJyrd/pub?gid=1002295063&single=true&output=csv';
+const CSV_DETALLE   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU90rLSsMLIZysclthumNVS-wWma0g0ugJJlUBkO_lk1e_xhjmoIbqpmPFpTSVdYkyI1rk4BUCJyrd/pub?gid=747417680&single=true&output=csv';
+const CSV_PRODUCTOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU90rLSsMLIZysclthumNVS-wWma0g0ugJJlUBkO_lk1e_xhjmoIbqpmPFpTSVdYkyI1rk4BUCJyrd/pub?gid=0&single=true&output=csv';
+
+let pedidos = [], detalle = [], productos = [];
+let charts  = {};
+
+// ── AUTH ──────────────────────────────────────────────────────
+function checkPassword() {
+  if (document.getElementById('gate-input').value === ADMIN_PASSWORD) {
+    sessionStorage.setItem('maleu_admin', '1');
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadData();
+  } else {
+    document.getElementById('gate-error').style.display = 'block';
+  }
+}
+function logout() {
+  sessionStorage.removeItem('maleu_admin');
+  location.reload();
+}
+document.getElementById('gate-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkPassword(); });
+if (sessionStorage.getItem('maleu_admin')) {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+// ── CSV ───────────────────────────────────────────────────────
+function parseLine(line) {
+  const out = []; let cur = '', inQ = false;
+  for (const ch of line) {
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === ',' && !inQ) { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+function parseCSV(text) {
+  const lines   = text.trim().split('\n');
+  const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, ''));
+  return lines.slice(1).map(l => {
+    const vals = parseLine(l);
+    const row  = {};
+    headers.forEach((h, i) => row[h] = (vals[i] || '').replace(/^"|"$/g, ''));
+    return row;
+  }).filter(r => Object.values(r).some(v => v));
+}
+function parseMoney(str) {
+  return parseInt(String(str || 0).replace(/[$\s.]/g, '')) || 0;
+}
+function ars(n) { return '$' + Math.round(n).toLocaleString('es-AR'); }
+
+// ── LOAD ──────────────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('updated-row').textContent = 'Actualizando datos...';
+  try {
+    const [tP, tD, tPr] = await Promise.all([
+      fetch(CSV_PEDIDOS).then(r => r.text()),
+      fetch(CSV_DETALLE).then(r => r.text()),
+      fetch(CSV_PRODUCTOS).then(r => r.text()),
+    ]);
+    pedidos   = parseCSV(tP);
+    detalle   = parseCSV(tD);
+    productos = parseCSV(tPr);
+
+    renderCards();
+    renderChartEstados();
+    renderChartDias();
+    renderChartProductos();
+    renderTable();
+    renderStock();
+    fillBarrios();
+
+    document.getElementById('updated-row').textContent =
+      'Actualizado: ' + new Date().toLocaleString('es-AR');
+  } catch(err) {
+    document.getElementById('updated-row').textContent = '⚠️ Error al cargar. Intentá de nuevo.';
+  }
+}
+
+// ── CARDS ─────────────────────────────────────────────────────
+function renderCards() {
+  const facturado = pedidos.filter(p => p['Estado'] === 'entregado')
+    .reduce((s, p) => s + parseMoney(p['Total']), 0);
+  const pendCobro = pedidos.filter(p => ['pendiente','confirmado'].includes(p['Estado']))
+    .reduce((s, p) => s + parseMoney(p['Total']), 0);
+  const activos = pedidos.filter(p => ['pendiente','confirmado'].includes(p['Estado'])).length;
+
+  document.getElementById('c-total').textContent     = pedidos.length;
+  document.getElementById('c-facturado').textContent = ars(facturado);
+  document.getElementById('c-pendiente').textContent = ars(pendCobro);
+  document.getElementById('c-activos').textContent   = activos;
+}
+
+// ── CHARTS ────────────────────────────────────────────────────
+const ESTADO_COLORS = {
+  pendiente: '#FFC107', confirmado: '#2196F3',
+  entregado: '#4CAF50', cancelado:  '#F44336',
+};
+
+function makeChart(id, config) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), config);
+}
+
+function renderChartEstados() {
+  const cnt = { pendiente:0, confirmado:0, entregado:0, cancelado:0 };
+  pedidos.forEach(p => { if (cnt[p['Estado']] !== undefined) cnt[p['Estado']]++; });
+  const labels = Object.keys(cnt).filter(k => cnt[k] > 0);
+  makeChart('chart-estados', {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: labels.map(k => cnt[k]), backgroundColor: labels.map(k => ESTADO_COLORS[k]), borderWidth: 2, borderColor: '#fff' }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Plus Jakarta Sans', size:11 }, padding:10 } } } }
+  });
+}
+
+function renderChartDias() {
+  const dias = ['Miércoles','Viernes','Sábado','Domingo'];
+  makeChart('chart-dias', {
+    type: 'bar',
+    data: {
+      labels: dias,
+      datasets: [{ label:'Pedidos', data: dias.map(d => pedidos.filter(p => p['Día entrega'] === d).length),
+        backgroundColor:'rgba(249,112,53,.75)', borderColor:'#F97035', borderWidth:1.5, borderRadius:7 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 }, grid:{ color:'#f0ebe4' } }, x:{ grid:{ display:false } } }
+    }
+  });
+}
+
+function renderChartProductos() {
+  const cnt = {};
+  detalle.forEach(d => {
+    const nombre = d['Producto'];
+    const qty    = parseInt(d['Cantidad']) || 0;
+    if (nombre) cnt[nombre] = (cnt[nombre] || 0) + qty;
+  });
+  const sorted = Object.entries(cnt).sort((a,b) => b[1] - a[1]).slice(0, 10);
+  makeChart('chart-productos', {
+    type: 'bar',
+    data: {
+      labels: sorted.map(([n]) => n),
+      datasets: [{ label:'Unidades', data: sorted.map(([,v]) => v),
+        backgroundColor:'rgba(61,28,10,.8)', borderColor:'#3D1C0A', borderWidth:1.5, borderRadius:6 }]
+    },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ x:{ beginAtZero:true, ticks:{ stepSize:1 }, grid:{ color:'#f0ebe4' } }, y:{ grid:{ display:false }, ticks:{ font:{ size:11 } } } }
+    }
+  });
+}
+
+// ── TABLA ─────────────────────────────────────────────────────
+function renderTable() {
+  const search = document.getElementById('f-search').value.toLowerCase();
+  const estado = document.getElementById('f-estado').value;
+  const dia    = document.getElementById('f-dia').value;
+  const barrio = document.getElementById('f-barrio').value;
+
+  const rows = [...pedidos].reverse().filter(p =>
+    (!search || p['Nombre'].toLowerCase().includes(search)) &&
+    (!estado || p['Estado'] === estado) &&
+    (!dia    || p['Día entrega'] === dia) &&
+    (!barrio || p['Barrio'] === barrio)
+  );
+
+  const tbody = document.getElementById('tabla-body');
+  tbody.innerHTML = rows.length ? rows.map(p => `
+    <tr>
+      <td>${p['Fecha']}</td>
+      <td><strong>${p['Nombre']}</strong></td>
+      <td>${p['Barrio']} · L${p['Lote']}</td>
+      <td>${p['Día entrega']}</td>
+      <td>${p['Pago']}</td>
+      <td><strong>${p['Total']}</strong></td>
+      <td><span class="badge badge-${p['Estado']}">${p['Estado']}</span></td>
+    </tr>`).join('')
+  : '<tr><td colspan="7" class="no-data">Sin resultados</td></tr>';
+}
+
+function fillBarrios() {
+  const barrios = [...new Set(pedidos.map(p => p['Barrio']).filter(Boolean))].sort();
+  const sel = document.getElementById('f-barrio');
+  sel.innerHTML = '<option value="">Todos los barrios</option>' +
+    barrios.map(b => `<option>${b}</option>`).join('');
+}
+
+// ── STOCK ─────────────────────────────────────────────────────
+function renderStock() {
+  const alertas = productos
+    .map(p => ({ nombre: p['Nombre'], stock: parseInt(p['Stock Disponible']) || 0 }))
+    .filter(p => p.stock <= 5)
+    .sort((a, b) => a.stock - b.stock);
+
+  const el = document.getElementById('stock-content');
+  if (!alertas.length) {
+    el.innerHTML = '<p class="stock-ok">✅  Todo el stock OK</p>';
+    return;
+  }
+  el.innerHTML = `<div class="stock-grid">${alertas.map(p => `
+    <div class="stock-item ${p.stock === 0 ? 'zero' : ''}">
+      <span class="stock-item-name">${p.nombre}</span>
+      <span class="stock-item-qty">${p.stock === 0 ? 'Sin stock' : p.stock + ' u.'}</span>
+    </div>`).join('')}</div>`;
+}
+
+// Init
+if (sessionStorage.getItem('maleu_admin')) loadData();
+</script>
+</body>
+</html>
