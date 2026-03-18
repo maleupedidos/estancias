@@ -798,6 +798,11 @@ const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto
 const FONT   = 'Montserrat';
 
 // ── LOAD ──────────────────────────────────────────────────────────
+// Auto-refresh cada 2 minutos (se activa una sola vez)
+if (!window._autoRefreshTimer) {
+  window._autoRefreshTimer = setInterval(() => { if (sessionStorage.getItem('maleu_admin')) loadData(); }, 120000);
+}
+
 async function loadData() {
   document.getElementById('top-updated').textContent = 'Actualizando...';
   rendered.clear();
@@ -1858,66 +1863,66 @@ function _renderSemanaResumen() {
 
   let activas = compras.filter(c => c['Estado'] === 'Pendiente' || c['Estado'] === 'Pedido');
 
-  // ── RAMA CLUBES: desglose completo con clientes por producto ──────
+  // ── RAMA CLUBES: agrega pedidos de clientes por producto ──────────
   if (_abastCanal === 'clubes') {
-    const clubCompras = activas.filter(c => (c['Proveedor']||'').toLowerCase().includes('sevuchitas'));
-    if (!clubCompras.length) {
-      content.innerHTML = `<div style="font-size:.82rem;color:#a08060;padding:.4rem 0">Sin compras a Sevuchitas registradas · el próximo viernes es el <strong>${fmtFri}</strong></div>`;
+    const clubPedidos = pedidos.filter(p =>
+      getCanal(p['Barrio']) === 'Clubes' &&
+      ['pendiente','confirmado'].includes(p['Estado']) &&
+      p['Día entrega'] === 'Viernes'
+    );
+
+    if (!clubPedidos.length) {
+      content.innerHTML = `<div style="font-size:.82rem;color:#a08060;padding:.4rem 0">Sin pedidos de clubes para el viernes <strong>${fmtFri}</strong></div>`;
       return;
     }
-    // Agrupar por proveedor (puede haber una sola entrada)
-    const byProv = {};
-    clubCompras.forEach(c => {
-      const p = c['Proveedor'] || 'Sevuchitas';
-      if (!byProv[p]) byProv[p] = { rows: [], costo: 0 };
-      byProv[p].rows.push(c);
-      byProv[p].costo += parseFloat(c['Total']) || 0;
-    });
 
-    const prodNorm = s => (s||'').toLowerCase().trim();
-    let html = `<div style="font-size:.78rem;color:#a08060;margin-bottom:.75rem">Próximo viernes <strong>${fmtFri}</strong></div>`;
+    const clubIds = new Set(clubPedidos.map(p => p['ID Pedido']));
+    const clubDet = detalle.filter(d => clubIds.has(d['ID Pedido']));
 
-    Object.entries(byProv).forEach(([prov, { rows, costo }]) => {
-      const estados     = [...new Set(rows.map(r => r['Estado']))];
-      const isPend      = estados.includes('Pendiente');
-      const estBg       = isPend ? '#FEF3C7' : '#DBEAFE';
-      const estCol      = isPend ? '#92400E' : '#1E40AF';
-      const estLabel    = isPend && estados.includes('Pedido') ? 'Mixto' : estados[0];
-      const totalPacks  = rows.reduce((s, c) => s + (parseInt(c['Cantidad'])||0), 0);
-
-      html += `<div style="background:#f9f5ef;border-radius:14px;padding:.9rem 1.05rem;margin-bottom:.65rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
-          <div style="display:flex;align-items:center;gap:.5rem">
-            <span style="font-size:.92rem;font-weight:800;color:var(--brown)">${prov}</span>
-            <span style="font-size:.75rem;font-weight:800;color:var(--orange)">${totalPacks} PACKS</span>
-          </div>
-          <div style="display:flex;gap:.4rem;align-items:center">
-            ${costo > 0 ? `<span style="font-size:.75rem;font-weight:700;color:#a08060">${ars(costo)}</span>` : ''}
-            <span style="background:${estBg};color:${estCol};font-size:.67rem;font-weight:800;padding:.18rem .6rem;border-radius:50px">${estLabel}</span>
-          </div>
-        </div>`;
-
-      rows.forEach(c => {
-        // Buscar clientes que pidieron este producto
-        const ctx = _getCompraContexto(c).filter(p => p.canal === 'Clubes');
-        const clientesHtml = ctx.length
-          ? ctx.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:.16rem .65rem;font-size:.72rem;color:#6b5a50">
-              <span>↳ ${p.nombre} <span style="color:#b09880;font-size:.68rem">${p.barrio.replace(/^Club-/,'')}</span></span>
-              <span style="font-weight:700;color:#a08060">${p.qty} packs</span>
-            </div>`).join('')
-          : '';
-        html += `<div style="border-top:1px solid #f0ebe4;padding-top:.45rem;margin-bottom:.35rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0">
-            <span style="font-size:.82rem;font-weight:700;color:#5a4030">${c['Producto']||''}</span>
-            <span style="font-size:.85rem;font-weight:800;color:var(--orange)">${c['Cantidad']||''} ${c['Unidad']||'packs'}</span>
-          </div>
-          ${clientesHtml}
-        </div>`;
+    // Agrupar por producto → lista de clientes
+    const byProd = {};
+    clubDet.forEach(d => {
+      const prod = d['Producto'] || '';
+      if (!prod) return;
+      const p = clubPedidos.find(p => p['ID Pedido'] === d['ID Pedido']);
+      if (!p) return;
+      if (!byProd[prod]) byProd[prod] = { total: 0, clients: [] };
+      const qty = parseInt(d['Cantidad']) || 0;
+      byProd[prod].total += qty;
+      byProd[prod].clients.push({
+        nombre: p['Nombre'] || '',
+        barrio: (p['Barrio'] || '').replace(/^Club-/, ''),
+        qty
       });
-
-      html += `</div>`;
     });
 
+    const totalPacks = Object.values(byProd).reduce((s, v) => s + v.total, 0);
+
+    let html = `<div style="font-size:.78rem;color:#a08060;margin-bottom:.75rem">Próximo viernes <strong>${fmtFri}</strong></div>
+    <div style="background:#f9f5ef;border-radius:14px;padding:.9rem 1.05rem;margin-bottom:.65rem">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.65rem">
+        <span style="font-size:.92rem;font-weight:800;color:var(--brown)">Sevuchitas</span>
+        <span style="font-size:.75rem;font-weight:800;color:var(--orange)">${totalPacks} PACKS</span>
+      </div>`;
+
+    Object.entries(byProd).forEach(([prod, { total, clients }]) => {
+      const clientesHtml = clients.map(c =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:.16rem .65rem;font-size:.72rem;color:#6b5a50">
+          <span>↳ ${c.nombre} <span style="color:#b09880;font-size:.68rem">${c.barrio}</span></span>
+          <span style="font-weight:700;color:#a08060">${c.qty} packs</span>
+        </div>`
+      ).join('');
+
+      html += `<div style="border-top:1px solid #f0ebe4;padding-top:.45rem;margin-bottom:.35rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0">
+          <span style="font-size:.82rem;font-weight:700;color:#5a4030">${prod}</span>
+          <span style="font-size:.85rem;font-weight:800;color:var(--orange)">${total} packs</span>
+        </div>
+        ${clientesHtml}
+      </div>`;
+    });
+
+    html += '</div>';
     content.innerHTML = html;
     return;
   }
