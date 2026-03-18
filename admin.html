@@ -219,6 +219,11 @@
     /* botón pedir en cruce */
     .cruce-pedir { background:var(--orange); color:#fff; border:none; border-radius:6px; padding:.22rem .65rem; font-family:var(--font); font-size:.7rem; font-weight:700; cursor:pointer; white-space:nowrap; margin-left:.4rem; transition:background .1s; }
     .cruce-pedir:hover { background:#e05e20; }
+    /* ABASTECIMIENTO CANAL TOGGLE */
+    .abast-canal-toggle { display:flex; gap:.5rem; margin-bottom:1.2rem; }
+    .abast-canal-btn { flex:1; padding:.6rem 1rem; border:1.5px solid #ede5db; border-radius:10px; font-family:var(--font); font-size:.82rem; font-weight:600; color:#a08060; background:#fff; cursor:pointer; transition:all .15s; }
+    .abast-canal-btn.active { background:var(--orange); border-color:var(--orange); color:#fff; }
+    .abast-canal-btn:not(.active):hover { border-color:var(--orange); color:var(--orange); }
     /* PRODUCCIÓN TAB */
     .prod-section-title { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); margin:1.25rem 0 .75rem; }
     .prod-section-title:first-child { margin-top:0; }
@@ -506,8 +511,14 @@
         <div class="page-title">Abastecimiento</div>
         <div class="page-sub">Stock · Compras · Producción — todo en uno</div>
 
+        <!-- Canal selector -->
+        <div class="abast-canal-toggle">
+          <button id="abast-btn-vd"     class="abast-canal-btn active" onclick="setAbastCanal('vd')">🛍️ Venta Directa</button>
+          <button id="abast-btn-clubes" class="abast-canal-btn"        onclick="setAbastCanal('clubes')">🏃 Clubes</button>
+        </div>
+
         <!-- Sección 0: Clubes para el viernes -->
-        <div class="section-box" id="clubes-compras-section" style="margin-bottom:1.2rem;border-left:4px solid var(--brown)">
+        <div class="section-box" id="clubes-compras-section" style="margin-bottom:1.2rem;border-left:4px solid var(--brown);display:none">
           <div class="section-hd">
             <span class="section-title">🏃 Clubes para el viernes</span>
             <span class="section-badge" id="clubes-badge">—</span>
@@ -516,7 +527,7 @@
         </div>
 
         <!-- Sección 1: Cruce -->
-        <div class="section-box">
+        <div class="section-box" id="abast-cruce-section">
           <div class="section-hd">
             <span class="section-title">🍕 Necesito comprar</span>
             <select id="prod-dia-sel" class="filter-select" onchange="renderAbastecimientoCruce()" style="margin:0;min-width:180px">
@@ -579,8 +590,8 @@
           <div id="compras-loading" style="display:none" class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando...</div></div>
           <div class="table-wrap" id="compras-table-wrap">
             <table>
-              <thead><tr><th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Estado</th><th>Notas</th><th>Entrega est.</th></tr></thead>
-              <tbody id="compras-tbody"><tr><td colspan="7" class="no-data">—</td></tr></tbody>
+              <thead><tr><th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Estado</th><th>Notas</th><th>Entrega est.</th><th></th></tr></thead>
+              <tbody id="compras-tbody"><tr><td colspan="8" class="no-data">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1126,9 +1137,19 @@ function _renderClubesCompras() {
 
   _clubComprasData = byProv;
 
-  const totalItems = Object.values(byProd).reduce((s, e) => s + e.qty, 0);
-  let html = `<div style="font-size:.75rem;color:#a08060;margin-bottom:.75rem">
-    <strong>${clubPedidos.length}</strong> pedidos de clubes · <strong>${totalItems}</strong> unidades a comprar para el viernes
+  const totalItems  = Object.values(byProd).reduce((s, e) => s + e.qty, 0);
+  const totalCostoG = Object.values(byProd).reduce((s, { item, qty }) => s + (item.costo||0)*qty, 0);
+  const equipos     = new Set(clubPedidos.map(p => p['Barrio'])).size;
+  const statChip    = (label, val) =>
+    `<div style="background:#fff;border:1.5px solid #ede5db;border-radius:12px;padding:.45rem .9rem;text-align:center;flex:1;min-width:70px">
+      <div style="font-size:1.05rem;font-weight:800;color:var(--brown)">${val}</div>
+      <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:#a08060;margin-top:.1rem">${label}</div>
+    </div>`;
+  let html = `<div style="display:flex;gap:.55rem;margin-bottom:.9rem;flex-wrap:wrap">
+    ${statChip('Equipos', equipos)}
+    ${statChip('Pedidos', clubPedidos.length)}
+    ${statChip('Unidades', totalItems)}
+    ${totalCostoG > 0 ? statChip('Costo est.', ars(totalCostoG)) : ''}
   </div>`;
 
   Object.values(byProv).forEach(({ prov, items }) => {
@@ -1189,11 +1210,22 @@ function cpCargarPedidoClub(provKey) {
   }, 120);
 }
 
+let _abastCanal = 'vd';
+
+function setAbastCanal(canal) {
+  _abastCanal = canal;
+  document.getElementById('abast-btn-vd').classList.toggle('active', canal === 'vd');
+  document.getElementById('abast-btn-clubes').classList.toggle('active', canal === 'clubes');
+  document.getElementById('clubes-compras-section').style.display = canal === 'clubes' ? '' : 'none';
+  document.getElementById('abast-cruce-section').style.display   = canal === 'vd'     ? '' : 'none';
+}
+
 function renderAbastecimiento() {
   _renderClubesCompras();
   renderAbastecimientoCruce();
   _renderStockDisplay();
   loadCompras();
+  setAbastCanal(_abastCanal);
 }
 
 function renderAbastecimientoCruce() {
@@ -1706,7 +1738,7 @@ async function loadCompras() {
     if (currentTab === 'caja')      renderCaja();
   } catch(err) {
     console.error('Error cargando compras:', err);
-    document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="7" class="no-data">Error al cargar · redeploy Apps Script pendiente</td></tr>';
+    document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="8" class="no-data">Error al cargar · redeploy Apps Script pendiente</td></tr>';
   } finally {
     document.getElementById('compras-loading').style.display = 'none';
     document.getElementById('compras-table-wrap').style.display = 'block';
@@ -1791,22 +1823,76 @@ function _renderSemanaResumen() {
     `<div style="font-size:.82rem;color:#a08060;padding:.4rem 0">Sin pedidos activos para el viernes ${fmtFri}</div>`;
 }
 
+function _getCompraContexto(compra) {
+  const prodNorm = s => (s||'').toLowerCase().trim();
+  const prodKey  = prodNorm(compra['Producto']);
+  if (!prodKey || !detalle.length) return [];
+  const matchDet = detalle.filter(d => prodNorm(d['Producto']) === prodKey);
+  const pedidoIds = [...new Set(matchDet.map(d => d['ID Pedido']).filter(Boolean))];
+  return pedidoIds.map(id => {
+    const p = pedidos.find(p => p['ID Pedido'] === id);
+    const d = matchDet.find(d => d['ID Pedido'] === id);
+    if (!p) return null;
+    return { id, nombre: p['Nombre']||'', barrio: p['Barrio']||'', estado: p['Estado']||'', canal: getCanal(p['Barrio']), qty: parseInt(d['Cantidad'])||0 };
+  }).filter(Boolean);
+}
+
+function toggleCompraOrigen(id) {
+  const el  = document.getElementById('compra-origen-' + id);
+  const btn = document.getElementById('compra-toggle-' + id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  btn.textContent  = open ? '▶' : '▼';
+}
+
 function renderComprasUI() {
   _renderSemanaResumen();
 
   const tbody = document.getElementById('compras-tbody');
   if (!compras.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="no-data">Sin pedidos registrados aún</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="no-data">Sin pedidos registrados aún</td></tr>';
     return;
   }
   tbody.innerHTML = [...compras].reverse().map(c => {
     const est      = c['Estado'] || 'Pendiente';
     const estClass = est==='Entregado' ? 'est-entregado' : est==='Pedido' ? 'est-pedido' : 'est-pendiente';
+    const cid      = (c['ID']||'').replace(/[^a-zA-Z0-9_-]/g,'_');
+    const contexto = _getCompraContexto(c);
+
+    // ── Inline breakdown: "8 Estancias · 4 Clubes"
+    const canalTag = canal => canal==='Clubes'
+      ? '<span style="background:#e8f3e8;color:#3a7a3a;font-size:.65rem;font-weight:700;padding:.1rem .45rem;border-radius:50px">CLUB</span>'
+      : canal==='Delivery'
+      ? '<span style="background:#e8eef8;color:#3a5a9a;font-size:.65rem;font-weight:700;padding:.1rem .45rem;border-radius:50px">DELIVERY</span>'
+      : '<span style="background:#f2ede6;color:#7a5a40;font-size:.65rem;font-weight:700;padding:.1rem .45rem;border-radius:50px">ESTANCIAS</span>';
+
+    let inlineSub = '';
+    if (contexto.length) {
+      const byCanal = {};
+      contexto.forEach(p => { byCanal[p.canal] = (byCanal[p.canal]||0) + p.qty; });
+      const partes = Object.entries(byCanal).map(([canal, qty]) => `${qty} ${canal}`);
+      inlineSub = `<div style="font-size:.7rem;color:#b09880;margin-top:.18rem">${partes.join(' · ')}</div>`;
+    } else if (detalle.length) {
+      inlineSub = `<div style="font-size:.7rem;color:#c0b090;margin-top:.18rem;font-style:italic">reposición / manual</div>`;
+    }
+
+    // ── Expanded detail rows
+    const origenRows = contexto.length
+      ? contexto.map(p => `<div style="display:flex;align-items:center;gap:.5rem;padding:.22rem 0;border-bottom:1px solid #f0ebe4;font-size:.76rem;color:#5a4a40">
+          ${canalTag(p.canal)}
+          <span style="font-weight:600">${p.nombre}</span>
+          <span style="color:#b09880">${p.barrio}</span>
+          <span style="margin-left:auto;font-weight:700;color:var(--brown)">${p.qty} ${c['Unidad']||''}</span>
+          <span style="font-size:.7rem;color:#b09880;text-transform:capitalize">${p.estado}</span>
+        </div>`).join('')
+      : `<div style="font-size:.76rem;color:#b09880;font-style:italic">Reposición de stock o compra manual — sin pedidos asociados detectados</div>`;
+
     return `
     <tr>
       <td style="color:#b09880;font-size:.74rem">${c['Fecha']||''}</td>
       <td><strong>${c['Proveedor']||''}</strong></td>
-      <td>${c['Producto']||''}</td>
+      <td>${c['Producto']||''}${inlineSub}</td>
       <td>${c['Cantidad']||''} ${c['Unidad']||''}</td>
       <td><select class="estado-compra-select ${estClass}" data-id="${c['ID']||''}" onchange="updateEstadoCompra(this)">
         <option${est==='Pendiente'?' selected':''}>Pendiente</option>
@@ -1815,6 +1901,15 @@ function renderComprasUI() {
       </select></td>
       <td style="color:#a08060;font-size:.78rem">${c['Notas']||''}</td>
       <td style="font-size:.78rem">${c['Fecha entrega']||'—'}</td>
+      <td style="text-align:center;width:2rem"><button id="compra-toggle-${cid}" onclick="toggleCompraOrigen('${cid}')" style="background:none;border:none;cursor:pointer;font-size:.75rem;color:#c0a880;padding:.2rem .4rem" title="Ver detalle por pedido">▶</button></td>
+    </tr>
+    <tr id="compra-origen-${cid}" style="display:none">
+      <td colspan="8" style="padding:.55rem 1rem .65rem;background:#faf7f3;border-top:none">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#b09880;margin-bottom:.35rem">
+          ${contexto.length ? `${contexto.length} pedido${contexto.length!==1?'s':''} con este producto` : 'Origen'}
+        </div>
+        ${origenRows}
+      </td>
     </tr>`;
   }).join('');
 }

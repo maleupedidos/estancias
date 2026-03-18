@@ -123,7 +123,7 @@ function _doPostPedido(data) {
 
     items.forEach(item => {
       hDetalle.appendRow([
-        idPedido, item.id, item.nombre, item.qty, item.precio,
+        idPedido, data.nombre || '', item.id, item.nombre, item.qty, item.precio,
         item.qty * item.precio
       ]);
 
@@ -270,8 +270,8 @@ function onEdit(e) {
   if (!esClub) {
     detalleData.slice(1).forEach(row => {
       if (row[0] !== idPedido) return;
-      const idProd = row[1];
-      const qty    = row[3];
+      const idProd = row[2];
+      const qty    = row[4];
 
       for (let r = 1; r < prodData.length; r++) {
         if (prodData[r][0] === idProd) {
@@ -310,6 +310,54 @@ function setupSheets() {
   _setupProveedores();
   _setupEgresos();
   SS.toast('✅  Sheets de Maleu configurados correctamente', 'Setup completo', 5);
+}
+
+// ════════════════════════════════════════════════════════════
+//  migrateDetalleNombre — ejecutar UNA sola vez para migrar
+//  filas existentes al nuevo esquema con columna Nombre (col B)
+// ════════════════════════════════════════════════════════════
+function migrateDetalleNombre() {
+  const hDetalle  = SS.getSheetByName('Detalle_Pedidos');
+  const hPedidos  = SS.getSheetByName('Pedidos');
+  if (!hDetalle || !hPedidos) { SS.toast('Faltan hojas', 'Error', 4); return; }
+
+  const detalleData = hDetalle.getDataRange().getValues();
+  const headers     = detalleData[0];
+
+  // Si ya tiene 7 columnas con Nombre en col B, no hay nada que migrar
+  if (headers.length >= 7 && headers[1] === 'Nombre') {
+    SS.toast('Ya migrado — col B ya es Nombre', 'migrateDetalleNombre', 5);
+    return;
+  }
+
+  // Construir mapa idPedido → Nombre desde la hoja Pedidos
+  const pedidosData = hPedidos.getDataRange().getValues();
+  const pedidosMap  = {};
+  pedidosData.slice(1).forEach(row => { if (row[0]) pedidosMap[String(row[0])] = String(row[2] || ''); });
+
+  // Insertar columna B (posición 2) en Detalle_Pedidos
+  hDetalle.insertColumnBefore(2);
+
+  // Escribir encabezado Nombre en B1
+  hDetalle.getRange(1, 2).setValue('Nombre')
+    .setBackground(BROWN).setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // Rellenar B2:B{n} con el nombre del pedido correspondiente
+  const lastRow = hDetalle.getLastRow();
+  if (lastRow >= 2) {
+    const idCol    = hDetalle.getRange(2, 1, lastRow - 1, 1).getValues();
+    const nombres  = idCol.map(([id]) => [pedidosMap[String(id)] || '']);
+    hDetalle.getRange(2, 2, lastRow - 1, 1).setValues(nombres);
+  }
+
+  // Re-aplicar formato de columnas
+  hDetalle.setColumnWidth(2, 150);
+  hDetalle.getRange('F2:G1000').setNumberFormat('$#,##0');
+  hDetalle.getRange('E2:E1000').setHorizontalAlignment('center');
+
+  SS.toast(`✅ Migración completa — ${lastRow - 1} filas actualizadas`, 'migrateDetalleNombre', 6);
 }
 
 // ── Hoja: Pedidos ────────────────────────────────────────────
@@ -410,19 +458,19 @@ function _setupDetalle() {
   let sh = SS.getSheetByName('Detalle_Pedidos');
   if (!sh) sh = SS.insertSheet('Detalle_Pedidos');
 
-  sh.getRange(1, 1, 1, 6).setValues([['ID Pedido','ID Producto','Producto','Cantidad','Precio unit.','Subtotal']])
+  sh.getRange(1, 1, 1, 7).setValues([['ID Pedido','Nombre','ID Producto','Producto','Cantidad','Precio unit.','Subtotal']])
     .setBackground(BROWN).setFontColor('#FFFFFF')
     .setFontWeight('bold').setFontSize(10)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
   sh.setFrozenRows(1);
   sh.setRowHeight(1, 36);
-  [130, 90, 230, 80, 110, 110].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  [130, 150, 90, 230, 80, 110, 110].forEach((w, i) => sh.setColumnWidth(i + 1, w));
 
-  sh.getRange('E2:F1000').setNumberFormat('$#,##0');
-  sh.getRange('D2:D1000').setHorizontalAlignment('center');
+  sh.getRange('F2:G1000').setNumberFormat('$#,##0');
+  sh.getRange('E2:E1000').setHorizontalAlignment('center');
 
-  try { sh.getRange('A2:F1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
+  try { sh.getRange('A2:G1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
   catch(ex) {}
 }
 
