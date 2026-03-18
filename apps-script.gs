@@ -165,9 +165,11 @@ function _doPostCompraLote(data) {
   const fecha     = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
   const items     = data.items || [];
 
+  const costoTotal = parseFloat(data.costoTotal) || 0;
   items.forEach((item, i) => {
-    const id  = loteId + (items.length > 1 ? '-' + (i + 1) : '');
-    const qty = parseFloat(item.cantidad) || 0;
+    const id    = loteId + (items.length > 1 ? '-' + (i + 1) : '');
+    const qty   = parseFloat(item.cantidad) || 0;
+    const total = i === 0 && costoTotal > 0 ? costoTotal : ''; // costo del lote en primera fila
     sh.appendRow([
       id,
       fecha,
@@ -175,8 +177,8 @@ function _doPostCompraLote(data) {
       item.producto  || '',
       qty,
       item.unidad    || '',
-      '',            // Precio unit. (vacío por ahora)
-      '',            // Total
+      '',            // Precio unit.
+      total,         // Total (costo lote, solo fila 1)
       'Pendiente',
       data.notas     || '',
       data.fecha     || ''
@@ -195,7 +197,16 @@ function _doUpdateCompra(data) {
   const shData = sh.getDataRange().getValues();
   for (let r = 1; r < shData.length; r++) {
     if (String(shData[r][0]) === String(data.id)) {
-      sh.getRange(r + 1, 9).setValue(data.estado); // col 9 = Estado
+      const estadoAnterior = String(shData[r][8]); // col 9 = Estado (índice 8)
+      sh.getRange(r + 1, 9).setValue(data.estado);
+
+      // Si transiciona a Entregado por primera vez → actualizar stock físico
+      if (data.estado === 'Entregado' && estadoAnterior !== 'Entregado') {
+        const producto = String(shData[r][3]); // col 4 = Producto
+        const cantidad = parseFloat(shData[r][4]) || 0; // col 5 = Cantidad
+        if (producto && cantidad > 0) _actualizarStockFisico(producto, cantidad);
+      }
+
       return ContentService
         .createTextOutput(JSON.stringify({ ok: true }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -204,6 +215,20 @@ function _doUpdateCompra(data) {
   return ContentService
     .createTextOutput(JSON.stringify({ ok: false, error: 'ID no encontrado' }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Suma cantidad al Stock Físico del producto (col 3) cuando llega una compra
+function _actualizarStockFisico(nombreProducto, cantidad) {
+  const hProd = SS.getSheetByName('Productos');
+  if (!hProd) return;
+  const data = hProd.getDataRange().getValues();
+  for (let r = 1; r < data.length; r++) {
+    if (String(data[r][1]).trim().toLowerCase() === nombreProducto.trim().toLowerCase()) {
+      const celda = hProd.getRange(r + 1, 3); // col 3 = Stock Físico
+      celda.setValue((celda.getValue() || 0) + cantidad);
+      break;
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════════

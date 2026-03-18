@@ -173,6 +173,16 @@
     .canal-group { margin-bottom:.5rem; }
     .canal-group-header { display:flex; align-items:center; justify-content:space-between; padding:.55rem 1rem; background:var(--brown); color:#fff; border-radius:10px; font-weight:800; font-size:.85rem; margin-bottom:.4rem; }
 
+    /* CAJA TAB */
+    .caja-line { display:flex; align-items:center; justify-content:space-between; padding:.7rem 0; border-bottom:1px solid #f5f0e8; }
+    .caja-line:last-child { border-bottom:none; }
+    .caja-line-lbl { font-size:.82rem; color:#a08060; }
+    .caja-line-val { font-size:1.05rem; font-weight:800; }
+    .caja-neto { background:linear-gradient(135deg,var(--brown) 0%,#5a2c12 100%); color:#fff; border-radius:16px; padding:1.4rem 1.6rem; display:flex; align-items:center; justify-content:space-between; margin-bottom:1.2rem; }
+    .caja-neto-label { font-size:.8rem; font-weight:700; opacity:.65; }
+    .caja-neto-val   { font-size:2.2rem; font-weight:800; letter-spacing:-.03em; }
+    /* ABASTECIMIENTO */
+    .abast-note { font-size:.72rem; color:#059669; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:7px; padding:.35rem .8rem; display:inline-flex; align-items:center; gap:.35rem; margin-bottom:.65rem; }
     /* PRODUCCIÓN TAB */
     .prod-section-title { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); margin:1.25rem 0 .75rem; }
     .prod-section-title:first-child { margin-top:0; }
@@ -320,11 +330,11 @@
 
     <!-- SIDEBAR -->
     <nav class="sidebar">
-      <button class="nav-item active" data-tab="operacion" onclick="showTab('operacion')"><span class="nav-icon">🏠</span><span>Hoy</span></button>
-      <button class="nav-item"        data-tab="pedidos"   onclick="showTab('pedidos')"><span class="nav-icon">📋</span><span>Pedidos</span></button>
-      <button class="nav-item"        data-tab="produccion" onclick="showTab('produccion')"><span class="nav-icon">🍕</span><span>Producción</span></button>
-      <button class="nav-item"        data-tab="compras"   onclick="showTab('compras')"><span class="nav-icon">🛒</span><span>Compras</span></button>
-      <button class="nav-item"        data-tab="metricas"  onclick="showTab('metricas')"><span class="nav-icon">📊</span><span>Métricas</span></button>
+      <button class="nav-item active" data-tab="operacion"      onclick="showTab('operacion')"><span class="nav-icon">🎯</span><span>Hoy</span></button>
+      <button class="nav-item"        data-tab="pedidos"        onclick="showTab('pedidos')"><span class="nav-icon">📋</span><span>Pedidos</span></button>
+      <button class="nav-item"        data-tab="caja"           onclick="showTab('caja')"><span class="nav-icon">💰</span><span>Caja</span></button>
+      <button class="nav-item"        data-tab="abastecimiento" onclick="showTab('abastecimiento')"><span class="nav-icon">🛒</span><span>Abastecimiento</span></button>
+      <button class="nav-item"        data-tab="metricas"       onclick="showTab('metricas')"><span class="nav-icon">📊</span><span>Métricas</span></button>
       <div class="nav-spacer"></div>
       <div class="nav-divider"></div>
       <button class="nav-item" onclick="logout()" style="opacity:.45;font-size:.82rem"><span class="nav-icon">🚪</span><span>Salir</span></button>
@@ -412,16 +422,53 @@
         </div>
       </div>
 
-      <!-- ══ TAB: PRODUCCIÓN ══ -->
-      <div id="tab-produccion" class="tab-panel">
-        <div class="page-title">Producción</div>
-        <div class="page-sub">Cruce pedidos × stock · qué preparar y qué comprar</div>
+      <!-- ══ TAB: CAJA ══ -->
+      <div id="tab-caja" class="tab-panel">
+        <div class="page-title">Caja</div>
+        <div class="page-sub">Ingresos · Egresos · Balance del negocio</div>
 
-        <!-- Selector de entrega -->
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">Esta semana</div><div class="kpi-val c-green" id="cj-semana">—</div><div class="kpi-sub">ingresos entregados</div></div>
+          <div class="kpi-card"><div class="kpi-label">Este mes</div><div class="kpi-val c-green" id="cj-mes">—</div><div class="kpi-sub">ingresos entregados</div></div>
+          <div class="kpi-card"><div class="kpi-label">Pendiente de cobro</div><div class="kpi-val c-blue" id="cj-pendiente">—</div><div class="kpi-sub">activos sin entregar</div></div>
+          <div class="kpi-card"><div class="kpi-label">Ticket promedio</div><div class="kpi-val c-orange" id="cj-ticket">—</div><div class="kpi-sub">histórico entregados</div></div>
+        </div>
+
+        <div id="cj-neto-box"></div>
+
+        <div class="charts-2col">
+          <div class="section-box" style="margin-bottom:0">
+            <div class="section-hd"><span class="section-title">💳 Esta semana por método de pago</span></div>
+            <div id="cj-pagos-content"><div class="empty" style="padding:1rem 0"><div class="empty-text">Sin datos</div></div></div>
+          </div>
+          <div class="section-box" style="margin-bottom:0">
+            <div class="section-hd"><span class="section-title">📅 Esta semana por día de entrega</span></div>
+            <div id="cj-dias-content"><div class="empty" style="padding:1rem 0"><div class="empty-text">Sin datos</div></div></div>
+          </div>
+        </div>
+        <div style="height:1.2rem"></div>
+
+        <div class="section-box">
+          <div class="section-hd"><span class="section-title">📅 Historial semanal</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Semana</th><th>Pedidos</th><th>Ingresos</th><th>Egresos</th><th>Resultado neto</th></tr></thead>
+              <tbody id="cj-historial-tbody"><tr><td colspan="5" class="no-data">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: ABASTECIMIENTO ══ -->
+      <div id="tab-abastecimiento" class="tab-panel">
+        <div class="page-title">Abastecimiento</div>
+        <div class="page-sub">Stock · Compras · Producción — todo en uno</div>
+
+        <!-- Sección 1: Cruce -->
         <div class="section-box">
           <div class="section-hd">
-            <span class="section-title">Cruce Producción × Stock</span>
-            <select id="prod-dia-sel" class="filter-select" onchange="renderProduccion()" style="margin:0;min-width:180px">
+            <span class="section-title">🍕 Necesito comprar</span>
+            <select id="prod-dia-sel" class="filter-select" onchange="renderAbastecimientoCruce()" style="margin:0;min-width:180px">
               <option value="proxima">Próxima entrega</option>
               <option value="Miércoles">Miércoles</option>
               <option value="Viernes">Viernes</option>
@@ -432,33 +479,9 @@
           <div id="prod-cruce-content"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Cargando...</div></div></div>
         </div>
 
-        <!-- Inventario completo -->
+        <!-- Sección 2: Nuevo pedido -->
         <div class="section-box">
-          <div class="section-hd">
-            <span class="section-title">📦 Inventario completo</span>
-            <div style="display:flex;gap:.85rem;align-items:center">
-              <span><span id="psk-zero" style="font-weight:800;color:#E74C3C">—</span> <span style="font-size:.72rem;color:#b09880">sin stock</span></span>
-              <span><span id="psk-low"  style="font-weight:800;color:var(--orange)">—</span> <span style="font-size:.72rem;color:#b09880">crítico</span></span>
-              <span><span id="psk-ok"   style="font-weight:800;color:#27AE60">—</span> <span style="font-size:.72rem;color:#b09880">OK</span></span>
-            </div>
-          </div>
-          <div id="prod-stock-display"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
-        </div>
-      </div>
-
-      <!-- ══ TAB: COMPRAS ══ -->
-      <div id="tab-compras" class="tab-panel">
-        <div class="page-title">Compras a proveedores</div>
-        <div class="page-sub">Pedido interno de mercadería</div>
-
-        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr))">
-          <div class="kpi-card"><div class="kpi-label">Pendientes</div><div class="kpi-val c-orange" id="ck-pendientes">—</div><div class="kpi-sub">por enviar al proveedor</div></div>
-          <div class="kpi-card"><div class="kpi-label">Pedidos</div><div class="kpi-val c-blue" id="ck-pedidos">—</div><div class="kpi-sub">enviados · esperando</div></div>
-          <div class="kpi-card"><div class="kpi-label">Entregados</div><div class="kpi-val c-green" id="ck-entregados">—</div><div class="kpi-sub">este mes</div></div>
-        </div>
-
-        <div class="section-box">
-          <div class="section-hd"><span class="section-title">Nuevo pedido — seleccioná los productos</span></div>
+          <div class="section-hd"><span class="section-title">📦 Nuevo pedido al proveedor</span></div>
           <div id="cp-picker"></div>
           <div id="cp-cart-box" class="cp-cart-box" style="display:none">
             <div class="cp-cart-hd">Resumen del pedido</div>
@@ -473,6 +496,10 @@
               <label class="form-label">Fecha entrega estimada</label>
               <input type="date" class="form-input" id="cf-fecha" />
             </div>
+            <div class="form-group">
+              <label class="form-label">Costo total del pedido ($)</label>
+              <input type="number" class="form-input" id="cf-costo" placeholder="Ej: 15000" min="0" />
+            </div>
             <div class="form-group form-group-full">
               <label class="form-label">Notas (opcional)</label>
               <input type="text" class="form-input" id="cf-notas" placeholder="Ej: Confirmar precio antes de enviar" />
@@ -483,11 +510,19 @@
           </button>
         </div>
 
+        <!-- Sección 3: Pedidos al proveedor -->
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr))">
+          <div class="kpi-card"><div class="kpi-label">Pendientes</div><div class="kpi-val c-orange" id="ck-pendientes">—</div><div class="kpi-sub">por enviar al proveedor</div></div>
+          <div class="kpi-card"><div class="kpi-label">Pedidos</div><div class="kpi-val c-blue" id="ck-pedidos">—</div><div class="kpi-sub">enviados · esperando</div></div>
+          <div class="kpi-card"><div class="kpi-label">Entregados</div><div class="kpi-val c-green" id="ck-entregados">—</div><div class="kpi-sub">este mes</div></div>
+        </div>
+
         <div class="section-box">
           <div class="section-hd">
-            <span class="section-title">Historial de pedidos</span>
+            <span class="section-title">📋 Pedidos al proveedor</span>
             <button class="top-btn" style="font-size:.75rem" onclick="loadCompras()">↺ Actualizar</button>
           </div>
+          <div class="abast-note">✅ Al cambiar a "Entregado" el stock se actualiza automáticamente</div>
           <div id="compras-loading" style="display:none" class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando...</div></div>
           <div class="table-wrap" id="compras-table-wrap">
             <table>
@@ -495,6 +530,19 @@
               <tbody id="compras-tbody"><tr><td colspan="7" class="no-data">—</td></tr></tbody>
             </table>
           </div>
+        </div>
+
+        <!-- Sección 4: Inventario -->
+        <div class="section-box">
+          <div class="section-hd">
+            <span class="section-title">📦 Inventario completo</span>
+            <div style="display:flex;gap:.85rem;align-items:center">
+              <span><span id="psk-zero" style="font-weight:800;color:#E74C3C">—</span> <span style="font-size:.72rem;color:#b09880">sin stock</span></span>
+              <span><span id="psk-low"  style="font-weight:800;color:var(--orange)">—</span> <span style="font-size:.72rem;color:#b09880">crítico</span></span>
+              <span><span id="psk-ok"   style="font-weight:800;color:#27AE60">—</span> <span style="font-size:.72rem;color:#b09880">OK</span></span>
+            </div>
+          </div>
+          <div id="prod-stock-display"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
         </div>
       </div>
 
@@ -695,8 +743,8 @@ async function loadData() {
     renderTab(currentTab);
     document.getElementById('top-updated').textContent =
       'Act. ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-    // Load compras in background for pendientes section
-    if (!compras.length) loadCompras().catch(() => {});
+    // Load compras in background (needed by pendientes, caja egresos, abastecimiento)
+    loadCompras().catch(() => {});
   } catch(err) {
     document.getElementById('top-updated').textContent = '⚠️ Error';
     console.error(err);
@@ -714,11 +762,11 @@ function showTab(tab) {
 }
 function renderTab(tab) {
   rendered.add(tab);
-  if (tab === 'operacion')  renderOperacion();
-  if (tab === 'pedidos')    renderPedidosTable();
-  if (tab === 'produccion') renderProduccion();
-  if (tab === 'compras')    loadCompras();
-  if (tab === 'metricas')   renderMetricas();
+  if (tab === 'operacion')      renderOperacion();
+  if (tab === 'pedidos')        renderPedidosTable();
+  if (tab === 'caja')           renderCaja();
+  if (tab === 'abastecimiento') renderAbastecimiento();
+  if (tab === 'metricas')       renderMetricas();
 }
 
 // ── DELIVERY SCHEDULE ──────────────────────────────────────────────
@@ -748,8 +796,8 @@ function renderAlerts() {
   const bar    = document.getElementById('alert-bar');
   const chips  = [];
   if (sinConf   > 0) chips.push(`<button class="alert-chip alert-chip-red"    onclick="showTab('pedidos')">${sinConf} sin confirmar</button>`);
-  if (stockCrit > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('produccion')">${stockCrit} stock crítico</button>`);
-  if (compPend  > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('compras')">${compPend} compra${compPend>1?'s':''} pendiente${compPend>1?'s':''}</button>`);
+  if (stockCrit > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('abastecimiento')">${stockCrit} stock crítico</button>`);
+  if (compPend  > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('abastecimiento')">${compPend} compra${compPend>1?'s':''} pendiente${compPend>1?'s':''}</button>`);
 
   if (!chips.length) {
     bar.innerHTML = '<span class="alert-label">Estado:</span><span class="alert-chip alert-chip-green">✅ Todo en orden</span>';
@@ -869,7 +917,7 @@ function renderOperacion() {
     </div>`;
   });
   comprasPend.forEach(c => {
-    pendHTML += `<div class="pend-item" onclick="showTab('compras')">
+    pendHTML += `<div class="pend-item" onclick="showTab('abastecimiento')">
       <span class="pend-icon">🛒</span>
       <span class="pend-text">Compra pendiente: <strong>${c['Producto']||''}</strong></span>
       <span class="pend-meta">${c['Proveedor']||''} · ${c['Cantidad']||''} ${c['Unidad']||''}</span>
@@ -933,19 +981,23 @@ function renderOperacion() {
   document.getElementById('hm-prod-top').textContent   = topProd ? topProd[0] : '—';
 }
 
-// ── PRODUCCIÓN ────────────────────────────────────────────────────
-function renderProduccion() {
+// ── ABASTECIMIENTO ────────────────────────────────────────────────
+function renderAbastecimiento() {
+  renderAbastecimientoCruce();
+  _renderStockDisplay();
+  loadCompras();
+}
+
+function renderAbastecimientoCruce() {
   const sel = document.getElementById('prod-dia-sel').value;
   const dia = sel === 'proxima' ? getProximaEntrega().sheet : sel;
+  document.getElementById('prod-cruce-content').innerHTML = renderCruceTable(calcCruce(dia));
+}
 
-  const cruce = calcCruce(dia);
-  document.getElementById('prod-cruce-content').innerHTML = renderCruceTable(cruce);
-
-  // Stock completo
-  const cero  = productos.filter(p => getStock(p) === 0);
-  const bajo  = productos.filter(p => { const s = getStock(p); return s > 0 && s <= 5; });
-  const ok    = productos.filter(p => getStock(p) > 5);
-  const total = productos.reduce((s,p) => s + getStock(p), 0);
+function _renderStockDisplay() {
+  const cero = productos.filter(p => getStock(p) === 0);
+  const bajo = productos.filter(p => { const s = getStock(p); return s > 0 && s <= 5; });
+  const ok   = productos.filter(p => getStock(p) > 5);
 
   document.getElementById('psk-zero').textContent = cero.length;
   document.getElementById('psk-low').textContent  = bajo.length;
@@ -956,8 +1008,78 @@ function renderProduccion() {
   if (bajo.length) html += `<div class="stock-section-label">🟡 Stock crítico — 5 unidades o menos (${bajo.length})</div><div class="stock-grid">${bajo.map(p => stockCardHTML(p['Nombre'], getStock(p), getStockFisico(p))).join('')}</div>`;
   if (ok.length)   html += `<div class="stock-section-label">🟢 Stock OK (${ok.length})</div><div class="stock-grid">${ok.map(p => stockCardHTML(p['Nombre'], getStock(p), getStockFisico(p))).join('')}</div>`;
   if (!productos.length) html = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Sin datos de stock</div></div>';
-
   document.getElementById('prod-stock-display').innerHTML = html;
+}
+
+// ── CAJA ──────────────────────────────────────────────────────────
+function renderCaja() {
+  const now       = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
+  const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
+  const mesKey    = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  const entregados  = pedidos.filter(p => p['Estado'] === 'entregado');
+  const semEntregados = entregados.filter(p => { const d = parseDate(p['Fecha solo']||p['Fecha']); return d && d >= weekStart && d < weekEnd; });
+  const mesEntregados = entregados.filter(p => { const d = parseDate(p['Fecha solo']||p['Fecha']); return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey; });
+
+  const ingSemana = semEntregados.reduce((s,p) => s + parseMoney(p['Total']), 0);
+  const ingMes    = mesEntregados.reduce((s,p) => s + parseMoney(p['Total']), 0);
+  const pendiente = pedidos.filter(p => ['pendiente','confirmado'].includes(p['Estado'])).reduce((s,p) => s + parseMoney(p['Total']), 0);
+  const ticket    = entregados.length ? Math.round(entregados.reduce((s,p) => s+parseMoney(p['Total']),0) / entregados.length) : 0;
+
+  // Egresos: compras con Total > 0 y Entregado esta semana
+  const egSemana  = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && d >= weekStart && d < weekEnd && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
+  const egMes     = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
+
+  document.getElementById('cj-semana').textContent   = ars(ingSemana);
+  document.getElementById('cj-mes').textContent      = ars(ingMes);
+  document.getElementById('cj-pendiente').textContent = ars(pendiente);
+  document.getElementById('cj-ticket').textContent   = ars(ticket);
+
+  // Caja neto
+  const hasEg = egSemana > 0;
+  const neto  = ingSemana - egSemana;
+  document.getElementById('cj-neto-box').innerHTML = `
+    <div class="section-box" style="margin-bottom:1.2rem">
+      <div class="section-hd" style="margin-bottom:.75rem"><span class="section-title">💰 Balance esta semana</span></div>
+      <div class="caja-line"><span class="caja-line-lbl">Ingresos (entregados)</span><span class="caja-line-val c-green">${ars(ingSemana)}</span></div>
+      <div class="caja-line"><span class="caja-line-lbl">Egresos (compras entregadas)</span><span class="caja-line-val c-red">${hasEg ? '−'+ars(egSemana) : '<span style="font-size:.78rem;color:#c0a888">Completá costos en Abastecimiento</span>'}</span></div>
+      <div class="caja-line" style="border-top:1.5px solid var(--cream);margin-top:.3rem;padding-top:.7rem">
+        <span class="caja-line-lbl" style="font-weight:800;color:var(--brown)">Resultado neto</span>
+        <span class="caja-line-val" style="font-size:1.45rem;color:${hasEg?(neto>=0?'#27AE60':'#E74C3C'):'#b09880'}">${hasEg?ars(neto):'—'}</span>
+      </div>
+    </div>`;
+
+  // Por método de pago
+  const pagoMap = {};
+  semEntregados.forEach(p => { const m = p['Pago']||'Otro'; pagoMap[m] = (pagoMap[m]||0) + parseMoney(p['Total']); });
+  document.getElementById('cj-pagos-content').innerHTML = Object.keys(pagoMap).length
+    ? Object.entries(pagoMap).sort((a,b)=>b[1]-a[1]).map(([m,v]) => `<div class="caja-line"><span class="caja-line-lbl">${m}</span><span class="caja-line-val">${ars(v)}</span></div>`).join('')
+    : '<div class="empty" style="padding:.8rem 0"><div class="empty-text">Sin pedidos entregados esta semana</div></div>';
+
+  // Por día de entrega esta semana
+  const diasSem = {};
+  semEntregados.forEach(p => { const d = p['Día entrega']||'—'; diasSem[d] = (diasSem[d]||{count:0,total:0}); diasSem[d].count++; diasSem[d].total += parseMoney(p['Total']); });
+  document.getElementById('cj-dias-content').innerHTML = Object.keys(diasSem).length
+    ? Object.entries(diasSem).map(([d,v]) => `<div class="caja-line"><span class="caja-line-lbl">${d} (${v.count} ped.)</span><span class="caja-line-val">${ars(v.total)}</span></div>`).join('')
+    : '<div class="empty" style="padding:.8rem 0"><div class="empty-text">Sin pedidos entregados esta semana</div></div>';
+
+  // Historial semanal
+  const weekData = {};
+  entregados.forEach(p => { const d = parseDate(p['Fecha solo']||p['Fecha']); if (!d) return; const k = getWeekKey(d); if (!weekData[k]) weekData[k] = {count:0,total:0}; weekData[k].count++; weekData[k].total += parseMoney(p['Total']); });
+  const weekEg = {};
+  compras.filter(c => c['Estado']==='Entregado' && parseFloat(c['Total'])>0).forEach(c => { const d = parseDate(c['Fecha']); if (!d) return; const k = getWeekKey(d); weekEg[k] = (weekEg[k]||0) + parseFloat(c['Total']); });
+  const sortedW = Object.keys(weekData).sort().reverse().slice(0,12);
+  document.getElementById('cj-historial-tbody').innerHTML = sortedW.length ? sortedW.map(k => {
+    const w = weekData[k], eg = weekEg[k]||0, neto = eg>0 ? w.total-eg : null;
+    return `<tr>
+      <td style="font-weight:700">Sem ${k.split('-W')[1]}</td>
+      <td>${w.count}</td>
+      <td style="font-weight:700;color:#27AE60">${ars(w.total)}</td>
+      <td style="color:#E74C3C">${eg>0?'−'+ars(eg):'<span style="color:#c0a888">—</span>'}</td>
+      <td style="font-weight:700;color:${neto!==null?(neto>=0?'#27AE60':'#E74C3C'):'#c0a888'}">${neto!==null?ars(neto):'—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="no-data">Sin datos</td></tr>';
 }
 
 // ── MÉTRICAS ──────────────────────────────────────────────────────
@@ -1261,12 +1383,14 @@ async function submitCompraLote() {
   btn.disabled = true;
   btn.textContent = 'Enviando...';
 
+  const costoTotal = parseFloat(document.getElementById('cf-costo').value) || 0;
   const payload = {
-    action:    'compraLote',
+    action:     'compraLote',
     proveedor,
-    items:     sel.map(([id, qty]) => { const p = cpItem(id); return { producto: p.nombre, cantidad: qty, unidad: p.unidad }; }),
-    notas:     document.getElementById('cf-notas').value.trim(),
-    fecha:     document.getElementById('cf-fecha').value,
+    items:      sel.map(([id, qty]) => { const p = cpItem(id); return { producto: p.nombre, cantidad: qty, unidad: p.unidad }; }),
+    notas:      document.getElementById('cf-notas').value.trim(),
+    fecha:      document.getElementById('cf-fecha').value,
+    costoTotal: costoTotal || '',
   };
 
   try {
@@ -1277,6 +1401,7 @@ async function submitCompraLote() {
     document.getElementById('cf-proveedor').value = '';
     document.getElementById('cf-notas').value     = '';
     document.getElementById('cf-fecha').value     = '';
+    document.getElementById('cf-costo').value     = '';
     setTimeout(loadCompras, 1800);
   } catch(err) {
     console.error(err);
@@ -1293,8 +1418,9 @@ async function loadCompras() {
     const r = await fetch(APPS_SCRIPT_URL + '?action=compras&t=' + Date.now());
     compras = await r.json();
     renderComprasUI();
-    renderAlerts(); // update alert bar with fresh compras data
-    if (currentTab === 'operacion') renderOperacion(); // refresh pendientes
+    renderAlerts();
+    if (currentTab === 'operacion') renderOperacion();
+    if (currentTab === 'caja')      renderCaja();
   } catch(err) {
     console.error('Error cargando compras:', err);
     document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="7" class="no-data">Error al cargar · redeploy Apps Script pendiente</td></tr>';
