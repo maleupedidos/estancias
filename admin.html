@@ -1150,7 +1150,9 @@ function _renderClubesCompras() {
   const totalItems  = Object.values(byProd).reduce((s, e) => s + e.qty, 0);
   const totalCostoG = Object.values(byProd).reduce((s, { item, qty }) => s + (item.costo||0)*qty, 0);
   const equiposSet  = [...new Set(clubPedidos.map(p => p['Barrio']))];
-  const clientes    = [...new Set(clubPedidos.map(p => p['Nombre']).filter(Boolean))];
+  const clienteCount = {};
+  clubPedidos.forEach(p => { const n = p['Nombre']; if (n) clienteCount[n] = (clienteCount[n]||0) + 1; });
+  const clientesEntries = Object.entries(clienteCount);
 
   const statChip = (label, val, sub) =>
     `<div style="background:#fff;border:1.5px solid #ede5db;border-radius:12px;padding:.5rem .9rem;text-align:center;flex:1;min-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:center">
@@ -1160,7 +1162,9 @@ function _renderClubesCompras() {
     </div>`;
 
   const equiposNames = equiposSet.map(b => b.replace(/^Club-/,'')).join(' · ');
-  const clientesStr  = clientes.slice(0,4).join(' · ') + (clientes.length > 4 ? ` +${clientes.length-4}` : '');
+  const clientesStr  = clientesEntries.slice(0,4)
+    .map(([nombre, count]) => count > 1 ? `${nombre} x${count}` : nombre)
+    .join(' · ') + (clientesEntries.length > 4 ? ` +${clientesEntries.length-4}` : '');
 
   // Solo stat chips — los cards de proveedor se ven en "Semana actual"
   const html = `<div style="display:flex;gap:.55rem;flex-wrap:wrap">
