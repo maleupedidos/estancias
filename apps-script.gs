@@ -97,10 +97,17 @@ function _doPostPedido(data) {
     const fechaDate = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
     const items    = data.items || [];
 
+    // Canal y tipo de origen
+    const esClub = String(data.barrio || '').startsWith('Club-');
+    const canal  = esClub
+      ? 'Clubes'
+      : (String(data.barrio || '').startsWith('Delivery-') ? 'Delivery' : 'Estancias');
+
     // Hoja Pedidos
     const hPedidos = SS.getSheetByName('Pedidos');
     hPedidos.appendRow([
       idPedido,
+      canal,
       fecha,
       data.nombre   || '',
       data.barrio   || '',
@@ -111,12 +118,12 @@ function _doPostPedido(data) {
       data.pago     || '',
       data.total    || 0,
       'pendiente',
-      fechaDate
+      fechaDate,
+      ''            // Depósito — se completa manualmente si corresponde
     ]);
 
     // Hoja Detalle_Pedidos + reservar stock
     // Clubes es por encargo: NO toca el stock del depósito
-    const esClub     = String(data.barrio || '').startsWith('Club-');
     const hDetalle   = SS.getSheetByName('Detalle_Pedidos');
     const hProductos = SS.getSheetByName('Productos');
     const prodData   = hProductos.getDataRange().getValues();
@@ -254,13 +261,13 @@ function _actualizarStockFisico(nombreProducto, cantidad) {
 function onEdit(e) {
   const sheet = e.range.getSheet();
   if (sheet.getName() !== 'Pedidos') return;
-  if (e.range.getColumn() !== 11) return;
+  if (e.range.getColumn() !== 12) return; // col 12 = Estado (Canal agregado en col 2)
 
   const nuevoEstado = e.value;
   if (nuevoEstado !== 'entregado' && nuevoEstado !== 'cancelado') return;
 
   const idPedido   = sheet.getRange(e.range.getRow(), 1).getValue();
-  const barrio     = sheet.getRange(e.range.getRow(), 4).getValue(); // col 4 = Barrio
+  const barrio     = sheet.getRange(e.range.getRow(), 5).getValue(); // col 5 = Barrio
   const esClub     = String(barrio).startsWith('Club-'); // Clubes no toca stock
   const hDetalle   = SS.getSheetByName('Detalle_Pedidos');
   const hProductos = SS.getSheetByName('Productos');
@@ -365,8 +372,9 @@ function _setupPedidos() {
   let sh = SS.getSheetByName('Pedidos');
   if (!sh) sh = SS.insertSheet('Pedidos');
 
-  const headers = ['ID Pedido','Fecha','Nombre','Barrio','Lote','Teléfono',
-                   'Día entrega','Horario','Pago','Total','Estado','Fecha solo'];
+  // Nueva estructura con Canal (col 2) y Depósito (col 14)
+  const headers = ['ID Pedido','Canal','Fecha','Nombre','Barrio','Lote','Teléfono',
+                   'Día entrega','Horario','Pago','Total','Estado','Fecha solo','Depósito'];
   sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
     .setFontWeight('bold').setFontSize(10)
@@ -375,46 +383,46 @@ function _setupPedidos() {
   sh.setFrozenRows(1);
   sh.setRowHeight(1, 36);
 
-  [130,150,170,140,70,130,110,90,120,90,110,0].forEach((w, i) => {
+  [130,110,150,170,140,70,130,110,90,120,90,110,0,120].forEach((w, i) => {
     if (w > 0) sh.setColumnWidth(i + 1, w);
   });
-  sh.hideColumns(12); // Fecha solo — solo para fórmulas del Panel
+  sh.hideColumns(13); // Fecha solo — solo para fórmulas del Panel
 
-  // Dropdown de estado
+  // Dropdown de estado (col 12)
   const dropRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['pendiente','confirmado','entregado','cancelado'], true)
     .setAllowInvalid(false).build();
-  sh.getRange(2, 11, 1000, 1).setDataValidation(dropRule);
+  sh.getRange(2, 12, 1000, 1).setDataValidation(dropRule);
 
-  // Formato moneda en Total
-  sh.getRange('J2:J1000').setNumberFormat('$#,##0');
+  // Formato moneda en Total (col K)
+  sh.getRange('K2:K1000').setNumberFormat('$#,##0');
 
-  // Formato de fecha
-  sh.getRange('B2:B1000').setNumberFormat('@'); // texto
+  // Formato de fecha (col C)
+  sh.getRange('C2:C1000').setNumberFormat('@'); // texto
 
-  // Conditional formatting — Estado (col K)
-  const kRange = sh.getRange('K2:K1000');
+  // Conditional formatting — Estado (col L)
+  const lRange = sh.getRange('L2:L1000');
   sh.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('pendiente')
       .setBackground('#FFF9C4').setFontColor('#7A6000').setBold(true)
-      .setRanges([kRange]).build(),
+      .setRanges([lRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('confirmado')
       .setBackground('#BBDEFB').setFontColor('#0D47A1').setBold(true)
-      .setRanges([kRange]).build(),
+      .setRanges([lRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('entregado')
       .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
-      .setRanges([kRange]).build(),
+      .setRanges([lRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('cancelado')
       .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true)
-      .setRanges([kRange]).build(),
+      .setRanges([lRange]).build(),
   ]);
 
   // Banding (filas alternas)
-  try { sh.getRange('A2:L1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
+  try { sh.getRange('A2:N1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
   catch(ex) {}
 }
 
@@ -512,16 +520,16 @@ function _setupPanel() {
     .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  sh.getRange('C6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"pendiente");0)')
+  sh.getRange('C6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!L:L;"pendiente");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#7A6000')
     .setBackground('#FFFDE7').setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.getRange('D6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"confirmado");0)')
+  sh.getRange('D6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!L:L;"confirmado");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#0D47A1')
     .setBackground('#E3F2FD').setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.getRange('E6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"entregado");0)')
+  sh.getRange('E6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!L:L;"entregado");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#1B5E20')
     .setBackground('#E8F5E9').setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.getRange('F6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"cancelado");0)')
+  sh.getRange('F6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!L:L;"cancelado");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#B71C1C')
     .setBackground('#FFEBEE').setHorizontalAlignment('center').setVerticalAlignment('middle');
 
@@ -538,9 +546,9 @@ function _setupPanel() {
     .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  const activos  = '(CONTAR.SI.CONJUNTO(Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!K:K;"confirmado"))';
-  const clubes   = '(CONTAR.SI.CONJUNTO(Pedidos!D:D;"Club-*";Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!D:D;"Club-*";Pedidos!K:K;"confirmado"))';
-  const delivery = '(CONTAR.SI.CONJUNTO(Pedidos!D:D;"Delivery-*";Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!D:D;"Delivery-*";Pedidos!K:K;"confirmado"))';
+  const activos  = '(CONTAR.SI.CONJUNTO(Pedidos!L:L;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!L:L;"confirmado"))';
+  const clubes   = '(CONTAR.SI.CONJUNTO(Pedidos!E:E;"Club-*";Pedidos!L:L;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!E:E;"Club-*";Pedidos!L:L;"confirmado"))';
+  const delivery = '(CONTAR.SI.CONJUNTO(Pedidos!E:E;"Delivery-*";Pedidos!L:L;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!E:E;"Delivery-*";Pedidos!L:L;"confirmado"))';
 
   sh.getRange('C10').setFormulaLocal(`=SI.ERROR(${activos}-${clubes}-${delivery};0)`)
     .setFontSize(30).setFontWeight('bold').setFontColor(BROWN)
@@ -569,13 +577,13 @@ function _setupPanel() {
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
   sh.getRange('C14:D14').merge()
-    .setFormulaLocal('=SI.ERROR(SUMAR.SI(Pedidos!K:K;"entregado";Pedidos!J:J);0)')
+    .setFormulaLocal('=SI.ERROR(SUMAR.SI(Pedidos!L:L;"entregado";Pedidos!K:K);0)')
     .setNumberFormat('$#,##0')
     .setFontSize(24).setFontWeight('bold').setFontColor('#1B5E20')
     .setBackground('#E8F5E9').setHorizontalAlignment('center').setVerticalAlignment('middle');
 
   sh.getRange('E14:F14').merge()
-    .setFormulaLocal('=SI.ERROR(SUMAR.SI.CONJUNTO(Pedidos!J:J;Pedidos!K:K;"pendiente")+SUMAR.SI.CONJUNTO(Pedidos!J:J;Pedidos!K:K;"confirmado");0)')
+    .setFormulaLocal('=SI.ERROR(SUMAR.SI.CONJUNTO(Pedidos!K:K;Pedidos!L:L;"pendiente")+SUMAR.SI.CONJUNTO(Pedidos!K:K;Pedidos!L:L;"confirmado");0)')
     .setNumberFormat('$#,##0')
     .setFontSize(24).setFontWeight('bold').setFontColor('#0D47A1')
     .setBackground('#E3F2FD').setHorizontalAlignment('center').setVerticalAlignment('middle');
@@ -596,7 +604,7 @@ function _setupPanel() {
 
   dias.forEach((dia, i) => {
     sh.getRange(18, 3 + i)
-      .setFormulaLocal(`=SI.ERROR(CONTAR.SI.CONJUNTO(Pedidos!G:G;"${dia}";Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!G:G;"${dia}";Pedidos!K:K;"confirmado");0)`)
+      .setFormulaLocal(`=SI.ERROR(CONTAR.SI.CONJUNTO(Pedidos!H:H;"${dia}";Pedidos!L:L;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!H:H;"${dia}";Pedidos!L:L;"confirmado");0)`)
       .setFontSize(28).setFontWeight('bold').setFontColor(BROWN)
       .setBackground('#FFF8F0').setHorizontalAlignment('center').setVerticalAlignment('middle');
   });

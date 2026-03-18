@@ -535,21 +535,6 @@
           <div id="clubes-compras-content"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
         </div>
 
-        <!-- Sección 1: Cruce -->
-        <div class="section-box" id="abast-cruce-section">
-          <div class="section-hd">
-            <span class="section-title">🍕 Necesito comprar</span>
-            <select id="prod-dia-sel" class="filter-select" onchange="renderAbastecimientoCruce()" style="margin:0;min-width:180px">
-              <option value="proxima">Próxima entrega</option>
-              <option value="Miércoles">Miércoles</option>
-              <option value="Viernes">Viernes</option>
-              <option value="Sábado">Sábado</option>
-              <option value="Domingo">Domingo</option>
-            </select>
-          </div>
-          <div id="prod-cruce-content"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Cargando...</div></div></div>
-        </div>
-
         <!-- Sección 2: Nuevo pedido -->
         <div class="section-box" id="abast-nuevo-section">
           <div class="section-hd"><span class="section-title">📦 Nuevo pedido al proveedor</span></div>
@@ -884,8 +869,9 @@ function renderAlerts() {
 
   const bar   = document.getElementById('alert-bar');
   const chips = [];
-  if (!enClubes && sinConf   > 0) chips.push(`<button class="alert-chip alert-chip-red"    onclick="showTab('operacion')">${sinConf} sin confirmar</button>`);
-  if (!enClubes && stockCrit > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('abastecimiento')">${stockCrit} stock crítico</button>`);
+  const enVD = currentTab === 'abastecimiento' && _abastCanal === 'vd';
+  if (!enClubes && sinConf > 0) chips.push(`<button class="alert-chip alert-chip-red"    onclick="showTab('operacion')">${sinConf} sin confirmar</button>`);
+  if (enVD && stockCrit > 0)   chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('abastecimiento')">${stockCrit} stock crítico</button>`);
   if (compPend > 0)               chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('abastecimiento')">${compPend} compra${compPend>1?'s':''} pendiente${compPend>1?'s':''}</button>`);
 
   if (!chips.length) {
@@ -1302,7 +1288,7 @@ function setAbastCanal(canal) {
   document.getElementById('abast-btn-clubes').classList.toggle('active', canal === 'clubes');
 
   // Secciones exclusivas de cada canal
-  const soloVD     = ['abast-cruce-section','abast-nuevo-section','abast-historial-section','abast-inventario-section'];
+  const soloVD     = ['abast-nuevo-section','abast-historial-section','abast-inventario-section'];
   const soloClubes = ['clubes-compras-section','abast-desglose-section'];
   soloVD    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = canal === 'vd'     ? '' : 'none'; });
   soloClubes.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = canal === 'clubes' ? '' : 'none'; });
@@ -1320,7 +1306,6 @@ function renderAbastecimiento() {
   _renderResumenProveedores();
   _renderClubesCompras();
   _renderClubesDesglose();
-  renderAbastecimientoCruce();
   _renderStockDisplay();
   loadCompras();
   setAbastCanal(_abastCanal);
@@ -1405,11 +1390,7 @@ function _renderResumenProveedores() {
     ${cards}`;
 }
 
-function renderAbastecimientoCruce() {
-  const sel = document.getElementById('prod-dia-sel').value;
-  const dia = sel === 'proxima' ? getProximaEntrega().sheet : sel;
-  document.getElementById('prod-cruce-content').innerHTML = renderCruceTable(calcCruce(dia));
-}
+
 
 function _renderStockDisplay() {
   const cero = productos.filter(p => getStock(p) === 0);
