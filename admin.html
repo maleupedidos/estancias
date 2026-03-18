@@ -509,7 +509,16 @@
       <!-- ══ TAB: ABASTECIMIENTO ══ -->
       <div id="tab-abastecimiento" class="tab-panel">
         <div class="page-title">Abastecimiento</div>
-        <div class="page-sub">Stock · Compras · Producción — todo en uno</div>
+        <div class="page-sub">Compra de Mercadería</div>
+
+        <!-- Resumen proveedores viernes -->
+        <div class="section-box" id="abast-resumen-prov-box" style="margin-bottom:1.2rem">
+          <div class="section-hd">
+            <span class="section-title">🧾 Pedidos a proveedores · próximo viernes</span>
+            <span class="section-badge" id="abast-resumen-prov-badge">—</span>
+          </div>
+          <div id="abast-resumen-prov-content"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
+        </div>
 
         <!-- Canal selector -->
         <div class="abast-canal-toggle">
@@ -1308,12 +1317,92 @@ function setAbastCanal(canal) {
 }
 
 function renderAbastecimiento() {
+  _renderResumenProveedores();
   _renderClubesCompras();
   _renderClubesDesglose();
   renderAbastecimientoCruce();
   _renderStockDisplay();
   loadCompras();
   setAbastCanal(_abastCanal);
+}
+
+function _renderResumenProveedores() {
+  const badge   = document.getElementById('abast-resumen-prov-badge');
+  const content = document.getElementById('abast-resumen-prov-content');
+  if (!badge || !content) return;
+
+  // Próximo viernes
+  const now = new Date();
+  const daysToFri = (5 - now.getDay() + 7) % 7 || 7;
+  const thisFriday = new Date(now);
+  thisFriday.setDate(now.getDate() + daysToFri);
+  thisFriday.setHours(0, 0, 0, 0);
+  const fmtFri = `${String(thisFriday.getDate()).padStart(2,'0')}/${String(thisFriday.getMonth()+1).padStart(2,'0')}`;
+
+  // Todos los pedidos activos para el viernes
+  const viernesPedidos = pedidos.filter(p =>
+    ['pendiente','confirmado'].includes(p['Estado']) && p['Día entrega'] === 'Viernes'
+  );
+
+  badge.textContent = viernesPedidos.length ? `${viernesPedidos.length} pedido${viernesPedidos.length !== 1 ? 's' : ''}` : 'sin pedidos';
+
+  if (!viernesPedidos.length) {
+    content.innerHTML = `<div style="font-size:.82rem;color:#a08060;padding:.3rem 0">Sin pedidos para el viernes <strong>${fmtFri}</strong></div>`;
+    return;
+  }
+
+  // Mapa producto → proveedor desde COMPRAS_PRODUCTOS
+  const prodProvMap = {};
+  COMPRAS_PRODUCTOS.forEach(cat => {
+    cat.items.forEach(item => { prodProvMap[item.nombre.toLowerCase()] = item.proveedor; });
+  });
+  function findProv(prodName) {
+    const key = prodName.toLowerCase();
+    if (prodProvMap[key]) return prodProvMap[key];
+    const found = Object.entries(prodProvMap).find(([k]) => key.includes(k) || k.includes(key));
+    return found ? found[1] : 'Sin proveedor';
+  }
+
+  // Agrupar detalle por proveedor
+  const pidSet = new Set(viernesPedidos.map(p => p['ID Pedido']));
+  const detViernes = detalle.filter(d => pidSet.has(d['ID Pedido']));
+  const byProv = {}; // { prov: { prod: qty } }
+  detViernes.forEach(d => {
+    const prod = d['Producto']; if (!prod) return;
+    const qty = parseInt(d['Cantidad']) || 0;
+    const prov = findProv(prod);
+    if (!byProv[prov]) byProv[prov] = {};
+    byProv[prov][prod] = (byProv[prov][prod] || 0) + qty;
+  });
+
+  if (!Object.keys(byProv).length) {
+    content.innerHTML = `<div style="font-size:.82rem;color:#a08060;padding:.3rem 0">No hay detalle de productos para el viernes <strong>${fmtFri}</strong></div>`;
+    return;
+  }
+
+  const cards = Object.entries(byProv).map(([prov, prods]) => {
+    const total = Object.values(prods).reduce((s, v) => s + v, 0);
+    const rows  = Object.entries(prods).map(([prod, qty]) =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:.28rem 0;border-bottom:1px solid #f0ebe4">
+        <span style="font-size:.82rem;color:#5a4030">${prod}</span>
+        <span style="font-size:.85rem;font-weight:800;color:var(--orange)">${qty}</span>
+      </div>`
+    ).join('');
+    return `
+      <div style="background:#f9f5ef;border-radius:14px;padding:.9rem 1.05rem;margin-bottom:.75rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+          <span style="font-size:.93rem;font-weight:800;color:var(--brown)">${prov}</span>
+          <span style="font-size:.72rem;font-weight:700;background:#e8d5bf;color:#7a5030;padding:.15rem .65rem;border-radius:50px">${total} ud.</span>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="font-size:.74rem;color:#a08060;margin-bottom:.8rem">
+      Próximo viernes <strong>${fmtFri}</strong> · ${viernesPedidos.length} pedido${viernesPedidos.length !== 1 ? 's' : ''}
+    </div>
+    ${cards}`;
 }
 
 function renderAbastecimientoCruce() {
