@@ -481,11 +481,8 @@ function _setupPanel() {
   const sh = SS.insertSheet('Panel', 0);
   sh.setTabColor(ORANGE);
   sh.setHiddenGridlines(true);
+  sh.getRange('A1:H80').setBackground('#F7F3EE');
 
-  // Fondo general
-  sh.getRange('A1:H60').setBackground('#F7F3EE');
-
-  // Columnas
   sh.setColumnWidth(1, 24);
   sh.setColumnWidth(2, 200);
   sh.setColumnWidth(3, 165);
@@ -494,7 +491,7 @@ function _setupPanel() {
   sh.setColumnWidth(6, 165);
   sh.setColumnWidth(7, 24);
 
-  // ── TÍTULO ──────────────────────────────────────────────
+  // ── TÍTULO ──
   sh.setRowHeight(1, 16);
   sh.setRowHeight(2, 64);
   sh.getRange('B2:F2').merge()
@@ -504,107 +501,126 @@ function _setupPanel() {
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
   sh.setRowHeight(3, 16);
 
-  // ── SECCIÓN: ESTADO DE PEDIDOS ───────────────────────────
+  // ── ESTADO DE PEDIDOS ──
   sh.setRowHeight(4, 28);
   sh.getRange('B4').setValue('ESTADO DE PEDIDOS')
-    .setFontSize(9).setFontWeight('bold').setFontColor(ORANGE).setFontStyle('normal');
-
+    .setFontSize(9).setFontWeight('bold').setFontColor(ORANGE);
   sh.setRowHeight(5, 28);
   sh.setRowHeight(6, 72);
 
-  const estadoData = [
-    ['Pendientes', 'Confirmados', 'Entregados', 'Cancelados'],
-  ];
-  sh.getRange('C5:F5').setValues(estadoData)
+  sh.getRange('C5:F5').setValues([['Pendientes','Confirmados','Entregados','Cancelados']])
     .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  sh.getRange('C6').setFormula('=IFERROR(COUNTIF(Pedidos!K:K,"pendiente"),0)')
+  sh.getRange('C6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"pendiente");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#7A6000')
     .setBackground('#FFFDE7').setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.getRange('D6').setFormula('=IFERROR(COUNTIF(Pedidos!K:K,"confirmado"),0)')
+  sh.getRange('D6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"confirmado");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#0D47A1')
     .setBackground('#E3F2FD').setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.getRange('E6').setFormula('=IFERROR(COUNTIF(Pedidos!K:K,"entregado"),0)')
+  sh.getRange('E6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"entregado");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#1B5E20')
     .setBackground('#E8F5E9').setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.getRange('F6').setFormula('=IFERROR(COUNTIF(Pedidos!K:K,"cancelado"),0)')
+  sh.getRange('F6').setFormulaLocal('=SI.ERROR(CONTAR.SI(Pedidos!K:K;"cancelado");0)')
     .setFontSize(30).setFontWeight('bold').setFontColor('#B71C1C')
     .setBackground('#FFEBEE').setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  sh.getRange('C5:C6').setBorder(null,null,null,null,null,null);
   sh.setRowHeight(7, 16);
 
-  // ── SECCIÓN: INGRESOS ────────────────────────────────────
+  // ── CANAL ──
   sh.setRowHeight(8, 28);
-  sh.getRange('B8').setValue('INGRESOS')
+  sh.getRange('B8').setValue('PEDIDOS ACTIVOS POR CANAL')
     .setFontSize(9).setFontWeight('bold').setFontColor(ORANGE);
-
   sh.setRowHeight(9, 28);
   sh.setRowHeight(10, 64);
 
-  sh.getRange('C9:D9').merge().setValue('Total facturado (entregados)')
-    .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.getRange('E9:F9').merge().setValue('Pendiente de cobro')
+  sh.getRange('C9:E9').setValues([['🏡 Estancias','🏃 Clubes','🛵 Delivery']])
     .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  sh.getRange('C10:D10').merge()
-    .setFormula('=IFERROR(SUMIF(Pedidos!K:K,"entregado",Pedidos!J:J),0)')
+  const activos  = '(CONTAR.SI.CONJUNTO(Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!K:K;"confirmado"))';
+  const clubes   = '(CONTAR.SI.CONJUNTO(Pedidos!D:D;"Club-*";Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!D:D;"Club-*";Pedidos!K:K;"confirmado"))';
+  const delivery = '(CONTAR.SI.CONJUNTO(Pedidos!D:D;"Delivery-*";Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!D:D;"Delivery-*";Pedidos!K:K;"confirmado"))';
+
+  sh.getRange('C10').setFormulaLocal(`=SI.ERROR(${activos}-${clubes}-${delivery};0)`)
+    .setFontSize(30).setFontWeight('bold').setFontColor(BROWN)
+    .setBackground('#FFF8F0').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sh.getRange('D10').setFormulaLocal(`=SI.ERROR(${clubes};0)`)
+    .setFontSize(30).setFontWeight('bold').setFontColor('#1E40AF')
+    .setBackground('#EFF6FF').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sh.getRange('E10').setFormulaLocal(`=SI.ERROR(${delivery};0)`)
+    .setFontSize(30).setFontWeight('bold').setFontColor('#065F46')
+    .setBackground('#ECFDF5').setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  sh.setRowHeight(11, 16);
+
+  // ── INGRESOS ──
+  sh.setRowHeight(12, 28);
+  sh.getRange('B12').setValue('INGRESOS')
+    .setFontSize(9).setFontWeight('bold').setFontColor(ORANGE);
+  sh.setRowHeight(13, 28);
+  sh.setRowHeight(14, 64);
+
+  sh.getRange('C13:D13').merge().setValue('Total facturado (entregados)')
+    .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sh.getRange('E13:F13').merge().setValue('Pendiente de cobro')
+    .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  sh.getRange('C14:D14').merge()
+    .setFormulaLocal('=SI.ERROR(SUMAR.SI(Pedidos!K:K;"entregado";Pedidos!J:J);0)')
     .setNumberFormat('$#,##0')
     .setFontSize(24).setFontWeight('bold').setFontColor('#1B5E20')
     .setBackground('#E8F5E9').setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  sh.getRange('E10:F10').merge()
-    .setFormula('=IFERROR(SUMIFS(Pedidos!J:J,Pedidos!K:K,"pendiente")+SUMIFS(Pedidos!J:J,Pedidos!K:K,"confirmado"),0)')
+  sh.getRange('E14:F14').merge()
+    .setFormulaLocal('=SI.ERROR(SUMAR.SI.CONJUNTO(Pedidos!J:J;Pedidos!K:K;"pendiente")+SUMAR.SI.CONJUNTO(Pedidos!J:J;Pedidos!K:K;"confirmado");0)')
     .setNumberFormat('$#,##0')
     .setFontSize(24).setFontWeight('bold').setFontColor('#0D47A1')
     .setBackground('#E3F2FD').setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  sh.setRowHeight(11, 16);
+  sh.setRowHeight(15, 16);
 
-  // ── SECCIÓN: PEDIDOS POR DÍA ─────────────────────────────
-  sh.setRowHeight(12, 28);
-  sh.getRange('B12').setValue('PEDIDOS ACTIVOS POR DÍA DE ENTREGA')
+  // ── PEDIDOS POR DÍA ──
+  sh.setRowHeight(16, 28);
+  sh.getRange('B16').setValue('PEDIDOS ACTIVOS POR DÍA DE ENTREGA')
     .setFontSize(9).setFontWeight('bold').setFontColor(ORANGE);
-
-  sh.setRowHeight(13, 28);
-  sh.setRowHeight(14, 64);
+  sh.setRowHeight(17, 28);
+  sh.setRowHeight(18, 64);
 
   const dias = ['Miércoles','Viernes','Sábado','Domingo'];
-  sh.getRange('C13:F13').setValues([dias])
+  sh.getRange('C17:F17').setValues([dias])
     .setFontSize(10).setFontColor('#666666').setFontWeight('bold')
     .setHorizontalAlignment('center').setBackground(CREAM);
 
   dias.forEach((dia, i) => {
-    sh.getRange(14, 3 + i)
-      .setFormula(`=IFERROR(COUNTIFS(Pedidos!G:G,"${dia}",Pedidos!K:K,"pendiente")+COUNTIFS(Pedidos!G:G,"${dia}",Pedidos!K:K,"confirmado"),0)`)
+    sh.getRange(18, 3 + i)
+      .setFormulaLocal(`=SI.ERROR(CONTAR.SI.CONJUNTO(Pedidos!G:G;"${dia}";Pedidos!K:K;"pendiente")+CONTAR.SI.CONJUNTO(Pedidos!G:G;"${dia}";Pedidos!K:K;"confirmado");0)`)
       .setFontSize(28).setFontWeight('bold').setFontColor(BROWN)
       .setBackground('#FFF8F0').setHorizontalAlignment('center').setVerticalAlignment('middle');
   });
 
-  sh.setRowHeight(15, 16);
+  sh.setRowHeight(19, 16);
 
-  // ── SECCIÓN: ALERTA DE STOCK ─────────────────────────────
-  sh.setRowHeight(16, 28);
-  sh.getRange('B16').setValue('⚠️  ALERTAS DE STOCK  (≤ 5 unidades disponibles)')
+  // ── ALERTAS DE STOCK ──
+  sh.setRowHeight(20, 28);
+  sh.getRange('B20').setValue('⚠️  ALERTAS DE STOCK  (≤ 5 unidades disponibles)')
     .setFontSize(9).setFontWeight('bold').setFontColor('#B71C1C');
-
-  sh.setRowHeight(17, 30);
-  sh.getRange('C17:D17').setValues([['Producto','Stock disponible']])
+  sh.setRowHeight(21, 30);
+  sh.getRange('C21:D21').setValues([['Producto','Stock disponible']])
     .setBackground(BROWN).setFontColor('#FFFFFF')
     .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center');
 
-  sh.getRange('C18')
-    .setFormula("=IFERROR(QUERY(Productos!B:E,\"SELECT B, E WHERE E <= 5 AND E IS NOT NULL ORDER BY E ASC\",0),\"Sin stock critico\")");
-  sh.getRange('C18:C35').setFontSize(10).setFontColor(BROWN);
-  sh.getRange('D18:D35').setFontSize(10).setFontColor('#E65100').setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange('C22')
+    .setFormulaLocal('=SI.ERROR(QUERY(Productos!B:E;"SELECT B, E WHERE E <= 5 AND E IS NOT NULL ORDER BY E ASC";0);"✅ Sin stock crítico")');
+  sh.getRange('C22:C42').setFontSize(10).setFontColor(BROWN);
+  sh.getRange('D22:D42').setFontSize(10).setFontColor('#E65100').setFontWeight('bold').setHorizontalAlignment('center');
 
-  // ── PIE ──────────────────────────────────────────────────
-  sh.setRowHeight(38, 24);
-  sh.getRange('B38')
-    .setFormula('="Actualizado: "&TEXT(NOW(),"dd/mm/yyyy HH:mm")')
+  // ── PIE ──
+  sh.setRowHeight(46, 24);
+  sh.getRange('B46')
+    .setFormulaLocal('="Actualizado: "&TEXTO(AHORA();"dd/mm/yyyy HH:mm")')
     .setFontSize(8).setFontColor('#AAAAAA').setFontStyle('italic');
 }
 
