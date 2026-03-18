@@ -1863,7 +1863,7 @@ function _renderSemanaResumen() {
 
   let activas = compras.filter(c => c['Estado'] === 'Pendiente' || c['Estado'] === 'Pedido');
 
-  // ── RAMA CLUBES: agrega pedidos de clientes por producto ──────────
+  // ── RAMA CLUBES: resumen limpio por producto para proveedor ────────
   if (_abastCanal === 'clubes') {
     const clubPedidos = pedidos.filter(p =>
       getCanal(p['Barrio']) === 'Clubes' &&
@@ -1879,51 +1879,58 @@ function _renderSemanaResumen() {
     const clubIds = new Set(clubPedidos.map(p => p['ID Pedido']));
     const clubDet = detalle.filter(d => clubIds.has(d['ID Pedido']));
 
-    // Agrupar por producto → lista de clientes
-    const byProd = {};
+    // Sumar por producto
+    const totProd = {};
     clubDet.forEach(d => {
-      const prod = d['Producto'] || '';
+      const prod = (d['Producto'] || '').trim();
       if (!prod) return;
-      const p = clubPedidos.find(p => p['ID Pedido'] === d['ID Pedido']);
-      if (!p) return;
-      if (!byProd[prod]) byProd[prod] = { total: 0, clients: [] };
-      const qty = parseInt(d['Cantidad']) || 0;
-      byProd[prod].total += qty;
-      byProd[prod].clients.push({
-        nombre: p['Nombre'] || '',
-        barrio: (p['Barrio'] || '').replace(/^Club-/, ''),
-        qty
-      });
+      totProd[prod] = (totProd[prod] || 0) + (parseInt(d['Cantidad']) || 0);
     });
 
-    const totalPacks = Object.values(byProd).reduce((s, v) => s + v.total, 0);
+    // Orden fijo: Muzzarella → JyQ → Cebolla y queso → resto
+    const ORDEN = ['muzzarella','jyq','cebolla'];
+    const prodKey = s => s.toLowerCase().replace(/[^a-z]/g,'');
+    const ranked = Object.entries(totProd).sort(([a], [b]) => {
+      const ia = ORDEN.findIndex(k => prodKey(a).includes(k));
+      const ib = ORDEN.findIndex(k => prodKey(b).includes(k));
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
 
-    let html = `<div style="font-size:.78rem;color:#a08060;margin-bottom:.75rem">Próximo viernes <strong>${fmtFri}</strong></div>
-    <div style="background:#f9f5ef;border-radius:14px;padding:.9rem 1.05rem;margin-bottom:.65rem">
-      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.65rem">
-        <span style="font-size:.92rem;font-weight:800;color:var(--brown)">Sevuchitas</span>
-        <span style="font-size:.75rem;font-weight:800;color:var(--orange)">${totalPacks} PACKS</span>
-      </div>`;
+    const totalPacks = ranked.reduce((s, [, v]) => s + v, 0);
 
-    Object.entries(byProd).forEach(([prod, { total, clients }]) => {
-      const clientesHtml = clients.map(c =>
-        `<div style="display:flex;justify-content:space-between;align-items:center;padding:.16rem .65rem;font-size:.72rem;color:#6b5a50">
-          <span>↳ ${c.nombre} <span style="color:#b09880;font-size:.68rem">${c.barrio}</span></span>
-          <span style="font-weight:700;color:#a08060">${c.qty} packs</span>
-        </div>`
-      ).join('');
+    // Texto para copiar al WA
+    const txtLineas = [
+      `Próximo viernes ${fmtFri}`,
+      `Sevuchitas`,
+      ...ranked.map(([prod, qty]) => `· ${prod} x${qty}`),
+      `Total: ${totalPacks} packs`
+    ].join('\n');
 
-      html += `<div style="border-top:1px solid #f0ebe4;padding-top:.45rem;margin-bottom:.35rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0">
-          <span style="font-size:.82rem;font-weight:700;color:#5a4030">${prod}</span>
-          <span style="font-size:.85rem;font-weight:800;color:var(--orange)">${total} packs</span>
+    const prodRows = ranked.map(([prod, qty]) =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid #f0ebe4">
+        <span style="font-size:.84rem;color:#5a4030;font-weight:600">${prod}</span>
+        <span style="font-size:.88rem;font-weight:800;color:var(--orange)">${qty} packs</span>
+      </div>`
+    ).join('');
+
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+        <div style="font-size:.78rem;color:#a08060">Próximo viernes <strong>${fmtFri}</strong></div>
+      </div>
+      <div style="background:#f9f5ef;border-radius:14px;padding:.9rem 1.05rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <span style="font-size:.95rem;font-weight:800;color:var(--brown)">Sevuchitas</span>
+          <button onclick="navigator.clipboard.writeText(${JSON.stringify(txtLineas)}).then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='📋',1500)})"
+            style="background:#fff;border:1.5px solid #e0d4c4;border-radius:8px;padding:.22rem .55rem;font-size:.78rem;cursor:pointer;color:#a08060;display:flex;align-items:center;gap:.25rem">
+            📋
+          </button>
         </div>
-        ${clientesHtml}
+        ${prodRows}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;margin-top:.2rem">
+          <span style="font-size:.82rem;font-weight:700;color:#a08060">Total</span>
+          <span style="font-size:.92rem;font-weight:800;color:var(--brown)">${totalPacks} PACKS</span>
+        </div>
       </div>`;
-    });
-
-    html += '</div>';
-    content.innerHTML = html;
     return;
   }
   // ─────────────────────────────────────────────────────────────────
