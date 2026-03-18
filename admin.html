@@ -1918,12 +1918,8 @@ function _renderSemanaResumen() {
         <div style="font-size:.78rem;color:#a08060">Próximo viernes <strong>${fmtFri}</strong></div>
       </div>
       <div style="background:#f9f5ef;border-radius:14px;padding:.9rem 1.05rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+        <div style="margin-bottom:.6rem">
           <span style="font-size:.95rem;font-weight:800;color:var(--brown)">Sevuchitas</span>
-          <button onclick="navigator.clipboard.writeText(${JSON.stringify(txtLineas)}).then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='📋',1500)})"
-            style="background:#fff;border:1.5px solid #e0d4c4;border-radius:8px;padding:.22rem .55rem;font-size:.78rem;cursor:pointer;color:#a08060;display:flex;align-items:center;gap:.25rem">
-            📋
-          </button>
         </div>
         ${prodRows}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;margin-top:.2rem">
