@@ -173,16 +173,52 @@
     .canal-group { margin-bottom:.5rem; }
     .canal-group-header { display:flex; align-items:center; justify-content:space-between; padding:.55rem 1rem; background:var(--brown); color:#fff; border-radius:10px; font-weight:800; font-size:.85rem; margin-bottom:.4rem; }
 
-    /* CAJA TAB */
+    /* OPERACIÓN — acciones */
+    .op-accion-box { border-radius:16px; padding:1.2rem 1.4rem; margin-bottom:1.2rem; }
+    .op-accion-box-roja    { background:#FFF5F5; border:1.5px solid #FECACA; }
+    .op-accion-box-amarilla{ background:#FFFBEB; border:1.5px solid #FDE68A; }
+    .op-accion-hd  { font-size:.67rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; margin-bottom:.8rem; }
+    .op-accion-hd-roja    { color:#991B1B; }
+    .op-accion-hd-amarilla{ color:#92400E; }
+    .op-accion-item { display:flex; align-items:center; gap:.7rem; padding:.55rem 0; border-bottom:1px solid rgba(0,0,0,.05); }
+    .op-accion-item:last-child { border-bottom:none; }
+    .op-accion-ico  { font-size:1rem; flex-shrink:0; width:1.4rem; text-align:center; }
+    .op-accion-body { flex:1; min-width:0; }
+    .op-accion-txt  { font-size:.84rem; font-weight:700; color:var(--brown); }
+    .op-accion-meta { font-size:.73rem; color:#a08060; margin-top:.1rem; }
+    .op-accion-btn  { background:var(--orange); color:#fff; border:none; border-radius:8px; padding:.35rem .9rem; font-family:var(--font); font-size:.75rem; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0; transition:background .1s; }
+    .op-accion-btn:hover { background:#e05e20; }
+    .op-ok-box { background:#F0FDF4; border:1.5px solid #86EFAC; border-radius:16px; padding:1rem 1.4rem; display:flex; align-items:center; gap:.85rem; margin-bottom:1.2rem; }
+    .op-ok-ico  { font-size:1.6rem; flex-shrink:0; }
+    .op-ok-txt  { font-size:.95rem; font-weight:700; color:#166534; }
+    .op-ok-sub  { font-size:.75rem; color:#16A34A; margin-top:.1rem; }
+    /* OPERACIÓN — estado rápido */
+    .op-estado-strip { border-radius:14px; padding:1rem 1.4rem; display:flex; align-items:center; gap:.85rem; margin-bottom:1.2rem; }
+    .op-estado-strip.verde   { background:#F0FDF4; border:1.5px solid #86EFAC; }
+    .op-estado-strip.amarillo{ background:#FFFBEB; border:1.5px solid #FDE68A; }
+    .op-estado-strip.rojo    { background:#FFF5F5; border:1.5px solid #FECACA; }
+    .op-estado-strip.gris    { background:#F5F0E8; border:1.5px solid #e5ddd4; }
+    .op-estado-ico  { font-size:1.6rem; flex-shrink:0; }
+    .op-estado-txt  { font-size:.95rem; font-weight:800; }
+    .op-estado-sub  { font-size:.75rem; color:#a08060; margin-top:.15rem; }
+    .verde .op-estado-txt    { color:#166534; } .verde .op-estado-sub  { color:#16A34A; }
+    .amarillo .op-estado-txt { color:#92400E; } .amarillo .op-estado-sub{ color:#B45309; }
+    .rojo .op-estado-txt     { color:#991B1B; } .rojo .op-estado-sub   { color:#B91C1C; }
+    /* CAJA — hero */
+    .caja-hero { background:linear-gradient(135deg,var(--brown) 0%,#5a2c12 100%); border-radius:20px; padding:1.75rem 2rem; margin-bottom:1.2rem; color:#fff; }
+    .caja-hero-lbl { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; opacity:.5; margin-bottom:.35rem; }
+    .caja-hero-val { font-size:3.2rem; font-weight:800; line-height:1; letter-spacing:-.04em; margin-bottom:.3rem; }
+    .caja-hero-sub { font-size:.82rem; opacity:.5; }
+    /* CAJA — líneas */
     .caja-line { display:flex; align-items:center; justify-content:space-between; padding:.7rem 0; border-bottom:1px solid #f5f0e8; }
     .caja-line:last-child { border-bottom:none; }
     .caja-line-lbl { font-size:.82rem; color:#a08060; }
     .caja-line-val { font-size:1.05rem; font-weight:800; }
-    .caja-neto { background:linear-gradient(135deg,var(--brown) 0%,#5a2c12 100%); color:#fff; border-radius:16px; padding:1.4rem 1.6rem; display:flex; align-items:center; justify-content:space-between; margin-bottom:1.2rem; }
-    .caja-neto-label { font-size:.8rem; font-weight:700; opacity:.65; }
-    .caja-neto-val   { font-size:2.2rem; font-weight:800; letter-spacing:-.03em; }
     /* ABASTECIMIENTO */
     .abast-note { font-size:.72rem; color:#059669; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:7px; padding:.35rem .8rem; display:inline-flex; align-items:center; gap:.35rem; margin-bottom:.65rem; }
+    /* botón pedir en cruce */
+    .cruce-pedir { background:var(--orange); color:#fff; border:none; border-radius:6px; padding:.22rem .65rem; font-family:var(--font); font-size:.7rem; font-weight:700; cursor:pointer; white-space:nowrap; margin-left:.4rem; transition:background .1s; }
+    .cruce-pedir:hover { background:#e05e20; }
     /* PRODUCCIÓN TAB */
     .prod-section-title { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); margin:1.25rem 0 .75rem; }
     .prod-section-title:first-child { margin-top:0; }
@@ -346,7 +382,7 @@
       <!-- ══ TAB: HOY ══ -->
       <div id="tab-operacion" class="tab-panel active">
 
-        <!-- BLOQUE 1 — Banner + KPIs -->
+        <!-- Banner próxima entrega -->
         <div class="entrega-banner">
           <div>
             <div class="entrega-day" id="hoy-title">—</div>
@@ -355,14 +391,13 @@
           <div class="entrega-horario" id="hoy-horario">—</div>
         </div>
 
-        <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Pedidos activos</div><div class="kpi-val c-orange" id="hk-pedidos">—</div><div class="kpi-sub" id="hk-canales-sub">pendiente + confirmado</div></div>
-          <div class="kpi-card"><div class="kpi-label">Total a cobrar</div><div class="kpi-val c-green" id="hk-total">—</div><div class="kpi-sub">de pedidos activos</div></div>
-          <div class="kpi-card"><div class="kpi-label">Unidades a preparar</div><div class="kpi-val c-brown" id="hk-unidades">—</div><div class="kpi-sub">para esta entrega</div></div>
-          <div class="kpi-card"><div class="kpi-label">Sin confirmar</div><div class="kpi-val c-red" id="hk-sinconf">—</div><div class="kpi-sub">requieren acción</div></div>
-        </div>
+        <!-- Acciones inmediatas (renderizado por JS) -->
+        <div id="op-acciones-box"></div>
 
-        <!-- BLOQUE 2 — Producción × Stock (el motor) -->
+        <!-- Estado rápido: ¿estoy listo? (renderizado por JS) -->
+        <div id="op-estado-box"></div>
+
+        <!-- Producción × Stock -->
         <div class="section-box">
           <div class="section-hd">
             <span class="section-title">🍕 Producción × Stock</span>
@@ -371,30 +406,13 @@
           <div id="hoy-cruce-content"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Cargando...</div></div></div>
         </div>
 
-        <!-- BLOQUE 3 — Pendientes accionables -->
-        <div class="section-box">
-          <div class="section-hd">
-            <span class="section-title">⚡ Pendientes</span>
-            <span class="section-badge" id="hoy-pend-badge">—</span>
-          </div>
-          <div id="hoy-pendientes-content"><div class="empty" style="padding:1rem 0"><div class="empty-icon">✅</div><div class="empty-text">Nada pendiente</div></div></div>
-        </div>
-
-        <!-- BLOQUE 4 — Pedidos del día por canal -->
+        <!-- Pedidos del día por canal -->
         <div class="section-box">
           <div class="section-hd">
             <span class="section-title">📋 Pedidos activos por canal</span>
             <span class="section-badge" id="hoy-badge">0 pedidos</span>
           </div>
           <div id="hoy-lista"><div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">Sin pedidos activos para esta entrega</div></div></div>
-        </div>
-
-        <!-- BLOQUE 5 — Métricas del negocio -->
-        <div class="hoy-metricas-row">
-          <div class="hoy-metrica-card"><div class="hm-label">Facturado total</div><div class="hm-val" id="hm-facturado">—</div></div>
-          <div class="hoy-metrica-card"><div class="hm-label">Ticket promedio</div><div class="hm-val" id="hm-ticket">—</div></div>
-          <div class="hoy-metrica-card"><div class="hm-label">Canal top</div><div class="hm-val" id="hm-canal-top">—</div></div>
-          <div class="hoy-metrica-card"><div class="hm-label">Producto top</div><div class="hm-val" id="hm-prod-top" style="font-size:.9rem">—</div></div>
         </div>
 
       </div>
@@ -427,22 +445,39 @@
         <div class="page-title">Caja</div>
         <div class="page-sub">Ingresos · Egresos · Balance del negocio</div>
 
-        <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Esta semana</div><div class="kpi-val c-green" id="cj-semana">—</div><div class="kpi-sub">ingresos entregados</div></div>
+        <!-- Hero: resultado neto -->
+        <div class="caja-hero">
+          <div class="caja-hero-lbl">Resultado neto esta semana</div>
+          <div class="caja-hero-val" id="cj-hero-val">—</div>
+          <div class="caja-hero-sub" id="cj-hero-sub">Cargando...</div>
+        </div>
+
+        <!-- Cobrado vs Pendiente de cobro -->
+        <div class="kpi-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1.2rem">
+          <div class="kpi-card" style="border-left:4px solid #27AE60">
+            <div class="kpi-label">Cobrado esta semana</div>
+            <div class="kpi-val c-green" id="cj-cobrado">—</div>
+            <div class="kpi-sub" id="cj-cobrado-n">pedidos entregados</div>
+          </div>
+          <div class="kpi-card" style="border-left:4px solid #2980B9">
+            <div class="kpi-label">Facturado · sin cobrar</div>
+            <div class="kpi-val c-blue" id="cj-pendiente">—</div>
+            <div class="kpi-sub">pedidos activos</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:1.2rem">
           <div class="kpi-card"><div class="kpi-label">Este mes</div><div class="kpi-val c-green" id="cj-mes">—</div><div class="kpi-sub">ingresos entregados</div></div>
-          <div class="kpi-card"><div class="kpi-label">Pendiente de cobro</div><div class="kpi-val c-blue" id="cj-pendiente">—</div><div class="kpi-sub">activos sin entregar</div></div>
           <div class="kpi-card"><div class="kpi-label">Ticket promedio</div><div class="kpi-val c-orange" id="cj-ticket">—</div><div class="kpi-sub">histórico entregados</div></div>
         </div>
 
-        <div id="cj-neto-box"></div>
-
         <div class="charts-2col">
           <div class="section-box" style="margin-bottom:0">
-            <div class="section-hd"><span class="section-title">💳 Esta semana por método de pago</span></div>
+            <div class="section-hd"><span class="section-title">💳 Por método de pago (esta semana)</span></div>
             <div id="cj-pagos-content"><div class="empty" style="padding:1rem 0"><div class="empty-text">Sin datos</div></div></div>
           </div>
           <div class="section-box" style="margin-bottom:0">
-            <div class="section-hd"><span class="section-title">📅 Esta semana por día de entrega</span></div>
+            <div class="section-hd"><span class="section-title">📅 Por día de entrega (esta semana)</span></div>
             <div id="cj-dias-content"><div class="empty" style="padding:1rem 0"><div class="empty-text">Sin datos</div></div></div>
           </div>
         </div>
@@ -452,7 +487,7 @@
           <div class="section-hd"><span class="section-title">📅 Historial semanal</span></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Semana</th><th>Pedidos</th><th>Ingresos</th><th>Egresos</th><th>Resultado neto</th></tr></thead>
+              <thead><tr><th>Semana</th><th>Pedidos</th><th>Cobrado</th><th>Egresos</th><th>Resultado neto</th></tr></thead>
               <tbody id="cj-historial-tbody"><tr><td colspan="5" class="no-data">Cargando...</td></tr></tbody>
             </table>
           </div>
@@ -795,7 +830,7 @@ function renderAlerts() {
 
   const bar    = document.getElementById('alert-bar');
   const chips  = [];
-  if (sinConf   > 0) chips.push(`<button class="alert-chip alert-chip-red"    onclick="showTab('pedidos')">${sinConf} sin confirmar</button>`);
+  if (sinConf   > 0) chips.push(`<button class="alert-chip alert-chip-red"    onclick="showTab('operacion')">${sinConf} sin confirmar</button>`);
   if (stockCrit > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('abastecimiento')">${stockCrit} stock crítico</button>`);
   if (compPend  > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('abastecimiento')">${compPend} compra${compPend>1?'s':''} pendiente${compPend>1?'s':''}</button>`);
 
@@ -835,25 +870,29 @@ function calcCruce(diaSheet) {
   });
 }
 
+function escAttr(s) { return String(s).replace(/'/g,"\\'"); }
+
 function renderCruceTable(cruce) {
   if (!cruce.length) return '<div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">Sin pedidos activos para esta entrega.</div></div>';
 
   const rows = cruce.map(item => {
-    let badge, rowClass = '';
+    let badge, rowClass = '', btnPedir = '';
     if (item.estado === 'ok') {
       badge = `<span class="cruce-badge cruce-ok">✅ OK</span>`;
     } else if (item.estado === 'comprar') {
       badge = `<span class="cruce-badge cruce-comprar">🔴 COMPRAR · ${item.necesario} ud.</span>`;
       rowClass = 'cruce-row-comprar';
+      btnPedir = `<button class="cruce-pedir" onclick="showTab('abastecimiento');cpPreselect('${escAttr(item.nombre)}')">Pedir →</button>`;
     } else if (item.estado === 'falta') {
       badge = `<span class="cruce-badge cruce-falta">⚠️ FALTA ${item.falta}</span>`;
       rowClass = 'cruce-row-falta';
+      btnPedir = `<button class="cruce-pedir" onclick="showTab('abastecimiento');cpPreselect('${escAttr(item.nombre)}')">Pedir →</button>`;
     } else {
       badge = `<span class="cruce-badge cruce-falta">⚠️ Sin datos de stock</span>`;
     }
     const stockTxt = item.disponible >= 0 ? item.disponible : '—';
     const stockCls = item.estado === 'ok' ? 'cruce-stock-ok' : item.estado === 'comprar' ? 'cruce-stock-comprar' : 'cruce-stock-falta';
-    return `<tr class="${rowClass}"><td class="cruce-prod">${item.nombre}</td><td class="cruce-num">${item.necesario}</td><td class="cruce-num ${stockCls}">${stockTxt}</td><td>${badge}</td></tr>`;
+    return `<tr class="${rowClass}"><td class="cruce-prod">${item.nombre}</td><td class="cruce-num">${item.necesario}</td><td class="cruce-num ${stockCls}">${stockTxt}</td><td>${badge}${btnPedir}</td></tr>`;
   }).join('');
 
   const total = cruce.reduce((s, i) => s + i.necesario, 0);
@@ -877,57 +916,100 @@ function renderOperacion() {
 
   const activos    = pedidos.filter(p => p['Día entrega'] === e.sheet && ['pendiente','confirmado'].includes(p['Estado']));
   const sinConf    = pedidos.filter(p => p['Estado'] === 'pendiente');
-  const totalARS   = activos.reduce((s, p) => s + parseMoney(p['Total']), 0);
   const activoIds  = new Set(activos.map(p => p['ID Pedido']));
   const detActivos = detalle.filter(d => activoIds.has(d['ID Pedido']));
   const unidades   = detActivos.reduce((s,d) => s + (parseInt(d['Cantidad'])||0), 0);
+  const cruce      = calcCruce(e.sheet);
+  const comprasPend = compras.filter(c => c['Estado'] === 'Pendiente');
 
-  // KPIs
-  const canalSub = CANALES.map(c => {
-    const n = activos.filter(p => getCanal(p['Barrio']) === c).length;
-    return n > 0 ? `${CANAL_EMOJI[c]}${n}` : null;
-  }).filter(Boolean).join(' · ');
-  document.getElementById('hk-pedidos').textContent     = activos.length;
-  document.getElementById('hk-canales-sub').textContent = canalSub || 'sin pedidos aún';
-  document.getElementById('hk-total').textContent       = ars(totalARS);
-  document.getElementById('hk-unidades').textContent    = unidades || 0;
-  document.getElementById('hk-sinconf').textContent     = sinConf.length;
-  document.getElementById('hoy-badge').textContent      = activos.length + ' pedidos';
+  // ── ACCIONES ──────────────────────────────────────────────────
+  const rojas = [], amarillas = [];
 
-  // BLOQUE 2: Producción × Stock
-  const cruce = calcCruce(e.sheet);
-  const problemas = cruce.filter(c => c.estado !== 'ok').length;
+  sinConf.forEach(p => {
+    rojas.push({
+      ico: '📋',
+      txt: `Confirmar pedido de <strong>${p['Nombre']}</strong>`,
+      meta: `${p['Total']} · ${p['Barrio']||''} · ${p['Día entrega']||''}`,
+      btn: 'Ir a Pedidos', action: `showTab('pedidos')`
+    });
+  });
+  cruce.filter(c => c.estado === 'comprar').forEach(item => {
+    rojas.push({
+      ico: '🔴',
+      txt: `Sin stock: <strong>${item.nombre}</strong>`,
+      meta: `Necesitás ${item.necesario} ud. · Stock actual: 0`,
+      btn: 'Pedir ahora', action: `showTab('abastecimiento');cpPreselect('${escAttr(item.nombre)}')`
+    });
+  });
+  cruce.filter(c => c.estado === 'falta').forEach(item => {
+    amarillas.push({
+      ico: '⚠️',
+      txt: `Stock insuficiente: <strong>${item.nombre}</strong>`,
+      meta: `Necesitás ${item.necesario}, tenés ${item.disponible} · Falta ${item.falta}`,
+      btn: 'Pedir más', action: `showTab('abastecimiento');cpPreselect('${escAttr(item.nombre)}')`
+    });
+  });
+  comprasPend.forEach(c => {
+    amarillas.push({
+      ico: '🛒',
+      txt: `Compra sin enviar: <strong>${c['Producto']||''}</strong>`,
+      meta: `${c['Proveedor']||''} · ${c['Cantidad']||''} ${c['Unidad']||''}`,
+      btn: 'Ver', action: `showTab('abastecimiento')`
+    });
+  });
+
+  const mkItems = arr => arr.map(a => `
+    <div class="op-accion-item">
+      <div class="op-accion-ico">${a.ico}</div>
+      <div class="op-accion-body">
+        <div class="op-accion-txt">${a.txt}</div>
+        <div class="op-accion-meta">${a.meta}</div>
+      </div>
+      <button class="op-accion-btn" onclick="${a.action}">${a.btn}</button>
+    </div>`).join('');
+
+  let accionesHTML = '';
+  if (!rojas.length && !amarillas.length) {
+    accionesHTML = `<div class="op-ok-box"><div class="op-ok-ico">✅</div><div><div class="op-ok-txt">Todo en orden</div><div class="op-ok-sub">No hay acciones pendientes</div></div></div>`;
+  } else {
+    if (rojas.length) accionesHTML += `<div class="op-accion-box op-accion-box-roja"><div class="op-accion-hd op-accion-hd-roja">🔴 Requiere acción inmediata (${rojas.length})</div>${mkItems(rojas)}</div>`;
+    if (amarillas.length) accionesHTML += `<div class="op-accion-box op-accion-box-amarilla"><div class="op-accion-hd op-accion-hd-amarilla">⚠️ Para resolver hoy (${amarillas.length})</div>${mkItems(amarillas)}</div>`;
+  }
+  document.getElementById('op-acciones-box').innerHTML = accionesHTML;
+
+  // ── ESTADO RÁPIDO ─────────────────────────────────────────────
+  const problemas = cruce.filter(c => c.estado === 'comprar' || c.estado === 'falta').length;
+  let estadoClass, estadoIco, estadoTxt, estadoSub;
+  if (!activos.length) {
+    estadoClass = 'gris'; estadoIco = '📭';
+    estadoTxt = 'Sin pedidos para esta entrega';
+    estadoSub = `${e.name} · ${e.horario}`;
+  } else if (problemas === 0) {
+    estadoClass = 'verde'; estadoIco = '✅';
+    estadoTxt = '¡Listo para entregar!';
+    estadoSub = `${activos.length} pedidos · ${unidades} unidades · stock OK`;
+  } else if (problemas <= 2) {
+    estadoClass = 'amarillo'; estadoIco = '⚠️';
+    estadoTxt = `Casi listo — ${problemas} producto${problemas!==1?'s':''} con stock insuficiente`;
+    estadoSub = `${activos.length} pedidos · ${unidades} unidades`;
+  } else {
+    estadoClass = 'rojo'; estadoIco = '🔴';
+    estadoTxt = `${problemas} productos sin stock suficiente`;
+    estadoSub = `${activos.length} pedidos · ${unidades} unidades · revisar antes de entregar`;
+  }
+  document.getElementById('op-estado-box').innerHTML = `
+    <div class="op-estado-strip ${estadoClass}">
+      <div class="op-estado-ico">${estadoIco}</div>
+      <div><div class="op-estado-txt">${estadoTxt}</div><div class="op-estado-sub">${estadoSub}</div></div>
+    </div>`;
+
+  // ── PRODUCCIÓN × STOCK ────────────────────────────────────────
   document.getElementById('hoy-prod-badge').textContent =
     !activos.length ? 'sin pedidos' : problemas > 0 ? `${problemas} requieren acción` : '✅ todo OK';
   document.getElementById('hoy-cruce-content').innerHTML = renderCruceTable(cruce);
 
-  // BLOQUE 3: Pendientes
-  const comprasPend = compras.filter(c => c['Estado'] === 'Pendiente');
-  const pendTotal   = sinConf.length + comprasPend.length;
-  document.getElementById('hoy-pend-badge').textContent =
-    pendTotal > 0 ? `${pendTotal} pendiente${pendTotal !== 1 ? 's' : ''}` : '✅ ok';
-
-  let pendHTML = '';
-  sinConf.forEach(p => {
-    pendHTML += `<div class="pend-item" onclick="showTab('pedidos')">
-      <span class="pend-icon">📋</span>
-      <span class="pend-text">Confirmar: <strong>${p['Nombre']}</strong></span>
-      <span class="pend-meta">${p['Total']} · ${p['Barrio']||''}</span>
-      <span class="pend-arrow">›</span>
-    </div>`;
-  });
-  comprasPend.forEach(c => {
-    pendHTML += `<div class="pend-item" onclick="showTab('abastecimiento')">
-      <span class="pend-icon">🛒</span>
-      <span class="pend-text">Compra pendiente: <strong>${c['Producto']||''}</strong></span>
-      <span class="pend-meta">${c['Proveedor']||''} · ${c['Cantidad']||''} ${c['Unidad']||''}</span>
-      <span class="pend-arrow">›</span>
-    </div>`;
-  });
-  if (!pendHTML) pendHTML = '<div class="empty" style="padding:1rem 0"><div class="empty-icon">✅</div><div class="empty-text">Nada pendiente</div></div>';
-  document.getElementById('hoy-pendientes-content').innerHTML = pendHTML;
-
-  // BLOQUE 4: Pedidos por canal
+  // ── PEDIDOS POR CANAL ─────────────────────────────────────────
+  document.getElementById('hoy-badge').textContent = activos.length + ' pedidos';
   const lista = document.getElementById('hoy-lista');
   if (!activos.length) {
     lista.innerHTML = '<div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">Sin pedidos activos para esta entrega</div></div>';
@@ -943,19 +1025,12 @@ function renderOperacion() {
                 : (p['Barrio']||'').replace(/^Club-/,'') || 'Sin club';
         (subgroups[key]||(subgroups[key]=[])).push(p);
       });
-      html += `<div class="canal-group">`;
-      html += `<div class="canal-group-header" style="background:${CANAL_COLOR[canal]}"><span>${CANAL_EMOJI[canal]} ${canal}</span><span>${cp.length} pedidos</span></div>`;
+      html += `<div class="canal-group"><div class="canal-group-header" style="background:${CANAL_COLOR[canal]}"><span>${CANAL_EMOJI[canal]} ${canal}</span><span>${cp.length} pedidos</span></div>`;
       Object.entries(subgroups).sort(([a],[b]) => a.localeCompare(b)).forEach(([subg, ords]) => {
-        html += `<div class="barrio-group">`;
-        html += `<div class="barrio-header"><span>📍 ${subg}</span><span class="barrio-count">${ords.length}</span></div>`;
+        html += `<div class="barrio-group"><div class="barrio-header"><span>📍 ${subg}</span><span class="barrio-count">${ords.length}</span></div>`;
         ords.forEach(p => {
-          let sec = canal === 'Estancias' && p['Lote'] ? `L${p['Lote']}` : canal === 'Clubes' && p['Lote'] ? p['Lote'] : '';
-          html += `<div class="pedido-row">
-            <span class="pn">${p['Nombre']}</span>
-            ${sec ? `<span class="pl">${sec}</span>` : ''}
-            <span class="pt">${p['Total']}</span>
-            <span class="badge badge-${p['Estado']}">${p['Estado']}</span>
-          </div>`;
+          const sec = canal === 'Estancias' && p['Lote'] ? `L${p['Lote']}` : canal === 'Clubes' && p['Lote'] ? p['Lote'] : '';
+          html += `<div class="pedido-row"><span class="pn">${p['Nombre']}</span>${sec?`<span class="pl">${sec}</span>`:''}<span class="pt">${p['Total']}</span><span class="badge badge-${p['Estado']}">${p['Estado']}</span></div>`;
         });
         html += `</div>`;
       });
@@ -963,22 +1038,6 @@ function renderOperacion() {
     });
     lista.innerHTML = html;
   }
-
-  // BLOQUE 5: Métricas del negocio
-  const entAll  = pedidos.filter(p => p['Estado'] === 'entregado');
-  const factAll = entAll.reduce((s,p) => s + parseMoney(p['Total']), 0);
-  const ticket  = entAll.length ? Math.round(factAll / entAll.length) : 0;
-  const cCnt    = {};
-  pedidos.forEach(p => { const c = getCanal(p['Barrio']); cCnt[c] = (cCnt[c]||0)+1; });
-  const topCanal = Object.entries(cCnt).sort((a,b) => b[1]-a[1])[0];
-  const pUnitsMap = {};
-  detalle.forEach(d => { const n = d['Producto']; if (n) pUnitsMap[n] = (pUnitsMap[n]||0)+(parseInt(d['Cantidad'])||0); });
-  const topProd = Object.entries(pUnitsMap).sort((a,b) => b[1]-a[1])[0];
-
-  document.getElementById('hm-facturado').textContent  = ars(factAll);
-  document.getElementById('hm-ticket').textContent     = ars(ticket);
-  document.getElementById('hm-canal-top').textContent  = topCanal ? `${CANAL_EMOJI[topCanal[0]]} ${topCanal[0]}` : '—';
-  document.getElementById('hm-prod-top').textContent   = topProd ? topProd[0] : '—';
 }
 
 // ── ABASTECIMIENTO ────────────────────────────────────────────────
@@ -1031,24 +1090,21 @@ function renderCaja() {
   const egSemana  = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && d >= weekStart && d < weekEnd && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
   const egMes     = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
 
-  document.getElementById('cj-semana').textContent   = ars(ingSemana);
-  document.getElementById('cj-mes').textContent      = ars(ingMes);
-  document.getElementById('cj-pendiente').textContent = ars(pendiente);
-  document.getElementById('cj-ticket').textContent   = ars(ticket);
-
-  // Caja neto
+  // Hero: resultado neto
   const hasEg = egSemana > 0;
   const neto  = ingSemana - egSemana;
-  document.getElementById('cj-neto-box').innerHTML = `
-    <div class="section-box" style="margin-bottom:1.2rem">
-      <div class="section-hd" style="margin-bottom:.75rem"><span class="section-title">💰 Balance esta semana</span></div>
-      <div class="caja-line"><span class="caja-line-lbl">Ingresos (entregados)</span><span class="caja-line-val c-green">${ars(ingSemana)}</span></div>
-      <div class="caja-line"><span class="caja-line-lbl">Egresos (compras entregadas)</span><span class="caja-line-val c-red">${hasEg ? '−'+ars(egSemana) : '<span style="font-size:.78rem;color:#c0a888">Completá costos en Abastecimiento</span>'}</span></div>
-      <div class="caja-line" style="border-top:1.5px solid var(--cream);margin-top:.3rem;padding-top:.7rem">
-        <span class="caja-line-lbl" style="font-weight:800;color:var(--brown)">Resultado neto</span>
-        <span class="caja-line-val" style="font-size:1.45rem;color:${hasEg?(neto>=0?'#27AE60':'#E74C3C'):'#b09880'}">${hasEg?ars(neto):'—'}</span>
-      </div>
-    </div>`;
+  document.getElementById('cj-hero-val').textContent = hasEg ? ars(neto) : ars(ingSemana);
+  document.getElementById('cj-hero-val').style.color = hasEg && neto < 0 ? '#ff8a7a' : '#fff';
+  document.getElementById('cj-hero-sub').textContent = hasEg
+    ? `Ingresos ${ars(ingSemana)} − Egresos ${ars(egSemana)}`
+    : `Ingresos ${ars(ingSemana)} · Cargá costos para ver el neto`;
+
+  // Cobrado vs facturado sin cobrar
+  document.getElementById('cj-cobrado').textContent   = ars(ingSemana);
+  document.getElementById('cj-cobrado-n').textContent = `${semEntregados.length} pedidos entregados`;
+  document.getElementById('cj-pendiente').textContent = ars(pendiente);
+  document.getElementById('cj-mes').textContent       = ars(ingMes);
+  document.getElementById('cj-ticket').textContent    = ars(ticket);
 
   // Por método de pago
   const pagoMap = {};
@@ -1330,6 +1386,17 @@ function renderCpPicker() {
 }
 
 function cpCardClick(id) { if (!(comprasCart[id] > 0)) cpChangeQty(id, 1); }
+
+function cpPreselect(nombre) {
+  if (!cpPickerReady) renderCpPicker();
+  const item = cpAllItems().find(p => p.nombre.toLowerCase().trim() === nombre.toLowerCase().trim());
+  if (!item) return;
+  if (!(comprasCart[item.id] > 0)) cpChangeQty(item.id, 1);
+  setTimeout(() => {
+    const el = document.getElementById(`cpc-${item.id}`);
+    if (el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+  }, 200);
+}
 
 function cpChangeQty(id, delta) {
   const next = Math.max(0, (comprasCart[id] || 0) + delta);
