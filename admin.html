@@ -506,6 +506,15 @@
         <div class="page-title">Abastecimiento</div>
         <div class="page-sub">Stock · Compras · Producción — todo en uno</div>
 
+        <!-- Sección 0: Clubes para el viernes -->
+        <div class="section-box" id="clubes-compras-section" style="margin-bottom:1.2rem;border-left:4px solid var(--brown)">
+          <div class="section-hd">
+            <span class="section-title">🏃 Clubes para el viernes</span>
+            <span class="section-badge" id="clubes-badge">—</span>
+          </div>
+          <div id="clubes-compras-content"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
+        </div>
+
         <!-- Sección 1: Cruce -->
         <div class="section-box">
           <div class="section-hd">
@@ -1051,7 +1060,137 @@ function renderOperacion() {
 }
 
 // ── ABASTECIMIENTO ────────────────────────────────────────────────
+
+// Mapa de IDs viejos (numéricos) de la página de Clubes → IDs de COMPRAS_PRODUCTOS
+const CLUBS_LEGACY_MAP = { '1': 'pp1', '2': 'pp2', '3': 'pp3' };
+
+let _clubComprasData = {}; // { provKey → { prov, items:[{item,qty}] } }
+
+function _resolveClubProd(idProd, nombreProd) {
+  // 1. Match directo por ID
+  let found = cpAllItems().find(p => p.id === idProd);
+  // 2. Fallback IDs viejos
+  if (!found && CLUBS_LEGACY_MAP[idProd]) found = cpAllItems().find(p => p.id === CLUBS_LEGACY_MAP[idProd]);
+  // 3. Match por nombre normalizado
+  if (!found) {
+    const norm = s => String(s).toLowerCase().replace(/\s*x\s*\d+/gi,'').replace(/\s+/g,' ').trim();
+    found = cpAllItems().find(p => norm(p.nombre) === norm(nombreProd));
+  }
+  return found || null;
+}
+
+function _renderClubesCompras() {
+  const badge   = document.getElementById('clubes-badge');
+  const content = document.getElementById('clubes-compras-content');
+  if (!badge || !content) return;
+
+  const clubPedidos = pedidos.filter(p =>
+    getCanal(p['Barrio']) === 'Clubes' && ['pendiente','confirmado'].includes(p['Estado'])
+  );
+  badge.textContent = clubPedidos.length ? `${clubPedidos.length} pedido${clubPedidos.length!==1?'s':''}` : 'sin pedidos';
+
+  if (!clubPedidos.length) {
+    content.innerHTML = '<div class="empty" style="padding:.6rem 0"><div class="empty-text">Sin pedidos activos de clubes esta semana</div></div>';
+    _clubComprasData = {};
+    return;
+  }
+
+  // Obtener detalle de pedidos de clubes
+  const clubIds = new Set(clubPedidos.map(p => p['ID Pedido']));
+  const clubDetalle = detalle.filter(d => clubIds.has(d['ID Pedido']));
+
+  // Agrupar por producto (sumando cantidades)
+  const byProd = {};
+  const sinProv = [];
+  clubDetalle.forEach(d => {
+    const qty = parseInt(d['Cantidad']) || 0;
+    if (!qty) return;
+    const found = _resolveClubProd(d['ID Producto'], d['Producto']);
+    if (found) {
+      if (!byProd[found.id]) byProd[found.id] = { item: found, qty: 0 };
+      byProd[found.id].qty += qty;
+    } else {
+      const key = d['Producto'] || '?';
+      const ex = sinProv.find(x => x.nombre === key);
+      if (ex) ex.qty += qty; else sinProv.push({ nombre: key, qty });
+    }
+  });
+
+  // Agrupar por proveedor
+  const byProv = {};
+  Object.values(byProd).forEach(({ item, qty }) => {
+    const prov = item.proveedor || 'Sin proveedor';
+    if (!byProv[prov]) byProv[prov] = { prov, items: [] };
+    byProv[prov].items.push({ item, qty });
+  });
+
+  _clubComprasData = byProv;
+
+  const totalItems = Object.values(byProd).reduce((s, e) => s + e.qty, 0);
+  let html = `<div style="font-size:.75rem;color:#a08060;margin-bottom:.75rem">
+    <strong>${clubPedidos.length}</strong> pedidos de clubes · <strong>${totalItems}</strong> unidades a comprar para el viernes
+  </div>`;
+
+  Object.values(byProv).forEach(({ prov, items }) => {
+    const totalCosto = items.reduce((s, { item, qty }) => s + (item.costo||0) * qty, 0);
+    const provKey = encodeURIComponent(prov);
+    html += `<div style="background:linear-gradient(135deg,#f9f5ef,#fff8f2);border-radius:14px;padding:.95rem 1.1rem;margin-bottom:.75rem;border-left:3px solid var(--orange)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem">
+        <div>
+          <div style="font-size:.9rem;font-weight:800;color:var(--brown)">${prov}</div>
+          <div style="font-size:.7rem;color:#a08060;margin-top:.1rem">${items.length} producto${items.length!==1?'s':''}</div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          ${totalCosto > 0 ? `<span style="font-size:.78rem;font-weight:700;color:#a08060">≈${ars(totalCosto)}</span>` : ''}
+          <button class="op-accion-btn" onclick="cpCargarPedidoClub('${provKey}')">Armar compra →</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(240,125,71,.15);padding-top:.45rem">
+        ${items.map(({ item, qty }) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.25rem 0;border-bottom:1px solid #f5f0e8">
+            <span style="font-size:.8rem;color:#5a4a40">${item.nombre}</span>
+            <span style="font-size:.82rem;font-weight:800;color:var(--orange)">${qty} ${item.unidad}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  if (sinProv.length) {
+    html += `<div style="background:#f5f0e8;border-radius:12px;padding:.85rem 1rem;border-left:3px solid #c0a888">
+      <div style="font-size:.8rem;font-weight:800;color:#a08060;margin-bottom:.4rem">⚠️ Productos sin proveedor identificado</div>
+      ${sinProv.map(x => `<div style="font-size:.78rem;color:#6b5b50;padding:.2rem 0">${x.nombre} ×${x.qty}</div>`).join('')}
+    </div>`;
+  }
+
+  content.innerHTML = html;
+}
+
+function cpCargarPedidoClub(provKey) {
+  const prov = decodeURIComponent(provKey);
+  const grupo = _clubComprasData[prov];
+  if (!grupo) return;
+
+  if (!cpPickerReady) renderCpPicker();
+
+  // Limpiar carrito
+  comprasCart = {};
+  cpAllItems().forEach(p => cpUpdateCard(p.id));
+
+  // Cargar las cantidades del grupo
+  grupo.items.forEach(({ item, qty }) => {
+    if (item && qty > 0) { comprasCart[item.id] = qty; cpUpdateCard(item.id); }
+  });
+
+  cpUpdateSummary();
+
+  // Scroll al formulario
+  setTimeout(() => {
+    document.getElementById('cp-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 120);
+}
+
 function renderAbastecimiento() {
+  _renderClubesCompras();
   renderAbastecimientoCruce();
   _renderStockDisplay();
   loadCompras();
