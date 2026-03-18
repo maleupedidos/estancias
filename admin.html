@@ -293,6 +293,7 @@
     .cp-card { background:#f9f5ef; border:2px solid transparent; border-radius:13px; padding:.85rem .9rem .8rem; cursor:pointer; transition:border-color .15s, background .15s; position:relative; user-select:none; }
     .cp-card:hover { background:#f2ebe0; border-color:#e0d5c8; }
     .cp-card.cp-selected { background:#fff8f2; border-color:var(--orange); }
+    .cp-card.cp-focused  { background:#fffbf7; border-color:rgba(240,125,71,.45); }
     .cp-card-name { font-size:.78rem; font-weight:700; color:var(--brown); line-height:1.35; margin-bottom:.2rem; min-height:1.8em; }
     .cp-card-cost { font-size:.68rem; color:#a08060; margin-bottom:.4rem; }
     .cp-card-controls { display:flex; align-items:center; justify-content:center; gap:.45rem; height:0; overflow:hidden; opacity:0; transition:height .12s, opacity .12s; }
@@ -535,7 +536,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Fecha entrega estimada</label>
-              <input type="date" class="form-input" id="cf-fecha" />
+              <input type="text" class="form-input" id="cf-fecha" placeholder="DD/MM/AAAA" maxlength="10" />
             </div>
             <div class="form-group">
               <label class="form-label">Costo total del pedido ($)</label>
@@ -551,11 +552,13 @@
           </button>
         </div>
 
-        <!-- Sección 3: Pedidos al proveedor -->
-        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr))">
-          <div class="kpi-card"><div class="kpi-label">Pendientes</div><div class="kpi-val c-orange" id="ck-pendientes">—</div><div class="kpi-sub">por enviar al proveedor</div></div>
-          <div class="kpi-card"><div class="kpi-label">Pedidos</div><div class="kpi-val c-blue" id="ck-pedidos">—</div><div class="kpi-sub">enviados · esperando</div></div>
-          <div class="kpi-card"><div class="kpi-label">Entregados</div><div class="kpi-val c-green" id="ck-entregados">—</div><div class="kpi-sub">este mes</div></div>
+        <!-- Sección 3: Resumen semana actual -->
+        <div class="section-box" style="margin-bottom:1.2rem">
+          <div class="section-hd">
+            <span class="section-title">📅 Semana actual · pedidos a proveedores</span>
+            <span class="section-badge" id="abast-semana-badge">—</span>
+          </div>
+          <div id="abast-semana-content"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
         </div>
 
         <div class="section-box">
@@ -1368,30 +1371,30 @@ function stockCardHTML(nombre, disp, fisico) {
 // ── COMPRAS ───────────────────────────────────────────────────────
 const COMPRAS_PRODUCTOS = [
   { cat: '🍕 Pizzas', items: [
-    { id: 'p1',  nombre: 'Pizza Margarita',            unidad: 'unidades', costo: 6000  },
-    { id: 'p2',  nombre: 'Pizza Jamón y Queso',        unidad: 'unidades', costo: 6000  },
-    { id: 'p3',  nombre: 'Pizza Cebolla Caramelizada', unidad: 'unidades', costo: 6000  },
-    { id: 'p4',  nombre: 'Pizza Jamón y Morrón',       unidad: 'unidades', costo: 6800  },
+    { id: 'p1',  nombre: 'Pizza Margarita',            unidad: 'unidades', costo: 6000,  proveedor: 'Bernardo Pisano'    },
+    { id: 'p2',  nombre: 'Pizza Jamón y Queso',        unidad: 'unidades', costo: 6000,  proveedor: 'Bernardo Pisano'    },
+    { id: 'p3',  nombre: 'Pizza Cebolla Caramelizada', unidad: 'unidades', costo: 6000,  proveedor: 'Bernardo Pisano'    },
+    { id: 'p4',  nombre: 'Pizza Jamón y Morrón',       unidad: 'unidades', costo: 6800,  proveedor: 'Bernardo Pisano'    },
   ]},
   { cat: '📦 Packs', items: [
-    { id: 'pp1', nombre: 'Pack x2 Muzzarella',         unidad: 'packs',    costo: 9000  },
-    { id: 'pp2', nombre: 'Pack x2 Jamón y Queso',      unidad: 'packs',    costo: 9000  },
-    { id: 'pp3', nombre: 'Pack x2 Cebolla y Queso',    unidad: 'packs',    costo: 9000  },
+    { id: 'pp1', nombre: 'Pack x2 Muzzarella',         unidad: 'packs',    costo: 9000,  proveedor: 'Sevuchitas'         },
+    { id: 'pp2', nombre: 'Pack x2 Jamón y Queso',      unidad: 'packs',    costo: 9000,  proveedor: 'Sevuchitas'         },
+    { id: 'pp3', nombre: 'Pack x2 Cebolla y Queso',    unidad: 'packs',    costo: 9000,  proveedor: 'Sevuchitas'         },
   ]},
   { cat: '🥟 Sorrentinos', items: [
-    { id: 's1',  nombre: 'Sorrentinos Cordero',        unidad: 'docenas',  costo: 13000 },
-    { id: 's2',  nombre: 'Sorrentinos Jamón y Queso',  unidad: 'docenas',  costo: 11800 },
-    { id: 's3',  nombre: 'Sorrentinos Calabaza',       unidad: 'docenas',  costo: 10200 },
+    { id: 's1',  nombre: 'Sorrentinos Cordero',        unidad: 'docenas',  costo: 13000, proveedor: 'Le Unike'           },
+    { id: 's2',  nombre: 'Sorrentinos Jamón y Queso',  unidad: 'docenas',  costo: 11800, proveedor: 'Le Unike'           },
+    { id: 's3',  nombre: 'Sorrentinos Calabaza',       unidad: 'docenas',  costo: 10200, proveedor: 'Le Unike'           },
   ]},
   { cat: '🥐 Empanadas', items: [
-    { id: 'e1',  nombre: 'Empanadas Carne a Cuchillo', unidad: 'docenas',  costo: 13160 },
-    { id: 'e2',  nombre: 'Empanadas Jamón y Queso',    unidad: 'docenas',  costo: 10500 },
+    { id: 'e1',  nombre: 'Empanadas Carne a Cuchillo', unidad: 'docenas',  costo: 13160, proveedor: 'Sevuchitas'         },
+    { id: 'e2',  nombre: 'Empanadas Jamón y Queso',    unidad: 'docenas',  costo: 10500, proveedor: 'Sevuchitas'         },
   ]},
   { cat: '🍰 Dulces', items: [
-    { id: 'd1',  nombre: 'Pote de Franui',             unidad: 'unidades', costo: 5350  },
-    { id: 'd2',  nombre: 'Torta Golosa',               unidad: 'unidades', costo: 19200 },
-    { id: 'd3',  nombre: 'Torta Lemon Crumble',        unidad: 'unidades', costo: 19200 },
-    { id: 'd4',  nombre: 'Torta Coco',                 unidad: 'unidades', costo: 19200 },
+    { id: 'd1',  nombre: 'Pote de Franui',             unidad: 'unidades', costo: 5350,  proveedor: 'Claudia Benedetti'  },
+    { id: 'd2',  nombre: 'Torta Golosa',               unidad: 'unidades', costo: 19200, proveedor: 'Cuverry'            },
+    { id: 'd3',  nombre: 'Torta Lemon Crumble',        unidad: 'unidades', costo: 19200, proveedor: 'Cuverry'            },
+    { id: 'd4',  nombre: 'Torta Coco',                 unidad: 'unidades', costo: 19200, proveedor: 'Cuverry'            },
   ]},
 ];
 
@@ -1418,7 +1421,21 @@ function renderCpPicker() {
   cpPickerReady = true;
 }
 
-function cpCardClick(id) { if (!(comprasCart[id] > 0)) cpChangeQty(id, 1); }
+function cpCardClick(id) {
+  if (comprasCart[id] > 0) return; // ya está en el carrito, controles ya visibles
+  const ctrl = document.getElementById(`cpc-ctrl-${id}`);
+  const card = document.getElementById(`cpc-${id}`);
+  const open = ctrl.classList.contains('cp-vis');
+  // Cerrar todas las otras cards que no estén en el carrito
+  cpAllItems().forEach(p => {
+    if (p.id !== id && !(comprasCart[p.id] > 0)) {
+      document.getElementById(`cpc-ctrl-${p.id}`)?.classList.remove('cp-vis');
+      document.getElementById(`cpc-${p.id}`)?.classList.remove('cp-focused');
+    }
+  });
+  ctrl.classList.toggle('cp-vis', !open);
+  card.classList.toggle('cp-focused', !open);
+}
 
 function cpPreselect(nombre) {
   if (!cpPickerReady) renderCpPicker();
@@ -1446,7 +1463,13 @@ function cpUpdateCard(id) {
   if (!card) return;
   qnum.textContent = qty;
   card.classList.toggle('cp-selected', qty > 0);
-  ctrl.classList.toggle('cp-vis', qty > 0);
+  if (qty > 0) {
+    ctrl.classList.add('cp-vis');
+    card.classList.remove('cp-focused');
+  } else {
+    ctrl.classList.remove('cp-vis');
+    card.classList.remove('cp-focused');
+  }
 }
 
 function cpUpdateSummary() {
@@ -1458,6 +1481,9 @@ function cpUpdateSummary() {
     boxEl.style.display = 'none';
     btn.disabled = true;
     btn.textContent = 'Seleccioná productos para armar el pedido';
+    document.getElementById('cf-costo').value = '';
+    document.getElementById('cf-proveedor').value = '';
+    document.getElementById('cf-proveedor').placeholder = 'Ej: La Salteña';
     return;
   }
 
@@ -1472,10 +1498,17 @@ function cpUpdateSummary() {
       <span>Costo estimado</span><span class="cp-cart-qty">≈${ars(costoEstimado)}</span>
     </div>` : '');
 
-  // Pre-completar campo costo si está vacío
+  // Auto-completar costo y proveedor según los productos del carrito
   if (costoEstimado > 0) {
-    const costoInput = document.getElementById('cf-costo');
-    if (!costoInput.value) costoInput.value = costoEstimado;
+    document.getElementById('cf-costo').value = costoEstimado;
+  }
+  const proveedores = [...new Set(sel.map(([id]) => cpItem(id)?.proveedor).filter(Boolean))];
+  const provInput = document.getElementById('cf-proveedor');
+  if (proveedores.length === 1) {
+    provInput.value = proveedores[0];
+  } else if (proveedores.length > 1) {
+    provInput.placeholder = `Múltiples: ${proveedores.join(' / ')}`;
+    if (!provInput.value) provInput.value = '';
   }
 
   const nProd = sel.length;
@@ -1551,17 +1584,76 @@ async function loadEgresos() {
   }
 }
 
-function renderComprasUI() {
-  const now    = new Date();
-  const mesKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+function _renderSemanaResumen() {
+  const badge   = document.getElementById('abast-semana-badge');
+  const content = document.getElementById('abast-semana-content');
+  if (!badge || !content) return;
 
-  document.getElementById('ck-pendientes').textContent = compras.filter(c => c['Estado']==='Pendiente').length;
-  document.getElementById('ck-pedidos').textContent    = compras.filter(c => c['Estado']==='Pedido').length;
-  document.getElementById('ck-entregados').textContent = compras.filter(c => {
-    if (c['Estado'] !== 'Entregado') return false;
-    const d = parseDate(c['Fecha']);
-    return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey;
-  }).length;
+  const now = new Date();
+  const weekNum = getWeekKey(now).split('-W')[1];
+
+  // Próximo viernes de esta semana
+  const d = now.getDay(); // 0=Dom…6=Sab
+  const daysToFri = d === 6 ? 6 : 5 - d;
+  const thisFriday = new Date(now);
+  thisFriday.setDate(now.getDate() + daysToFri);
+  thisFriday.setHours(0,0,0,0);
+  const fmtFri = `${String(thisFriday.getDate()).padStart(2,'0')}/${String(thisFriday.getMonth()+1).padStart(2,'0')}`;
+
+  badge.textContent = `Semana ${weekNum}`;
+
+  const activas = compras.filter(c => c['Estado'] === 'Pendiente' || c['Estado'] === 'Pedido');
+  if (!activas.length) {
+    content.innerHTML = `<div style="font-size:.82rem;color:#a08060;padding:.4rem 0">Sin pedidos activos · el próximo viernes es el <strong>${fmtFri}</strong></div>`;
+    return;
+  }
+
+  // Separar: para el viernes vs sin fecha / otra fecha
+  const paraViernes = [], otros = [];
+  activas.forEach(c => {
+    const fe = parseDate(c['Fecha entrega']);
+    if (fe) {
+      const sameFri = fe.getFullYear()===thisFriday.getFullYear() && fe.getMonth()===thisFriday.getMonth() && fe.getDate()===thisFriday.getDate();
+      (sameFri ? paraViernes : otros).push(c);
+    } else {
+      otros.push(c);
+    }
+  });
+
+  const mkGroup = (items, label) => {
+    if (!items.length) return '';
+    const byProv = {};
+    items.forEach(c => { const p = c['Proveedor']||'Sin proveedor'; (byProv[p]||(byProv[p]=[])).push(c); });
+    let html = `<div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:#b09880;margin:${label?'.9rem 0 .5rem':'.0rem 0 .5rem'}">${label}</div>`;
+    Object.entries(byProv).forEach(([prov, rows]) => {
+      const estados = [...new Set(rows.map(r => r['Estado']))];
+      const isPend = estados.includes('Pendiente');
+      const bg  = isPend ? '#FEF3C7' : '#DBEAFE';
+      const col = isPend ? '#92400E' : '#1E40AF';
+      const costoRows = rows.reduce((s,r) => s + (parseFloat(r['Total'])||0), 0);
+      html += `<div style="background:#f9f5ef;border-radius:12px;padding:.85rem 1rem;margin-bottom:.6rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.45rem">
+          <span style="font-size:.88rem;font-weight:800;color:var(--brown)">${prov}</span>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            ${costoRows > 0 ? `<span style="font-size:.72rem;font-weight:700;color:#a08060">${ars(costoRows)}</span>` : ''}
+            <span style="background:${bg};color:${col};font-size:.67rem;font-weight:800;padding:.18rem .6rem;border-radius:50px">${isPend&&estados.includes('Pedido')?'Mixto':estados[0]}</span>
+          </div>
+        </div>
+        ${rows.map(r => `<div style="font-size:.78rem;color:#6b5b50;padding:.18rem 0;border-bottom:1px solid #f0ebe4">${r['Cantidad']} ${r['Unidad']} <strong>${r['Producto']}</strong></div>`).join('')}
+      </div>`;
+    });
+    return html;
+  };
+
+  content.innerHTML =
+    `<div style="font-size:.78rem;color:#a08060;margin-bottom:.65rem">Próximo viernes <strong>${fmtFri}</strong></div>` +
+    mkGroup(paraViernes, paraViernes.length ? '📦 Para el viernes' : '') +
+    mkGroup(otros, otros.length && paraViernes.length ? '📋 Sin fecha asignada / otra fecha' : '') ||
+    `<div style="font-size:.82rem;color:#a08060;padding:.4rem 0">Sin pedidos activos para el viernes ${fmtFri}</div>`;
+}
+
+function renderComprasUI() {
+  _renderSemanaResumen();
 
   const tbody = document.getElementById('compras-tbody');
   if (!compras.length) {
