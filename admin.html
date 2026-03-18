@@ -581,6 +581,15 @@
           <div id="abast-semana-content"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
         </div>
 
+        <!-- Sección 3b: Desglose clientes Clubes -->
+        <div class="section-box" id="abast-desglose-section" style="display:none;margin-bottom:1.2rem">
+          <div class="section-hd">
+            <span class="section-title" id="abast-desglose-title">📋 Desglose · pedidos por cliente</span>
+            <span class="section-badge" id="abast-desglose-badge">—</span>
+          </div>
+          <div id="abast-desglose-content"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
+        </div>
+
         <div class="section-box" id="abast-historial-section">
           <div class="section-hd">
             <span class="section-title">📋 Pedidos al proveedor</span>
@@ -1164,6 +1173,76 @@ function _renderClubesCompras() {
   content.innerHTML = html;
 }
 
+function _renderClubesDesglose() {
+  const badge   = document.getElementById('abast-desglose-badge');
+  const content = document.getElementById('abast-desglose-content');
+  if (!badge || !content) return;
+
+  // Próximo viernes
+  const now = new Date();
+  const daysToFri = now.getDay() === 6 ? 6 : 5 - now.getDay();
+  const thisFriday = new Date(now);
+  thisFriday.setDate(now.getDate() + daysToFri);
+  thisFriday.setHours(0,0,0,0);
+  const fmtFri = `${String(thisFriday.getDate()).padStart(2,'0')}/${String(thisFriday.getMonth()+1).padStart(2,'0')}`;
+
+  // Pedidos de Clubes para el viernes más cercano
+  const clubPedidos = pedidos.filter(p =>
+    getCanal(p['Barrio']) === 'Clubes' &&
+    ['pendiente','confirmado'].includes(p['Estado']) &&
+    p['Día entrega'] === 'Viernes'
+  );
+
+  badge.textContent = clubPedidos.length ? `${clubPedidos.length} pedido${clubPedidos.length!==1?'s':''}` : 'sin pedidos';
+
+  if (!clubPedidos.length) {
+    content.innerHTML = `<div style="font-size:.82rem;color:#a08060;padding:.4rem 0">Sin pedidos de clubes para el viernes <strong>${fmtFri}</strong></div>`;
+    return;
+  }
+
+  const clubIds  = new Set(clubPedidos.map(p => p['ID Pedido']));
+  const clubDet  = detalle.filter(d => clubIds.has(d['ID Pedido']));
+
+  // Agrupar detalle por pedido
+  const detPorPedido = {};
+  clubDet.forEach(d => {
+    if (!detPorPedido[d['ID Pedido']]) detPorPedido[d['ID Pedido']] = [];
+    detPorPedido[d['ID Pedido']].push(d);
+  });
+
+  const estTag = est => {
+    if (est === 'confirmado') return '<span style="background:#DBEAFE;color:#1E40AF;font-size:.62rem;font-weight:800;padding:.1rem .5rem;border-radius:50px">Confirmado</span>';
+    return '<span style="background:#FEF3C7;color:#92400E;font-size:.62rem;font-weight:800;padding:.1rem .5rem;border-radius:50px">Pendiente</span>';
+  };
+
+  content.innerHTML = `<div style="font-size:.75rem;color:#a08060;margin-bottom:.75rem">Viernes <strong>${fmtFri}</strong> · ${clubPedidos.length} pedido${clubPedidos.length!==1?'s':''}</div>` +
+    clubPedidos.map(p => {
+      const items    = detPorPedido[p['ID Pedido']] || [];
+      const total    = parseFloat(p['Total']) || items.reduce((s,d) => s + (parseInt(d['Cantidad'])||0)*(parseFloat(d['Precio unit.'])||0), 0);
+      const clubNom  = (p['Barrio']||'').replace(/^Club-/,'');
+      const itemsHtml = items.map(d =>
+        `<div style="display:flex;justify-content:space-between;font-size:.75rem;color:#6b5a50;padding:.15rem 0;border-bottom:1px solid #f5f0e8">
+          <span>${d['Producto']||''}</span>
+          <span style="font-weight:700;color:var(--orange)">${d['Cantidad']||''} packs</span>
+        </div>`
+      ).join('') || `<div style="font-size:.73rem;color:#b09880;font-style:italic">Sin detalle cargado</div>`;
+
+      return `<div style="background:#f9f5ef;border-radius:14px;padding:.85rem 1.05rem;margin-bottom:.6rem">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.55rem">
+          <div>
+            <div style="font-size:.9rem;font-weight:800;color:var(--brown)">${p['Nombre']||'—'}</div>
+            <div style="font-size:.72rem;color:#a08060;margin-top:.1rem">${clubNom} · ${p['Teléfono']||''}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.25rem">
+            ${estTag(p['Estado'])}
+            <span style="font-size:.8rem;font-weight:800;color:var(--brown)">${ars(total)}</span>
+          </div>
+        </div>
+        <div style="border-top:1px solid rgba(240,125,71,.15);padding-top:.4rem">${itemsHtml}</div>
+      </div>`;
+    }).join('');
+}
+
 function cpCargarPedidoClub(provKey) {
   const prov = decodeURIComponent(provKey);
   const grupo = _clubComprasData[prov];
@@ -1202,7 +1281,7 @@ function setAbastCanal(canal) {
 
   // Secciones exclusivas de cada canal
   const soloVD     = ['abast-cruce-section','abast-nuevo-section','abast-historial-section','abast-inventario-section'];
-  const soloClubes = ['clubes-compras-section'];
+  const soloClubes = ['clubes-compras-section','abast-desglose-section'];
   soloVD    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = canal === 'vd'     ? '' : 'none'; });
   soloClubes.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = canal === 'clubes' ? '' : 'none'; });
 
@@ -1217,6 +1296,7 @@ function setAbastCanal(canal) {
 
 function renderAbastecimiento() {
   _renderClubesCompras();
+  _renderClubesDesglose();
   renderAbastecimientoCruce();
   _renderStockDisplay();
   loadCompras();
