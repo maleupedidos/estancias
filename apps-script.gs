@@ -23,9 +23,8 @@ const CREAM   = '#E8DFC4';
 // ════════════════════════════════════════════════════════════
 function doGet(e) {
   const action = e && e.parameter && e.parameter.action;
-  if (action === 'compras') {
-    return _doGetCompras();
-  }
+  if (action === 'compras') return _doGetCompras();
+  if (action === 'egresos') return _doGetEgresos();
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -49,6 +48,24 @@ function _doGetCompras() {
   return ContentService
     .createTextOutput(JSON.stringify(rows))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doGetEgresos() {
+  const sh = SS.getSheetByName('Egresos');
+  if (!sh) return ContentService.createTextOutput('[]').setMimeType(ContentService.MimeType.JSON);
+  const data = sh.getDataRange().getValues();
+  if (data.length <= 1) return ContentService.createTextOutput('[]').setMimeType(ContentService.MimeType.JSON);
+  const headers = data[0];
+  const rows = data.slice(1).filter(row => row[0]).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = row[i] instanceof Date
+        ? Utilities.formatDate(row[i], 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
+        : (row[i] !== undefined && row[i] !== null ? String(row[i]) : '');
+    });
+    return obj;
+  });
+  return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -291,6 +308,7 @@ function setupSheets() {
   _setupDetalle();
   _setupPanel();
   _setupProveedores();
+  _setupEgresos();
   SS.toast('✅  Sheets de Maleu configurados correctamente', 'Setup completo', 5);
 }
 
@@ -588,5 +606,41 @@ function _setupProveedores() {
   ]);
 
   try { sh.getRange('A2:K1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
+  catch(ex) {}
+}
+
+// ── Hoja: Egresos ──────────────────────────────────────────
+function _setupEgresos() {
+  let sh = SS.getSheetByName('Egresos');
+  if (!sh) sh = SS.insertSheet('Egresos');
+
+  const headers = ['Fecha','Mes','Semana','Categoría','Concepto / Detalle','Método','Monto','Nota'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground(BROWN).setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  sh.setFrozenRows(1);
+  sh.setRowHeight(1, 36);
+  [100, 80, 70, 140, 230, 120, 100, 210].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+
+  sh.getRange('G2:G1000').setNumberFormat('$#,##0');
+  sh.getRange('A2:A1000').setNumberFormat('dd/mm/yyyy');
+
+  // Dropdown categorías
+  const catRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Ingredientes','Packaging','Marketing','Transporte','Tecnología','Sueldos','Impuestos','Otros'], true)
+    .setAllowInvalid(true).build();
+  sh.getRange(2, 4, 1000, 1).setDataValidation(catRule);
+
+  // Dropdown método pago
+  const metRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Efectivo','Transferencia','Tarjeta','Otro'], true)
+    .setAllowInvalid(false).build();
+  sh.getRange(2, 6, 1000, 1).setDataValidation(metRule);
+
+  sh.setTabColor(ORANGE);
+
+  try { sh.getRange('A2:H1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
   catch(ex) {}
 }

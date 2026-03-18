@@ -293,7 +293,8 @@
     .cp-card { background:#f9f5ef; border:2px solid transparent; border-radius:13px; padding:.85rem .9rem .8rem; cursor:pointer; transition:border-color .15s, background .15s; position:relative; user-select:none; }
     .cp-card:hover { background:#f2ebe0; border-color:#e0d5c8; }
     .cp-card.cp-selected { background:#fff8f2; border-color:var(--orange); }
-    .cp-card-name { font-size:.78rem; font-weight:700; color:var(--brown); line-height:1.35; margin-bottom:.55rem; min-height:2.1em; }
+    .cp-card-name { font-size:.78rem; font-weight:700; color:var(--brown); line-height:1.35; margin-bottom:.2rem; min-height:1.8em; }
+    .cp-card-cost { font-size:.68rem; color:#a08060; margin-bottom:.4rem; }
     .cp-card-controls { display:flex; align-items:center; justify-content:center; gap:.45rem; height:0; overflow:hidden; opacity:0; transition:height .12s, opacity .12s; }
     .cp-card-controls.cp-vis { height:1.9rem; opacity:1; }
     .cp-qty-btn { background:var(--orange); color:#fff; border:none; border-radius:6px; width:1.55rem; height:1.55rem; font-size:1rem; font-weight:800; cursor:pointer; line-height:1; transition:background .1s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -482,6 +483,11 @@
           </div>
         </div>
         <div style="height:1.2rem"></div>
+
+        <div class="section-box" style="margin-bottom:1.2rem">
+          <div class="section-hd"><span class="section-title">💸 Egresos esta semana</span><span class="section-badge" id="cj-egresos-total">—</span></div>
+          <div id="cj-egresos-content"><div class="empty" style="padding:.8rem 0"><div class="empty-text">Cargando...</div></div></div>
+        </div>
 
         <div class="section-box">
           <div class="section-hd"><span class="section-title">📅 Historial semanal</span></div>
@@ -694,7 +700,7 @@ const CANAL_COLOR = { 'Estancias':'#331C1C', 'Delivery':'#2980B9', 'Clubes':'#27
 const CANAL_EMOJI = { 'Estancias':'🏡', 'Delivery':'🚗', 'Clubes':'🏆' };
 
 // ── STATE ────────────────────────────────────────────────────────
-let pedidos = [], detalle = [], productos = [], compras = [];
+let pedidos = [], detalle = [], productos = [], compras = [], egresos = [];
 let charts  = {}, rendered = new Set(), currentTab = 'operacion';
 
 // ── AUTH ─────────────────────────────────────────────────────────
@@ -778,8 +784,9 @@ async function loadData() {
     renderTab(currentTab);
     document.getElementById('top-updated').textContent =
       'Act. ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-    // Load compras in background (needed by pendientes, caja egresos, abastecimiento)
+    // Load compras + egresos in background
     loadCompras().catch(() => {});
+    loadEgresos().catch(() => {});
   } catch(err) {
     document.getElementById('top-updated').textContent = '⚠️ Error';
     console.error(err);
@@ -1086,9 +1093,15 @@ function renderCaja() {
   const pendiente = pedidos.filter(p => ['pendiente','confirmado'].includes(p['Estado'])).reduce((s,p) => s + parseMoney(p['Total']), 0);
   const ticket    = entregados.length ? Math.round(entregados.reduce((s,p) => s+parseMoney(p['Total']),0) / entregados.length) : 0;
 
-  // Egresos: compras con Total > 0 y Entregado esta semana
-  const egSemana  = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && d >= weekStart && d < weekEnd && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
-  const egMes     = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
+  // Egresos: compras con costo registrado (Entregado esta semana)
+  const egComprasSem = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && d >= weekStart && d < weekEnd && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
+  const egComprasMes = compras.filter(c => { if (c['Estado'] !== 'Entregado') return false; const d = parseDate(c['Fecha']); return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey && parseFloat(c['Total']) > 0; }).reduce((s,c) => s + (parseFloat(c['Total'])||0), 0);
+  // Egresos: hoja Egresos esta semana
+  const egSheetSemItems = egresos.filter(eg => { const d = parseDate(eg['Fecha']); return d && d >= weekStart && d < weekEnd && parseFloat(eg['Monto']) > 0; });
+  const egSheetSem  = egSheetSemItems.reduce((s,eg) => s + (parseFloat(eg['Monto'])||0), 0);
+  const egSheetMes  = egresos.filter(eg => { const d = parseDate(eg['Fecha']); return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey && parseFloat(eg['Monto']) > 0; }).reduce((s,eg) => s + (parseFloat(eg['Monto'])||0), 0);
+  const egSemana = egComprasSem + egSheetSem;
+  const egMes    = egComprasMes + egSheetMes;
 
   // Hero: resultado neto
   const hasEg = egSemana > 0;
@@ -1105,6 +1118,24 @@ function renderCaja() {
   document.getElementById('cj-pendiente').textContent = ars(pendiente);
   document.getElementById('cj-mes').textContent       = ars(ingMes);
   document.getElementById('cj-ticket').textContent    = ars(ticket);
+
+  // Egresos esta semana — breakdown por categoría
+  const categorias = {};
+  if (egComprasSem > 0) categorias['Ingredientes / Compras'] = egComprasSem;
+  egSheetSemItems.forEach(eg => {
+    const cat = eg['Categoría'] || 'Otros';
+    categorias[cat] = (categorias[cat]||0) + parseFloat(eg['Monto']);
+  });
+  const egKeys = Object.keys(categorias);
+  document.getElementById('cj-egresos-total').textContent = egSemana > 0 ? '−'+ars(egSemana) : 'Sin egresos';
+  if (!egKeys.length) {
+    document.getElementById('cj-egresos-content').innerHTML =
+      '<div class="empty" style="padding:.8rem 0"><div class="empty-text">Sin egresos esta semana · Cargalos en la hoja <strong>Egresos</strong> del Sheets</div></div>';
+  } else {
+    document.getElementById('cj-egresos-content').innerHTML =
+      egKeys.map(cat => `<div class="caja-line"><span class="caja-line-lbl">${cat}</span><span class="caja-line-val c-red">−${ars(categorias[cat])}</span></div>`).join('') +
+      (egKeys.length > 1 ? `<div class="caja-line" style="border-top:1.5px solid var(--cream);margin-top:.3rem;padding-top:.7rem"><span class="caja-line-lbl" style="font-weight:800">Total egresos</span><span class="caja-line-val c-red" style="font-size:1.2rem">−${ars(egSemana)}</span></div>` : '');
+  }
 
   // Por método de pago
   const pagoMap = {};
@@ -1125,6 +1156,7 @@ function renderCaja() {
   entregados.forEach(p => { const d = parseDate(p['Fecha solo']||p['Fecha']); if (!d) return; const k = getWeekKey(d); if (!weekData[k]) weekData[k] = {count:0,total:0}; weekData[k].count++; weekData[k].total += parseMoney(p['Total']); });
   const weekEg = {};
   compras.filter(c => c['Estado']==='Entregado' && parseFloat(c['Total'])>0).forEach(c => { const d = parseDate(c['Fecha']); if (!d) return; const k = getWeekKey(d); weekEg[k] = (weekEg[k]||0) + parseFloat(c['Total']); });
+  egresos.filter(eg => parseFloat(eg['Monto'])>0).forEach(eg => { const d = parseDate(eg['Fecha']); if (!d) return; const k = getWeekKey(d); weekEg[k] = (weekEg[k]||0) + parseFloat(eg['Monto']); });
   const sortedW = Object.keys(weekData).sort().reverse().slice(0,12);
   document.getElementById('cj-historial-tbody').innerHTML = sortedW.length ? sortedW.map(k => {
     const w = weekData[k], eg = weekEg[k]||0, neto = eg>0 ? w.total-eg : null;
@@ -1336,30 +1368,30 @@ function stockCardHTML(nombre, disp, fisico) {
 // ── COMPRAS ───────────────────────────────────────────────────────
 const COMPRAS_PRODUCTOS = [
   { cat: '🍕 Pizzas', items: [
-    { id: 'p1',  nombre: 'Pizza Margarita',            unidad: 'unidades' },
-    { id: 'p2',  nombre: 'Pizza Jamón y Queso',        unidad: 'unidades' },
-    { id: 'p3',  nombre: 'Pizza Cebolla Caramelizada', unidad: 'unidades' },
-    { id: 'p4',  nombre: 'Pizza Jamón y Morrón',       unidad: 'unidades' },
+    { id: 'p1',  nombre: 'Pizza Margarita',            unidad: 'unidades', costo: 6000  },
+    { id: 'p2',  nombre: 'Pizza Jamón y Queso',        unidad: 'unidades', costo: 6000  },
+    { id: 'p3',  nombre: 'Pizza Cebolla Caramelizada', unidad: 'unidades', costo: 6000  },
+    { id: 'p4',  nombre: 'Pizza Jamón y Morrón',       unidad: 'unidades', costo: 6800  },
   ]},
   { cat: '📦 Packs', items: [
-    { id: 'pp1', nombre: 'Pack x2 Muzzarella',         unidad: 'packs' },
-    { id: 'pp2', nombre: 'Pack x2 Jamón y Queso',      unidad: 'packs' },
-    { id: 'pp3', nombre: 'Pack x2 Cebolla y Queso',    unidad: 'packs' },
+    { id: 'pp1', nombre: 'Pack x2 Muzzarella',         unidad: 'packs',    costo: 9000  },
+    { id: 'pp2', nombre: 'Pack x2 Jamón y Queso',      unidad: 'packs',    costo: 9000  },
+    { id: 'pp3', nombre: 'Pack x2 Cebolla y Queso',    unidad: 'packs',    costo: 9000  },
   ]},
   { cat: '🥟 Sorrentinos', items: [
-    { id: 's1',  nombre: 'Sorrentinos Cordero',        unidad: 'docenas' },
-    { id: 's2',  nombre: 'Sorrentinos Jamón y Queso',  unidad: 'docenas' },
-    { id: 's3',  nombre: 'Sorrentinos Calabaza',       unidad: 'docenas' },
+    { id: 's1',  nombre: 'Sorrentinos Cordero',        unidad: 'docenas',  costo: 13000 },
+    { id: 's2',  nombre: 'Sorrentinos Jamón y Queso',  unidad: 'docenas',  costo: 11800 },
+    { id: 's3',  nombre: 'Sorrentinos Calabaza',       unidad: 'docenas',  costo: 10200 },
   ]},
   { cat: '🥐 Empanadas', items: [
-    { id: 'e1',  nombre: 'Empanadas Carne a Cuchillo', unidad: 'docenas' },
-    { id: 'e2',  nombre: 'Empanadas Jamón y Queso',    unidad: 'docenas' },
+    { id: 'e1',  nombre: 'Empanadas Carne a Cuchillo', unidad: 'docenas',  costo: 13160 },
+    { id: 'e2',  nombre: 'Empanadas Jamón y Queso',    unidad: 'docenas',  costo: 10500 },
   ]},
   { cat: '🍰 Dulces', items: [
-    { id: 'd1',  nombre: 'Pote de Franui',             unidad: 'unidades' },
-    { id: 'd2',  nombre: 'Torta Golosa',               unidad: 'unidades' },
-    { id: 'd3',  nombre: 'Torta Lemon Crumble',        unidad: 'unidades' },
-    { id: 'd4',  nombre: 'Torta Coco',                 unidad: 'unidades' },
+    { id: 'd1',  nombre: 'Pote de Franui',             unidad: 'unidades', costo: 5350  },
+    { id: 'd2',  nombre: 'Torta Golosa',               unidad: 'unidades', costo: 19200 },
+    { id: 'd3',  nombre: 'Torta Lemon Crumble',        unidad: 'unidades', costo: 19200 },
+    { id: 'd4',  nombre: 'Torta Coco',                 unidad: 'unidades', costo: 19200 },
   ]},
 ];
 
@@ -1372,9 +1404,10 @@ function renderCpPicker() {
   document.getElementById('cp-picker').innerHTML = COMPRAS_PRODUCTOS.map(({ cat, items }) => `
     <div class="cp-section-label">${cat}</div>
     <div class="cp-grid">
-      ${items.map(({ id, nombre }) => `
+      ${items.map(({ id, nombre, costo }) => `
         <div class="cp-card" id="cpc-${id}" onclick="cpCardClick('${id}')">
           <div class="cp-card-name">${nombre}</div>
+          ${costo ? `<div class="cp-card-cost">costo ${ars(costo)}/u</div>` : ''}
           <div class="cp-card-controls" id="cpc-ctrl-${id}">
             <button class="cp-qty-btn" onclick="event.stopPropagation();cpChangeQty('${id}',-1)">−</button>
             <span class="cp-qty-num" id="cpc-qty-${id}">0</span>
@@ -1429,10 +1462,21 @@ function cpUpdateSummary() {
   }
 
   boxEl.style.display = 'block';
+  const costoEstimado = sel.reduce((s,[id,q]) => { const p = cpItem(id); return s + (p.costo||0)*q; }, 0);
   document.getElementById('cp-cart-items').innerHTML = sel.map(([id, qty]) => {
     const p = cpItem(id);
-    return `<div class="cp-cart-row"><span>${p.nombre}</span><span class="cp-cart-qty">${qty} ${p.unidad}</span></div>`;
-  }).join('');
+    const lineCosto = p.costo ? `<span style="color:#a08060;font-size:.75rem">≈${ars(p.costo*qty)}</span>` : '';
+    return `<div class="cp-cart-row"><span>${p.nombre} ×${qty} ${p.unidad}</span>${lineCosto}</div>`;
+  }).join('') + (costoEstimado > 0 ? `
+    <div class="cp-cart-row" style="border-top:1.5px solid rgba(240,125,71,.2);margin-top:.35rem;padding-top:.45rem;font-weight:800">
+      <span>Costo estimado</span><span class="cp-cart-qty">≈${ars(costoEstimado)}</span>
+    </div>` : '');
+
+  // Pre-completar campo costo si está vacío
+  if (costoEstimado > 0) {
+    const costoInput = document.getElementById('cf-costo');
+    if (!costoInput.value) costoInput.value = costoEstimado;
+  }
 
   const nProd = sel.length;
   const nUni  = sel.reduce((s,[,q]) => s+q, 0);
@@ -1494,6 +1538,16 @@ async function loadCompras() {
   } finally {
     document.getElementById('compras-loading').style.display = 'none';
     document.getElementById('compras-table-wrap').style.display = 'block';
+  }
+}
+
+async function loadEgresos() {
+  try {
+    const r = await fetch(APPS_SCRIPT_URL + '?action=egresos&t=' + Date.now());
+    egresos = await r.json();
+    if (currentTab === 'caja') renderCaja();
+  } catch(e) {
+    egresos = [];
   }
 }
 
