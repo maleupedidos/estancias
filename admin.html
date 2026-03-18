@@ -18,6 +18,7 @@
       --font:   'Montserrat', system-ui, sans-serif;
       --sw: 200px;
       --th: 56px;
+      --ah: 42px;
     }
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:var(--font); background:var(--bg); color:var(--brown); -webkit-font-smoothing:antialiased; }
@@ -47,9 +48,18 @@
     .top-logout { background:transparent; border:none; color:rgba(255,255,255,.3); font-family:var(--font); font-size:.75rem; cursor:pointer; transition:color .15s; }
     .top-logout:hover { color:rgba(255,255,255,.7); }
 
+    /* ALERT BAR */
+    #alert-bar { position:fixed; top:var(--th); left:var(--sw); right:0; height:var(--ah); background:#fff; border-bottom:1.5px solid #ede5db; display:flex; align-items:center; padding:0 1.5rem; gap:.55rem; z-index:90; box-shadow:0 2px 8px rgba(51,28,28,.04); overflow:hidden; }
+    .alert-label { font-size:.68rem; color:#c0a888; font-weight:600; white-space:nowrap; }
+    .alert-chip { display:inline-flex; align-items:center; gap:.3rem; padding:.28rem .75rem; border-radius:50px; font-family:var(--font); font-size:.71rem; font-weight:700; cursor:pointer; border:none; transition:opacity .15s; white-space:nowrap; }
+    .alert-chip:hover { opacity:.75; }
+    .alert-chip-red    { background:#FEE2E2; color:#991B1B; }
+    .alert-chip-yellow { background:#FEF3C7; color:#92400E; }
+    .alert-chip-green  { background:#DCFCE7; color:#166534; cursor:default; }
+
     /* LAYOUT */
     #app { display:none; }
-    .body-layout { display:flex; padding-top:var(--th); min-height:100vh; }
+    .body-layout { display:flex; padding-top:calc(var(--th) + var(--ah)); min-height:100vh; }
 
     /* SIDEBAR */
     .sidebar { position:fixed; left:0; top:var(--th); bottom:0; width:var(--sw); background:var(--brown); display:flex; flex-direction:column; padding:1.25rem 0; overflow-y:auto; z-index:50; }
@@ -117,12 +127,42 @@
     tbody td { padding:.65rem 1rem; white-space:nowrap; }
     .no-data { text-align:center; padding:3rem; color:#c0a888; font-size:.88rem; }
 
-    /* OPERACION TAB */
+    /* HOY TAB */
     .entrega-banner { background:linear-gradient(135deg,var(--brown) 0%,#5a2c12 100%); border-radius:18px; padding:1.5rem 1.75rem; margin-bottom:1.2rem; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
     .entrega-day  { font-size:1.55rem; font-weight:800; letter-spacing:-.02em; display:flex; align-items:center; gap:.65rem; }
     .entrega-date { font-size:.83rem; color:rgba(255,255,255,.55); margin-top:.2rem; }
     .entrega-horario { background:rgba(240,125,71,.2); border:1px solid rgba(240,125,71,.4); color:var(--orange); border-radius:10px; padding:.5rem 1rem; font-size:.82rem; font-weight:700; }
     .tag-hoy { background:var(--orange); color:#fff; font-size:.62rem; font-weight:800; padding:.22rem .6rem; border-radius:50px; text-transform:uppercase; letter-spacing:.06em; }
+    /* Producción × Stock cruce table */
+    .cruce-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+    .cruce-table thead th { text-align:left; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#b09880; padding:.25rem .75rem .55rem; border-bottom:1.5px solid var(--cream); }
+    .cruce-table td { padding:.6rem .75rem; border-bottom:1px solid #f5f0e8; vertical-align:middle; }
+    .cruce-table tr:last-child td { border-bottom:none; }
+    .cruce-row-comprar { background:#fff8f8; }
+    .cruce-row-falta   { background:#fffef5; }
+    .cruce-prod { font-weight:700; }
+    .cruce-num  { text-align:center; font-weight:700; font-size:.9rem; }
+    .cruce-stock-ok      { color:#27AE60; }
+    .cruce-stock-falta   { color:#E67E22; }
+    .cruce-stock-comprar { color:#E74C3C; }
+    .cruce-badge { display:inline-block; padding:.28rem .65rem; border-radius:6px; font-size:.71rem; font-weight:800; white-space:nowrap; }
+    .cruce-ok      { background:#DCFCE7; color:#166534; }
+    .cruce-falta   { background:#FEF3C7; color:#92400E; }
+    .cruce-comprar { background:#FEE2E2; color:#991B1B; }
+    /* Pendientes */
+    .pend-item { display:flex; align-items:center; gap:.65rem; padding:.62rem .75rem; border-bottom:1px solid #f5f0e8; font-size:.82rem; cursor:pointer; transition:background .1s; border-radius:8px; }
+    .pend-item:last-child { border-bottom:none; }
+    .pend-item:hover { background:#faf5ef; }
+    .pend-icon { font-size:.95rem; flex-shrink:0; }
+    .pend-text { flex:1; font-weight:600; }
+    .pend-meta { color:#a08060; font-size:.75rem; white-space:nowrap; }
+    .pend-arrow { color:#c0a888; font-size:.9rem; }
+    /* Métricas del día (bloque 5) */
+    .hoy-metricas-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.85rem; margin-bottom:1.2rem; }
+    .hoy-metrica-card { background:var(--white); border-radius:14px; padding:1rem 1.15rem; box-shadow:0 1px 8px rgba(51,28,28,.07); }
+    .hm-label { font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#b09880; margin-bottom:.4rem; }
+    .hm-val { font-size:1.1rem; font-weight:800; color:var(--brown); line-height:1.2; }
+    /* Pedidos list */
     .barrio-group { margin-bottom:.85rem; }
     .barrio-header { display:flex; align-items:center; justify-content:space-between; padding:.52rem .85rem; background:#f7f2eb; border-radius:9px; font-weight:700; font-size:.82rem; margin-bottom:.4rem; }
     .barrio-count  { background:var(--orange); color:#fff; font-size:.65rem; font-weight:800; padding:.15rem .5rem; border-radius:50px; }
@@ -130,9 +170,14 @@
     .pedido-row .pn { font-weight:700; flex:1; min-width:90px; }
     .pedido-row .pl { color:#a08060; }
     .pedido-row .pt { font-weight:700; }
-    .pedido-row .pnota { font-style:italic; color:#a08060; font-size:.75rem; flex-basis:100%; padding-left:.25rem; }
+    .canal-group { margin-bottom:.5rem; }
+    .canal-group-header { display:flex; align-items:center; justify-content:space-between; padding:.55rem 1rem; background:var(--brown); color:#fff; border-radius:10px; font-weight:800; font-size:.85rem; margin-bottom:.4rem; }
 
-    /* STOCK TAB */
+    /* PRODUCCIÓN TAB */
+    .prod-section-title { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); margin:1.25rem 0 .75rem; }
+    .prod-section-title:first-child { margin-top:0; }
+
+    /* STOCK cards */
     .stock-section-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#b09880; margin:1.25rem 0 .75rem; }
     .stock-section-label:first-child { margin-top:0; }
     .stock-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.75rem; }
@@ -153,33 +198,9 @@
     .s-zero .stock-disp { color:#E74C3C; }
     .stock-fisico { color:#b09880; }
 
-    /* EMPTY */
-    .empty { text-align:center; padding:3rem 1rem; color:#c0a888; }
-    .empty-icon { font-size:2.5rem; margin-bottom:.6rem; }
-    .empty-text { font-size:.88rem; }
-
-    /* Canal row in Operación */
-    .canal-row { display:grid; grid-template-columns:repeat(3,1fr); gap:.85rem; margin-bottom:1.2rem; }
-    @media(max-width:600px){ .canal-row { grid-template-columns:1fr; } }
-    .canal-card { background:var(--white); border-radius:16px; padding:1.1rem 1.2rem; box-shadow:0 1px 8px rgba(51,28,28,.07); border-top:3px solid #ccc; }
-    .canal-card-label { font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#b09880; margin-bottom:.2rem; }
-    .canal-card-name { font-size:.95rem; font-weight:800; margin-bottom:.65rem; }
-    .canal-card-row { display:flex; justify-content:space-between; font-size:.78rem; margin-bottom:.2rem; }
-    .canal-card-row span:last-child { font-weight:700; }
-
-    /* Canal group in pedidos list */
-    .canal-group { margin-bottom:.5rem; }
-    .canal-group-header { display:flex; align-items:center; justify-content:space-between; padding:.55rem 1rem; background:var(--brown); color:#fff; border-radius:10px; font-weight:800; font-size:.85rem; margin-bottom:.4rem; }
-
-    /* Producción table */
-    .prod-table { width:100%; border-collapse:collapse; font-size:.83rem; }
-    .prod-table th { text-align:left; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#b09880; padding:.25rem .5rem .5rem; border-bottom:1.5px solid var(--cream); }
-    .prod-table td { padding:.5rem .5rem; border-bottom:1px solid #f5f0e8; }
-    .prod-table tr:last-child td { border-bottom:none; }
-    .prod-qty { font-weight:800; color:var(--orange); font-size:.9rem; }
-    .prod-total-row { display:flex; justify-content:space-between; background:#f7f2eb; border-radius:8px; padding:.55rem .75rem; font-size:.82rem; font-weight:700; margin-top:.5rem; }
-
-    /* Canal big cards (tab Canales) */
+    /* MÉTRICAS TAB */
+    .metricas-section { margin-bottom:2.5rem; }
+    .metricas-section-title { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); padding-bottom:.7rem; border-bottom:2px solid var(--cream); margin-bottom:1.2rem; }
     .canal-big-row { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1.2rem; }
     @media(max-width:760px){ .canal-big-row { grid-template-columns:1fr; } }
     .canal-big-card { background:var(--white); border-radius:20px; padding:1.5rem 1.4rem; box-shadow:0 1px 8px rgba(51,28,28,.07); border-top:4px solid #ccc; }
@@ -194,8 +215,20 @@
     .canal-mini-val { font-size:.95rem; font-weight:800; }
     .canal-top-prod { font-size:.73rem; color:#a08060; padding:.45rem .65rem; background:#f7f2eb; border-radius:8px; line-height:1.4; }
     .canal-top-prod strong { color:var(--brown); }
+    /* Producción table (used in Hoy and Producción tabs) */
+    .prod-table { width:100%; border-collapse:collapse; font-size:.83rem; }
+    .prod-table th { text-align:left; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#b09880; padding:.25rem .5rem .5rem; border-bottom:1.5px solid var(--cream); }
+    .prod-table td { padding:.5rem .5rem; border-bottom:1px solid #f5f0e8; }
+    .prod-table tr:last-child td { border-bottom:none; }
+    .prod-qty { font-weight:800; color:var(--orange); font-size:.9rem; }
+    .prod-total-row { display:flex; justify-content:space-between; background:#f7f2eb; border-radius:8px; padding:.55rem .75rem; font-size:.82rem; font-weight:700; margin-top:.5rem; }
 
-    /* COMPRAS TAB — shared form inputs */
+    /* EMPTY */
+    .empty { text-align:center; padding:3rem 1rem; color:#c0a888; }
+    .empty-icon { font-size:2.5rem; margin-bottom:.6rem; }
+    .empty-text { font-size:.88rem; }
+
+    /* COMPRAS TAB */
     .form-group { display:flex; flex-direction:column; gap:.3rem; }
     .form-group-full { grid-column:1/-1; }
     .form-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#a08060; }
@@ -204,12 +237,10 @@
     .btn-compra-submit { background:var(--orange); color:#fff; border:none; border-radius:10px; padding:.82rem 1.5rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer; transition:background .15s; width:100%; margin-top:.25rem; }
     .btn-compra-submit:hover { background:#e05e20; }
     .btn-compra-submit:disabled { opacity:.45; cursor:default; }
-    /* Estado select (historial) */
     .estado-compra-select { padding:.28rem .55rem; border:none; border-radius:6px; font-family:var(--font); font-size:.74rem; font-weight:700; cursor:pointer; outline:none; }
     .est-pendiente { background:#FEF9C3; color:#854D0E; }
     .est-pedido    { background:#DBEAFE; color:#1E40AF; }
     .est-entregado { background:#DCFCE7; color:#166534; }
-    /* Product picker grid */
     .cp-section-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--orange); margin:1.3rem 0 .6rem; }
     .cp-section-label:first-child { margin-top:0; }
     .cp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:.55rem; margin-bottom:.25rem; }
@@ -222,27 +253,27 @@
     .cp-qty-btn { background:var(--orange); color:#fff; border:none; border-radius:6px; width:1.55rem; height:1.55rem; font-size:1rem; font-weight:800; cursor:pointer; line-height:1; transition:background .1s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .cp-qty-btn:hover { background:#e05e20; }
     .cp-qty-num { font-size:.95rem; font-weight:800; color:var(--brown); min-width:1.4rem; text-align:center; }
-    /* Cart summary */
     .cp-cart-box { background:#fff8f2; border:1.5px solid rgba(240,125,71,.3); border-radius:14px; padding:1rem 1.2rem; margin:1.1rem 0 .85rem; }
     .cp-cart-hd { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.09em; color:var(--orange); margin-bottom:.6rem; }
     .cp-cart-row { display:flex; justify-content:space-between; font-size:.82rem; padding:.3rem 0; border-bottom:1px solid rgba(240,125,71,.12); }
     .cp-cart-row:last-child { border-bottom:none; }
     .cp-cart-qty { font-weight:700; color:var(--orange); }
-    /* Order details */
     .cp-order-form { border-top:1.5px solid #f0ebe4; margin-top:.9rem; padding-top:1rem; display:grid; grid-template-columns:1fr 1fr; gap:.7rem 1rem; }
     @media(max-width:600px){ .cp-order-form { grid-template-columns:1fr; } }
 
     /* MOBILE */
     @media (max-width:768px) {
+      #alert-bar { left:0; }
       .sidebar { top:auto; bottom:0; left:0; right:0; width:100%; height:62px; padding:0; flex-direction:row; overflow-x:auto; overflow-y:visible; border-top:1px solid rgba(255,255,255,.1); }
       .nav-item { flex:1; flex-direction:column; gap:3px; padding:8px 4px; font-size:.62rem; border-left:none; border-top:3px solid transparent; justify-content:center; align-items:center; min-width:56px; }
       .nav-item.active { border-top-color:var(--orange); border-left:none; background:rgba(240,125,71,.1); }
       .nav-icon { font-size:1.25rem; }
       .nav-spacer, .nav-divider { display:none; }
-      .main-content { margin-left:0; padding:1.25rem 1rem 5rem; }
+      .main-content { margin-left:0; padding:calc(var(--ah) + 1.25rem) 1rem 5rem; }
       .top-updated { display:none; }
       .kpi-grid { grid-template-columns:1fr 1fr; }
       .entrega-banner { flex-direction:column; align-items:flex-start; }
+      .hoy-metricas-row { grid-template-columns:1fr 1fr; }
     }
   </style>
 </head>
@@ -278,18 +309,22 @@
     </div>
   </div>
 
+  <!-- ALERT BAR -->
+  <div id="alert-bar">
+    <span class="alert-label">Estado:</span>
+    <span class="alert-chip alert-chip-green">Cargando...</span>
+  </div>
+
   <!-- LAYOUT -->
   <div class="body-layout">
 
     <!-- SIDEBAR -->
     <nav class="sidebar">
-      <button class="nav-item active" data-tab="operacion" onclick="showTab('operacion')"><span class="nav-icon">📅</span><span>Operación</span></button>
-      <button class="nav-item"        data-tab="canales"   onclick="showTab('canales')"><span class="nav-icon">📡</span><span>Canales</span></button>
-      <button class="nav-item"        data-tab="resumen"   onclick="showTab('resumen')"><span class="nav-icon">📊</span><span>Resumen</span></button>
-      <button class="nav-item"        data-tab="ventas"    onclick="showTab('ventas')"><span class="nav-icon">💰</span><span>Ventas</span></button>
+      <button class="nav-item active" data-tab="operacion" onclick="showTab('operacion')"><span class="nav-icon">🏠</span><span>Hoy</span></button>
       <button class="nav-item"        data-tab="pedidos"   onclick="showTab('pedidos')"><span class="nav-icon">📋</span><span>Pedidos</span></button>
-      <button class="nav-item"        data-tab="stock"     onclick="showTab('stock')"><span class="nav-icon">📦</span><span>Stock</span></button>
+      <button class="nav-item"        data-tab="produccion" onclick="showTab('produccion')"><span class="nav-icon">🍕</span><span>Producción</span></button>
       <button class="nav-item"        data-tab="compras"   onclick="showTab('compras')"><span class="nav-icon">🛒</span><span>Compras</span></button>
+      <button class="nav-item"        data-tab="metricas"  onclick="showTab('metricas')"><span class="nav-icon">📊</span><span>Métricas</span></button>
       <div class="nav-spacer"></div>
       <div class="nav-divider"></div>
       <button class="nav-item" onclick="logout()" style="opacity:.45;font-size:.82rem"><span class="nav-icon">🚪</span><span>Salir</span></button>
@@ -298,9 +333,10 @@
     <!-- MAIN -->
     <main class="main-content">
 
-      <!-- ══ TAB: OPERACIÓN ══ -->
+      <!-- ══ TAB: HOY ══ -->
       <div id="tab-operacion" class="tab-panel active">
-        <!-- Banner próxima entrega -->
+
+        <!-- BLOQUE 1 — Banner + KPIs -->
         <div class="entrega-banner">
           <div>
             <div class="entrega-day" id="hoy-title">—</div>
@@ -309,217 +345,48 @@
           <div class="entrega-horario" id="hoy-horario">—</div>
         </div>
 
-        <!-- KPI grid -->
         <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Pedidos activos</div><div class="kpi-val c-orange" id="hk-pedidos">—</div><div class="kpi-sub">pendiente + confirmado</div></div>
+          <div class="kpi-card"><div class="kpi-label">Pedidos activos</div><div class="kpi-val c-orange" id="hk-pedidos">—</div><div class="kpi-sub" id="hk-canales-sub">pendiente + confirmado</div></div>
           <div class="kpi-card"><div class="kpi-label">Total a cobrar</div><div class="kpi-val c-green" id="hk-total">—</div><div class="kpi-sub">de pedidos activos</div></div>
-          <div class="kpi-card"><div class="kpi-label">Unidades totales</div><div class="kpi-val c-brown" id="hk-unidades">—</div><div class="kpi-sub">productos a preparar</div></div>
-          <div class="kpi-card"><div class="kpi-label">Ya entregados</div><div class="kpi-val c-blue" id="hk-entregados">—</div><div class="kpi-sub">para este día</div></div>
+          <div class="kpi-card"><div class="kpi-label">Unidades a preparar</div><div class="kpi-val c-brown" id="hk-unidades">—</div><div class="kpi-sub">para esta entrega</div></div>
+          <div class="kpi-card"><div class="kpi-label">Sin confirmar</div><div class="kpi-val c-red" id="hk-sinconf">—</div><div class="kpi-sub">requieren acción</div></div>
         </div>
 
-        <!-- Canal breakdown row -->
-        <div class="canal-row" id="hoy-canal-row">
-          <div class="canal-card" id="canal-op-estancias" style="border-top-color:#331C1C">
-            <div class="canal-card-label">Canal</div>
-            <div class="canal-card-name">🏡 Estancias</div>
-            <div class="canal-card-row"><span>Pedidos</span><span id="cop-est-pedidos">—</span></div>
-            <div class="canal-card-row"><span>Total $</span><span id="cop-est-total">—</span></div>
-            <div class="canal-card-row"><span>Unidades</span><span id="cop-est-unidades">—</span></div>
-          </div>
-          <div class="canal-card" id="canal-op-delivery" style="border-top-color:#2980B9">
-            <div class="canal-card-label">Canal</div>
-            <div class="canal-card-name">🚗 Delivery</div>
-            <div class="canal-card-row"><span>Pedidos</span><span id="cop-del-pedidos">—</span></div>
-            <div class="canal-card-row"><span>Total $</span><span id="cop-del-total">—</span></div>
-            <div class="canal-card-row"><span>Unidades</span><span id="cop-del-unidades">—</span></div>
-          </div>
-          <div class="canal-card" id="canal-op-clubes" style="border-top-color:#27AE60">
-            <div class="canal-card-label">Canal</div>
-            <div class="canal-card-name">🏆 Clubes</div>
-            <div class="canal-card-row"><span>Pedidos</span><span id="cop-clu-pedidos">—</span></div>
-            <div class="canal-card-row"><span>Total $</span><span id="cop-clu-total">—</span></div>
-            <div class="canal-card-row"><span>Unidades</span><span id="cop-clu-unidades">—</span></div>
-          </div>
-        </div>
-
-        <!-- Producción necesaria -->
-        <div class="section-box" id="hoy-produccion">
-          <div class="section-hd">
-            <span class="section-title">Producción necesaria para esta entrega</span>
-          </div>
-          <div id="hoy-produccion-content"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Cargando...</div></div></div>
-        </div>
-
-        <!-- Pedidos activos -->
+        <!-- BLOQUE 2 — Producción × Stock (el motor) -->
         <div class="section-box">
           <div class="section-hd">
-            <span class="section-title">Pedidos activos por canal</span>
+            <span class="section-title">🍕 Producción × Stock</span>
+            <span class="section-badge" id="hoy-prod-badge">—</span>
+          </div>
+          <div id="hoy-cruce-content"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Cargando...</div></div></div>
+        </div>
+
+        <!-- BLOQUE 3 — Pendientes accionables -->
+        <div class="section-box">
+          <div class="section-hd">
+            <span class="section-title">⚡ Pendientes</span>
+            <span class="section-badge" id="hoy-pend-badge">—</span>
+          </div>
+          <div id="hoy-pendientes-content"><div class="empty" style="padding:1rem 0"><div class="empty-icon">✅</div><div class="empty-text">Nada pendiente</div></div></div>
+        </div>
+
+        <!-- BLOQUE 4 — Pedidos del día por canal -->
+        <div class="section-box">
+          <div class="section-hd">
+            <span class="section-title">📋 Pedidos activos por canal</span>
             <span class="section-badge" id="hoy-badge">0 pedidos</span>
           </div>
           <div id="hoy-lista"><div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">Sin pedidos activos para esta entrega</div></div></div>
         </div>
 
-        <!-- Stock crítico -->
-        <div class="section-box">
-          <div class="section-title">⚠️ Stock crítico en esta entrega</div>
-          <div id="hoy-stock" style="margin-top:.85rem"></div>
-        </div>
-      </div>
-
-      <!-- ══ TAB: CANALES ══ -->
-      <div id="tab-canales" class="tab-panel">
-        <div class="page-title">Canales de venta</div>
-        <div class="page-sub">Comparativa histórica · todos los pedidos</div>
-
-        <!-- Big canal cards -->
-        <div class="canal-big-row">
-          <!-- Estancias -->
-          <div class="canal-big-card" id="canal-card-estancias" style="border-top-color:#331C1C">
-            <div class="canal-big-header">
-              <span class="canal-big-emoji">🏡</span>
-              <span class="canal-big-title">Estancias</span>
-            </div>
-            <div class="canal-big-kpi" data-canal="estancias" data-kpi="count">—</div>
-            <div class="canal-big-sub">pedidos totales</div>
-            <div class="canal-mini-grid">
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Facturado</div>
-                <div class="canal-mini-val" data-canal="estancias" data-kpi="fact">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Ticket prom.</div>
-                <div class="canal-mini-val" data-canal="estancias" data-kpi="ticket">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Activos</div>
-                <div class="canal-mini-val" data-canal="estancias" data-kpi="activos">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Este mes</div>
-                <div class="canal-mini-val" data-canal="estancias" data-kpi="mes">—</div>
-              </div>
-            </div>
-            <div class="canal-top-prod" data-canal="estancias" data-kpi="top">Top producto: —</div>
-          </div>
-
-          <!-- Delivery -->
-          <div class="canal-big-card" id="canal-card-delivery" style="border-top-color:#2980B9">
-            <div class="canal-big-header">
-              <span class="canal-big-emoji">🚗</span>
-              <span class="canal-big-title">Delivery</span>
-            </div>
-            <div class="canal-big-kpi" data-canal="delivery" data-kpi="count">—</div>
-            <div class="canal-big-sub">pedidos totales</div>
-            <div class="canal-mini-grid">
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Facturado</div>
-                <div class="canal-mini-val" data-canal="delivery" data-kpi="fact">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Ticket prom.</div>
-                <div class="canal-mini-val" data-canal="delivery" data-kpi="ticket">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Activos</div>
-                <div class="canal-mini-val" data-canal="delivery" data-kpi="activos">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Este mes</div>
-                <div class="canal-mini-val" data-canal="delivery" data-kpi="mes">—</div>
-              </div>
-            </div>
-            <div class="canal-top-prod" data-canal="delivery" data-kpi="top">Top producto: —</div>
-          </div>
-
-          <!-- Clubes -->
-          <div class="canal-big-card" id="canal-card-clubes" style="border-top-color:#27AE60">
-            <div class="canal-big-header">
-              <span class="canal-big-emoji">🏆</span>
-              <span class="canal-big-title">Clubes</span>
-            </div>
-            <div class="canal-big-kpi" data-canal="clubes" data-kpi="count">—</div>
-            <div class="canal-big-sub">pedidos totales</div>
-            <div class="canal-mini-grid">
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Facturado</div>
-                <div class="canal-mini-val" data-canal="clubes" data-kpi="fact">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Ticket prom.</div>
-                <div class="canal-mini-val" data-canal="clubes" data-kpi="ticket">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Activos</div>
-                <div class="canal-mini-val" data-canal="clubes" data-kpi="activos">—</div>
-              </div>
-              <div class="canal-mini-kpi">
-                <div class="canal-mini-label">Este mes</div>
-                <div class="canal-mini-val" data-canal="clubes" data-kpi="mes">—</div>
-              </div>
-            </div>
-            <div class="canal-top-prod" data-canal="clubes" data-kpi="top">Top producto: —</div>
-          </div>
+        <!-- BLOQUE 5 — Métricas del negocio -->
+        <div class="hoy-metricas-row">
+          <div class="hoy-metrica-card"><div class="hm-label">Facturado total</div><div class="hm-val" id="hm-facturado">—</div></div>
+          <div class="hoy-metrica-card"><div class="hm-label">Ticket promedio</div><div class="hm-val" id="hm-ticket">—</div></div>
+          <div class="hoy-metrica-card"><div class="hm-label">Canal top</div><div class="hm-val" id="hm-canal-top">—</div></div>
+          <div class="hoy-metrica-card"><div class="hm-label">Producto top</div><div class="hm-val" id="hm-prod-top" style="font-size:.9rem">—</div></div>
         </div>
 
-        <!-- Charts -->
-        <div class="charts-2col" style="grid-template-columns:1.5fr 1fr">
-          <div class="section-box" style="margin-bottom:0">
-            <div class="section-title">Pedidos por canal por semana (últimas 6 sem.)</div>
-            <div class="chart-wrap-tall"><canvas id="chart-canal-evolucion"></canvas></div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:1.2rem">
-            <div class="section-box" style="margin-bottom:0">
-              <div class="section-title">Ingresos por canal (entregados)</div>
-              <div class="chart-wrap"><canvas id="chart-canal-ingresos"></canvas></div>
-            </div>
-            <div class="section-box" style="margin-bottom:0">
-              <div class="section-title">Ticket promedio por canal</div>
-              <div class="chart-wrap-sm"><canvas id="chart-canal-ticket"></canvas></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ══ TAB: RESUMEN ══ -->
-      <div id="tab-resumen" class="tab-panel">
-        <div class="page-title">Resumen general</div>
-        <div class="page-sub">Visión completa del negocio · actualizado en tiempo real</div>
-
-        <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Total pedidos</div><div class="kpi-val c-brown" id="rk-total">—</div><div class="kpi-sub">histórico</div></div>
-          <div class="kpi-card"><div class="kpi-label">Confirmados</div><div class="kpi-val c-blue" id="rk-confirmados">—</div><div class="kpi-sub">listos para entregar</div></div>
-          <div class="kpi-card"><div class="kpi-label">Total facturado</div><div class="kpi-val c-green" id="rk-facturado">—</div><div class="kpi-sub">pedidos entregados</div></div>
-          <div class="kpi-card"><div class="kpi-label">Ticket promedio</div><div class="kpi-val c-orange" id="rk-ticket">—</div><div class="kpi-sub">por pedido entregado</div></div>
-          <div class="kpi-card"><div class="kpi-label">Pendiente cobro</div><div class="kpi-val c-blue" id="rk-pendiente">—</div><div class="kpi-sub">pendiente + confirmado</div></div>
-          <div class="kpi-card"><div class="kpi-label">Este mes</div><div class="kpi-val c-brown" id="rk-mes">—</div><div class="kpi-sub" id="rk-mes-label">pedidos</div></div>
-          <div class="kpi-card"><div class="kpi-label">Canal top</div><div class="kpi-val c-orange" id="rk-barrio" style="font-size:1rem;padding-top:.35rem">—</div><div class="kpi-sub">más pedidos</div></div>
-        </div>
-
-        <div class="charts-2col">
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Ingresos por semana (entregados)</div><div class="chart-wrap"><canvas id="chart-revenue"></canvas></div></div>
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Pedidos por estado</div><div class="chart-wrap"><canvas id="chart-estados"></canvas></div></div>
-        </div>
-        <div style="height:1.2rem"></div>
-        <div class="charts-2col">
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Pedidos por canal</div><div class="chart-wrap"><canvas id="chart-barrios"></canvas></div></div>
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Pedidos por día de entrega</div><div class="chart-wrap"><canvas id="chart-dias"></canvas></div></div>
-        </div>
-      </div>
-
-      <!-- ══ TAB: VENTAS ══ -->
-      <div id="tab-ventas" class="tab-panel">
-        <div class="page-title">Ventas</div>
-        <div class="page-sub">Análisis de productos y facturación</div>
-
-        <div class="charts-2col">
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Top 10 productos — facturación ($)</div><div class="chart-wrap-tall"><canvas id="chart-top-rev"></canvas></div></div>
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Top 10 productos — unidades pedidas</div><div class="chart-wrap-tall"><canvas id="chart-top-units"></canvas></div></div>
-        </div>
-        <div style="height:1.2rem"></div>
-        <div class="charts-2col">
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Facturación por método de pago</div><div class="chart-wrap-sm"><canvas id="chart-pagos"></canvas></div></div>
-          <div class="section-box" style="margin-bottom:0"><div class="section-title">Facturación por barrio</div><div class="chart-wrap-sm"><canvas id="chart-rev-barrio"></canvas></div></div>
-        </div>
       </div>
 
       <!-- ══ TAB: PEDIDOS ══ -->
@@ -545,19 +412,38 @@
         </div>
       </div>
 
-      <!-- ══ TAB: STOCK ══ -->
-      <div id="tab-stock" class="tab-panel">
-        <div class="page-title">Stock</div>
-        <div class="page-sub">Inventario en tiempo real</div>
+      <!-- ══ TAB: PRODUCCIÓN ══ -->
+      <div id="tab-produccion" class="tab-panel">
+        <div class="page-title">Producción</div>
+        <div class="page-sub">Cruce pedidos × stock · qué preparar y qué comprar</div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr))">
-          <div class="kpi-card"><div class="kpi-label">Sin stock</div><div class="kpi-val c-red"    id="sk-zero">—</div><div class="kpi-sub">agotados</div></div>
-          <div class="kpi-card"><div class="kpi-label">Stock crítico</div><div class="kpi-val c-orange" id="sk-low">—</div><div class="kpi-sub">≤ 5 unidades</div></div>
-          <div class="kpi-card"><div class="kpi-label">Stock OK</div><div class="kpi-val c-green"   id="sk-ok">—</div><div class="kpi-sub">disponibles</div></div>
-          <div class="kpi-card"><div class="kpi-label">Total unidades</div><div class="kpi-val c-brown" id="sk-total">—</div><div class="kpi-sub">en inventario</div></div>
+        <!-- Selector de entrega -->
+        <div class="section-box">
+          <div class="section-hd">
+            <span class="section-title">Cruce Producción × Stock</span>
+            <select id="prod-dia-sel" class="filter-select" onchange="renderProduccion()" style="margin:0;min-width:180px">
+              <option value="proxima">Próxima entrega</option>
+              <option value="Miércoles">Miércoles</option>
+              <option value="Viernes">Viernes</option>
+              <option value="Sábado">Sábado</option>
+              <option value="Domingo">Domingo</option>
+            </select>
+          </div>
+          <div id="prod-cruce-content"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Cargando...</div></div></div>
         </div>
 
-        <div id="stock-display"></div>
+        <!-- Inventario completo -->
+        <div class="section-box">
+          <div class="section-hd">
+            <span class="section-title">📦 Inventario completo</span>
+            <div style="display:flex;gap:.85rem;align-items:center">
+              <span><span id="psk-zero" style="font-weight:800;color:#E74C3C">—</span> <span style="font-size:.72rem;color:#b09880">sin stock</span></span>
+              <span><span id="psk-low"  style="font-weight:800;color:var(--orange)">—</span> <span style="font-size:.72rem;color:#b09880">crítico</span></span>
+              <span><span id="psk-ok"   style="font-weight:800;color:#27AE60">—</span> <span style="font-size:.72rem;color:#b09880">OK</span></span>
+            </div>
+          </div>
+          <div id="prod-stock-display"><div class="empty"><div class="empty-text">Cargando...</div></div></div>
+        </div>
       </div>
 
       <!-- ══ TAB: COMPRAS ══ -->
@@ -571,18 +457,13 @@
           <div class="kpi-card"><div class="kpi-label">Entregados</div><div class="kpi-val c-green" id="ck-entregados">—</div><div class="kpi-sub">este mes</div></div>
         </div>
 
-        <!-- Picker de productos + formulario -->
         <div class="section-box">
           <div class="section-hd"><span class="section-title">Nuevo pedido — seleccioná los productos</span></div>
-          <div id="cp-picker"><!-- renderizado por JS --></div>
-
-          <!-- Resumen del carrito -->
+          <div id="cp-picker"></div>
           <div id="cp-cart-box" class="cp-cart-box" style="display:none">
             <div class="cp-cart-hd">Resumen del pedido</div>
             <div id="cp-cart-items"></div>
           </div>
-
-          <!-- Detalles del pedido -->
           <div class="cp-order-form">
             <div class="form-group">
               <label class="form-label">Proveedor *</label>
@@ -602,7 +483,6 @@
           </button>
         </div>
 
-        <!-- Historial -->
         <div class="section-box">
           <div class="section-hd">
             <span class="section-title">Historial de pedidos</span>
@@ -614,6 +494,95 @@
               <thead><tr><th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Estado</th><th>Notas</th><th>Entrega est.</th></tr></thead>
               <tbody id="compras-tbody"><tr><td colspan="7" class="no-data">—</td></tr></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: MÉTRICAS ══ -->
+      <div id="tab-metricas" class="tab-panel">
+        <div class="page-title">Métricas</div>
+        <div class="page-sub">Visión completa del negocio · histórico</div>
+
+        <!-- Sección 1: Visión general -->
+        <div class="metricas-section">
+          <div class="metricas-section-title">Visión general</div>
+          <div class="kpi-grid">
+            <div class="kpi-card"><div class="kpi-label">Total pedidos</div><div class="kpi-val c-brown" id="rk-total">—</div><div class="kpi-sub">histórico</div></div>
+            <div class="kpi-card"><div class="kpi-label">Total facturado</div><div class="kpi-val c-green" id="rk-facturado">—</div><div class="kpi-sub">pedidos entregados</div></div>
+            <div class="kpi-card"><div class="kpi-label">Ticket promedio</div><div class="kpi-val c-orange" id="rk-ticket">—</div><div class="kpi-sub">por pedido entregado</div></div>
+            <div class="kpi-card"><div class="kpi-label">Pendiente cobro</div><div class="kpi-val c-blue" id="rk-pendiente">—</div><div class="kpi-sub">pendiente + confirmado</div></div>
+            <div class="kpi-card"><div class="kpi-label">Este mes</div><div class="kpi-val c-brown" id="rk-mes">—</div><div class="kpi-sub" id="rk-mes-label">pedidos</div></div>
+          </div>
+          <div class="charts-2col">
+            <div class="section-box" style="margin-bottom:0"><div class="section-title">Ingresos por semana (entregados)</div><div class="chart-wrap"><canvas id="chart-revenue"></canvas></div></div>
+            <div class="section-box" style="margin-bottom:0"><div class="section-title">Pedidos por estado</div><div class="chart-wrap"><canvas id="chart-estados"></canvas></div></div>
+          </div>
+        </div>
+
+        <!-- Sección 2: Canales -->
+        <div class="metricas-section">
+          <div class="metricas-section-title">Canales de venta</div>
+          <div class="canal-big-row">
+            <div class="canal-big-card" id="canal-card-estancias" style="border-top-color:#331C1C">
+              <div class="canal-big-header"><span class="canal-big-emoji">🏡</span><span class="canal-big-title">Estancias</span></div>
+              <div class="canal-big-kpi" data-canal="estancias" data-kpi="count">—</div>
+              <div class="canal-big-sub">pedidos totales</div>
+              <div class="canal-mini-grid">
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Facturado</div><div class="canal-mini-val" data-canal="estancias" data-kpi="fact">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Ticket prom.</div><div class="canal-mini-val" data-canal="estancias" data-kpi="ticket">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Activos</div><div class="canal-mini-val" data-canal="estancias" data-kpi="activos">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Este mes</div><div class="canal-mini-val" data-canal="estancias" data-kpi="mes">—</div></div>
+              </div>
+              <div class="canal-top-prod" data-canal="estancias" data-kpi="top">Top producto: —</div>
+            </div>
+            <div class="canal-big-card" id="canal-card-delivery" style="border-top-color:#2980B9">
+              <div class="canal-big-header"><span class="canal-big-emoji">🚗</span><span class="canal-big-title">Delivery</span></div>
+              <div class="canal-big-kpi" data-canal="delivery" data-kpi="count">—</div>
+              <div class="canal-big-sub">pedidos totales</div>
+              <div class="canal-mini-grid">
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Facturado</div><div class="canal-mini-val" data-canal="delivery" data-kpi="fact">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Ticket prom.</div><div class="canal-mini-val" data-canal="delivery" data-kpi="ticket">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Activos</div><div class="canal-mini-val" data-canal="delivery" data-kpi="activos">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Este mes</div><div class="canal-mini-val" data-canal="delivery" data-kpi="mes">—</div></div>
+              </div>
+              <div class="canal-top-prod" data-canal="delivery" data-kpi="top">Top producto: —</div>
+            </div>
+            <div class="canal-big-card" id="canal-card-clubes" style="border-top-color:#27AE60">
+              <div class="canal-big-header"><span class="canal-big-emoji">🏆</span><span class="canal-big-title">Clubes</span></div>
+              <div class="canal-big-kpi" data-canal="clubes" data-kpi="count">—</div>
+              <div class="canal-big-sub">pedidos totales</div>
+              <div class="canal-mini-grid">
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Facturado</div><div class="canal-mini-val" data-canal="clubes" data-kpi="fact">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Ticket prom.</div><div class="canal-mini-val" data-canal="clubes" data-kpi="ticket">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Activos</div><div class="canal-mini-val" data-canal="clubes" data-kpi="activos">—</div></div>
+                <div class="canal-mini-kpi"><div class="canal-mini-label">Este mes</div><div class="canal-mini-val" data-canal="clubes" data-kpi="mes">—</div></div>
+              </div>
+              <div class="canal-top-prod" data-canal="clubes" data-kpi="top">Top producto: —</div>
+            </div>
+          </div>
+          <div class="charts-2col" style="grid-template-columns:1.5fr 1fr">
+            <div class="section-box" style="margin-bottom:0">
+              <div class="section-title">Evolución por canal (últimas 6 sem.)</div>
+              <div class="chart-wrap-tall"><canvas id="chart-canal-evolucion"></canvas></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1.2rem">
+              <div class="section-box" style="margin-bottom:0"><div class="section-title">Ingresos por canal</div><div class="chart-wrap"><canvas id="chart-canal-ingresos"></canvas></div></div>
+              <div class="section-box" style="margin-bottom:0"><div class="section-title">Ticket promedio por canal</div><div class="chart-wrap-sm"><canvas id="chart-canal-ticket"></canvas></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección 3: Productos -->
+        <div class="metricas-section">
+          <div class="metricas-section-title">Productos</div>
+          <div class="charts-2col">
+            <div class="section-box" style="margin-bottom:0"><div class="section-title">Top productos — facturación ($)</div><div class="chart-wrap-tall"><canvas id="chart-top-rev"></canvas></div></div>
+            <div class="section-box" style="margin-bottom:0"><div class="section-title">Top productos — unidades pedidas</div><div class="chart-wrap-tall"><canvas id="chart-top-units"></canvas></div></div>
+          </div>
+          <div style="height:1.2rem"></div>
+          <div class="charts-2col">
+            <div class="section-box" style="margin-bottom:0"><div class="section-title">Por método de pago</div><div class="chart-wrap-sm"><canvas id="chart-pagos"></canvas></div></div>
+            <div class="section-box" style="margin-bottom:0"><div class="section-title">Por día de entrega</div><div class="chart-wrap-sm"><canvas id="chart-dias"></canvas></div></div>
           </div>
         </div>
       </div>
@@ -722,9 +691,12 @@ async function loadData() {
     detalle   = parseCSV(tD);
     productos = parseCSV(tPr);
     fillBarrios();
+    renderAlerts();
     renderTab(currentTab);
     document.getElementById('top-updated').textContent =
       'Act. ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    // Load compras in background for pendientes section
+    if (!compras.length) loadCompras().catch(() => {});
   } catch(err) {
     document.getElementById('top-updated').textContent = '⚠️ Error';
     console.error(err);
@@ -742,13 +714,11 @@ function showTab(tab) {
 }
 function renderTab(tab) {
   rendered.add(tab);
-  if (tab === 'operacion') renderOperacion();
-  if (tab === 'canales')   renderCanales();
-  if (tab === 'resumen')   renderResumen();
-  if (tab === 'ventas')    renderVentas();
-  if (tab === 'pedidos')   renderPedidosTable();
-  if (tab === 'stock')     renderStock();
-  if (tab === 'compras')   loadCompras();
+  if (tab === 'operacion')  renderOperacion();
+  if (tab === 'pedidos')    renderPedidosTable();
+  if (tab === 'produccion') renderProduccion();
+  if (tab === 'compras')    loadCompras();
+  if (tab === 'metricas')   renderMetricas();
 }
 
 // ── DELIVERY SCHEDULE ──────────────────────────────────────────────
@@ -769,7 +739,85 @@ function getProximaEntrega() {
   }
 }
 
-// ── OPERACIÓN ─────────────────────────────────────────────────────
+// ── ALERT BAR ─────────────────────────────────────────────────────
+function renderAlerts() {
+  const sinConf    = pedidos.filter(p => p['Estado'] === 'pendiente').length;
+  const stockCrit  = productos.filter(p => getStock(p) <= 5).length;
+  const compPend   = compras.filter(c => c['Estado'] === 'Pendiente').length;
+
+  const bar    = document.getElementById('alert-bar');
+  const chips  = [];
+  if (sinConf   > 0) chips.push(`<button class="alert-chip alert-chip-red"    onclick="showTab('pedidos')">${sinConf} sin confirmar</button>`);
+  if (stockCrit > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('produccion')">${stockCrit} stock crítico</button>`);
+  if (compPend  > 0) chips.push(`<button class="alert-chip alert-chip-yellow" onclick="showTab('compras')">${compPend} compra${compPend>1?'s':''} pendiente${compPend>1?'s':''}</button>`);
+
+  if (!chips.length) {
+    bar.innerHTML = '<span class="alert-label">Estado:</span><span class="alert-chip alert-chip-green">✅ Todo en orden</span>';
+  } else {
+    bar.innerHTML = '<span class="alert-label">Atención:</span>' + chips.join('');
+  }
+}
+
+// ── PRODUCCIÓN × STOCK — HELPERS ─────────────────────────────────
+function calcCruce(diaSheet) {
+  const activos   = pedidos.filter(p => p['Día entrega'] === diaSheet && ['pendiente','confirmado'].includes(p['Estado']));
+  const activoIds = new Set(activos.map(p => p['ID Pedido']));
+  const detAct    = detalle.filter(d => activoIds.has(d['ID Pedido']));
+
+  const necesario = {};
+  detAct.forEach(d => {
+    const n = d['Producto']; if (!n) return;
+    necesario[n] = (necesario[n] || 0) + (parseInt(d['Cantidad']) || 0);
+  });
+
+  const stockMap = {};
+  productos.forEach(p => { if (p['Nombre']) stockMap[p['Nombre']] = getStock(p); });
+
+  return Object.entries(necesario).map(([nombre, qty]) => {
+    const disponible = stockMap[nombre] !== undefined ? stockMap[nombre] : -1;
+    const falta = disponible >= 0 ? qty - disponible : 0;
+    let estado = 'ok';
+    if (disponible < 0) estado = 'nostock'; // product not in stock sheet
+    else if (disponible === 0) estado = 'comprar';
+    else if (falta > 0) estado = 'falta';
+    return { nombre, necesario: qty, disponible, falta, estado };
+  }).sort((a, b) => {
+    const ord = { 'comprar':0, 'falta':1, 'nostock':2, 'ok':3 };
+    return ord[a.estado] - ord[b.estado];
+  });
+}
+
+function renderCruceTable(cruce) {
+  if (!cruce.length) return '<div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">Sin pedidos activos para esta entrega.</div></div>';
+
+  const rows = cruce.map(item => {
+    let badge, rowClass = '';
+    if (item.estado === 'ok') {
+      badge = `<span class="cruce-badge cruce-ok">✅ OK</span>`;
+    } else if (item.estado === 'comprar') {
+      badge = `<span class="cruce-badge cruce-comprar">🔴 COMPRAR · ${item.necesario} ud.</span>`;
+      rowClass = 'cruce-row-comprar';
+    } else if (item.estado === 'falta') {
+      badge = `<span class="cruce-badge cruce-falta">⚠️ FALTA ${item.falta}</span>`;
+      rowClass = 'cruce-row-falta';
+    } else {
+      badge = `<span class="cruce-badge cruce-falta">⚠️ Sin datos de stock</span>`;
+    }
+    const stockTxt = item.disponible >= 0 ? item.disponible : '—';
+    const stockCls = item.estado === 'ok' ? 'cruce-stock-ok' : item.estado === 'comprar' ? 'cruce-stock-comprar' : 'cruce-stock-falta';
+    return `<tr class="${rowClass}"><td class="cruce-prod">${item.nombre}</td><td class="cruce-num">${item.necesario}</td><td class="cruce-num ${stockCls}">${stockTxt}</td><td>${badge}</td></tr>`;
+  }).join('');
+
+  const total = cruce.reduce((s, i) => s + i.necesario, 0);
+  return `
+    <table class="cruce-table">
+      <thead><tr><th>Producto</th><th style="text-align:center">Necesario</th><th style="text-align:center">En stock</th><th>Acción</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="prod-total-row" style="margin-top:.65rem"><span>Total unidades a preparar</span><span>${total}</span></div>`;
+}
+
+// ── HOY ──────────────────────────────────────────────────────────
 function renderOperacion() {
   const e = getProximaEntrega();
   const prefix = e.isToday ? 'Hoy · ' : (e.daysAhead === 1 ? 'Mañana · ' : '');
@@ -780,54 +828,58 @@ function renderOperacion() {
   document.getElementById('hoy-horario').textContent = e.horario;
 
   const activos    = pedidos.filter(p => p['Día entrega'] === e.sheet && ['pendiente','confirmado'].includes(p['Estado']));
-  const entregados = pedidos.filter(p => p['Día entrega'] === e.sheet && p['Estado'] === 'entregado');
+  const sinConf    = pedidos.filter(p => p['Estado'] === 'pendiente');
   const totalARS   = activos.reduce((s, p) => s + parseMoney(p['Total']), 0);
   const activoIds  = new Set(activos.map(p => p['ID Pedido']));
   const detActivos = detalle.filter(d => activoIds.has(d['ID Pedido']));
   const unidades   = detActivos.reduce((s,d) => s + (parseInt(d['Cantidad'])||0), 0);
 
-  document.getElementById('hk-pedidos').textContent    = activos.length;
-  document.getElementById('hk-total').textContent      = ars(totalARS);
-  document.getElementById('hk-unidades').textContent   = unidades || '—';
-  document.getElementById('hk-entregados').textContent = entregados.length;
-  document.getElementById('hoy-badge').textContent     = activos.length + ' pedidos';
+  // KPIs
+  const canalSub = CANALES.map(c => {
+    const n = activos.filter(p => getCanal(p['Barrio']) === c).length;
+    return n > 0 ? `${CANAL_EMOJI[c]}${n}` : null;
+  }).filter(Boolean).join(' · ');
+  document.getElementById('hk-pedidos').textContent     = activos.length;
+  document.getElementById('hk-canales-sub').textContent = canalSub || 'sin pedidos aún';
+  document.getElementById('hk-total').textContent       = ars(totalARS);
+  document.getElementById('hk-unidades').textContent    = unidades || 0;
+  document.getElementById('hk-sinconf').textContent     = sinConf.length;
+  document.getElementById('hoy-badge').textContent      = activos.length + ' pedidos';
 
-  // Canal breakdown
-  const canalKeys = { 'Estancias': ['cop-est-pedidos','cop-est-total','cop-est-unidades'], 'Delivery': ['cop-del-pedidos','cop-del-total','cop-del-unidades'], 'Clubes': ['cop-clu-pedidos','cop-clu-total','cop-clu-unidades'] };
-  CANALES.forEach(canal => {
-    const cp = activos.filter(p => getCanal(p['Barrio']) === canal);
-    const cpIds = new Set(cp.map(p => p['ID Pedido']));
-    const cpTot = cp.reduce((s,p) => s + parseMoney(p['Total']), 0);
-    const cpUni = detalle.filter(d => cpIds.has(d['ID Pedido'])).reduce((s,d) => s + (parseInt(d['Cantidad'])||0), 0);
-    const [idP, idT, idU] = canalKeys[canal];
-    document.getElementById(idP).textContent = cp.length;
-    document.getElementById(idT).textContent = ars(cpTot);
-    document.getElementById(idU).textContent = cpUni || 0;
+  // BLOQUE 2: Producción × Stock
+  const cruce = calcCruce(e.sheet);
+  const problemas = cruce.filter(c => c.estado !== 'ok').length;
+  document.getElementById('hoy-prod-badge').textContent =
+    !activos.length ? 'sin pedidos' : problemas > 0 ? `${problemas} requieren acción` : '✅ todo OK';
+  document.getElementById('hoy-cruce-content').innerHTML = renderCruceTable(cruce);
+
+  // BLOQUE 3: Pendientes
+  const comprasPend = compras.filter(c => c['Estado'] === 'Pendiente');
+  const pendTotal   = sinConf.length + comprasPend.length;
+  document.getElementById('hoy-pend-badge').textContent =
+    pendTotal > 0 ? `${pendTotal} pendiente${pendTotal !== 1 ? 's' : ''}` : '✅ ok';
+
+  let pendHTML = '';
+  sinConf.forEach(p => {
+    pendHTML += `<div class="pend-item" onclick="showTab('pedidos')">
+      <span class="pend-icon">📋</span>
+      <span class="pend-text">Confirmar: <strong>${p['Nombre']}</strong></span>
+      <span class="pend-meta">${p['Total']} · ${p['Barrio']||''}</span>
+      <span class="pend-arrow">›</span>
+    </div>`;
   });
+  comprasPend.forEach(c => {
+    pendHTML += `<div class="pend-item" onclick="showTab('compras')">
+      <span class="pend-icon">🛒</span>
+      <span class="pend-text">Compra pendiente: <strong>${c['Producto']||''}</strong></span>
+      <span class="pend-meta">${c['Proveedor']||''} · ${c['Cantidad']||''} ${c['Unidad']||''}</span>
+      <span class="pend-arrow">›</span>
+    </div>`;
+  });
+  if (!pendHTML) pendHTML = '<div class="empty" style="padding:1rem 0"><div class="empty-icon">✅</div><div class="empty-text">Nada pendiente</div></div>';
+  document.getElementById('hoy-pendientes-content').innerHTML = pendHTML;
 
-  // Producción necesaria
-  const prodCont = document.getElementById('hoy-produccion-content');
-  if (!activos.length) {
-    prodCont.innerHTML = '<div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">Sin pedidos activos para esta entrega · nada a producir.</div></div>';
-  } else {
-    const prodMap = {};
-    detActivos.forEach(d => {
-      const n = d['Producto']; if (!n) return;
-      prodMap[n] = (prodMap[n]||0) + (parseInt(d['Cantidad'])||0);
-    });
-    const prodArr = Object.entries(prodMap).sort((a,b) => b[1]-a[1]);
-    const totalUnidades = prodArr.reduce((s,[,v]) => s+v, 0);
-    prodCont.innerHTML = `
-      <table class="prod-table">
-        <thead><tr><th>Producto</th><th>Cantidad</th></tr></thead>
-        <tbody>
-          ${prodArr.map(([n,q]) => `<tr><td>${n}</td><td class="prod-qty">${q}</td></tr>`).join('')}
-        </tbody>
-      </table>
-      <div class="prod-total-row"><span>Total unidades</span><span>${totalUnidades}</span></div>`;
-  }
-
-  // Pedidos activos por canal, luego subgrupo
+  // BLOQUE 4: Pedidos por canal
   const lista = document.getElementById('hoy-lista');
   if (!activos.length) {
     lista.innerHTML = '<div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">Sin pedidos activos para esta entrega</div></div>';
@@ -836,154 +888,80 @@ function renderOperacion() {
     CANALES.forEach(canal => {
       const cp = activos.filter(p => getCanal(p['Barrio']) === canal);
       if (!cp.length) return;
-
-      // Subgroup by barrio/zone/club
       const subgroups = {};
       cp.forEach(p => {
-        let key;
-        if (canal === 'Estancias') key = p['Barrio'] || 'Sin barrio';
-        else if (canal === 'Delivery') key = (p['Barrio']||'').replace(/^Delivery-/,'') || 'Sin zona';
-        else key = (p['Barrio']||'').replace(/^Club-/,'') || 'Sin club';
+        let key = canal === 'Estancias' ? (p['Barrio']||'Sin barrio')
+                : canal === 'Delivery' ? (p['Barrio']||'').replace(/^Delivery-/,'') || 'Sin zona'
+                : (p['Barrio']||'').replace(/^Club-/,'') || 'Sin club';
         (subgroups[key]||(subgroups[key]=[])).push(p);
       });
-
       html += `<div class="canal-group">`;
       html += `<div class="canal-group-header" style="background:${CANAL_COLOR[canal]}"><span>${CANAL_EMOJI[canal]} ${canal}</span><span>${cp.length} pedidos</span></div>`;
-
       Object.entries(subgroups).sort(([a],[b]) => a.localeCompare(b)).forEach(([subg, ords]) => {
         html += `<div class="barrio-group">`;
         html += `<div class="barrio-header"><span>📍 ${subg}</span><span class="barrio-count">${ords.length}</span></div>`;
         ords.forEach(p => {
-          let secundario = '';
-          if (canal === 'Estancias' && p['Lote']) secundario = `L${p['Lote']}`;
-          else if (canal === 'Clubes' && p['Lote']) secundario = p['Lote'];
+          let sec = canal === 'Estancias' && p['Lote'] ? `L${p['Lote']}` : canal === 'Clubes' && p['Lote'] ? p['Lote'] : '';
           html += `<div class="pedido-row">
             <span class="pn">${p['Nombre']}</span>
-            ${secundario ? `<span class="pl">${secundario}</span>` : ''}
+            ${sec ? `<span class="pl">${sec}</span>` : ''}
             <span class="pt">${p['Total']}</span>
             <span class="badge badge-${p['Estado']}">${p['Estado']}</span>
           </div>`;
         });
         html += `</div>`;
       });
-
       html += `</div>`;
     });
     lista.innerHTML = html;
   }
 
-  // Stock crítico
-  const prodEnEntrega = new Set(detActivos.map(d => d['Producto']));
-  const criticos = productos
-    .filter(p => prodEnEntrega.has(p['Nombre']) && getStock(p) <= 3)
-    .map(p => ({ nombre: p['Nombre'], stock: getStock(p), fisico: getStockFisico(p) }))
-    .sort((a,b) => a.stock - b.stock);
+  // BLOQUE 5: Métricas del negocio
+  const entAll  = pedidos.filter(p => p['Estado'] === 'entregado');
+  const factAll = entAll.reduce((s,p) => s + parseMoney(p['Total']), 0);
+  const ticket  = entAll.length ? Math.round(factAll / entAll.length) : 0;
+  const cCnt    = {};
+  pedidos.forEach(p => { const c = getCanal(p['Barrio']); cCnt[c] = (cCnt[c]||0)+1; });
+  const topCanal = Object.entries(cCnt).sort((a,b) => b[1]-a[1])[0];
+  const pUnitsMap = {};
+  detalle.forEach(d => { const n = d['Producto']; if (n) pUnitsMap[n] = (pUnitsMap[n]||0)+(parseInt(d['Cantidad'])||0); });
+  const topProd = Object.entries(pUnitsMap).sort((a,b) => b[1]-a[1])[0];
 
-  const stockEl = document.getElementById('hoy-stock');
-  if (!criticos.length) {
-    stockEl.innerHTML = '<p style="font-size:.85rem;color:#27AE60;font-weight:600">✅ Todo el stock OK para esta entrega</p>';
-  } else {
-    stockEl.innerHTML = `<div class="stock-grid">${criticos.map(p => stockCardHTML(p.nombre, p.stock, p.fisico)).join('')}</div>`;
-  }
+  document.getElementById('hm-facturado').textContent  = ars(factAll);
+  document.getElementById('hm-ticket').textContent     = ars(ticket);
+  document.getElementById('hm-canal-top').textContent  = topCanal ? `${CANAL_EMOJI[topCanal[0]]} ${topCanal[0]}` : '—';
+  document.getElementById('hm-prod-top').textContent   = topProd ? topProd[0] : '—';
 }
 
-// ── CANALES ────────────────────────────────────────────────────────
-function renderCanales() {
-  const now    = new Date();
-  const mesKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+// ── PRODUCCIÓN ────────────────────────────────────────────────────
+function renderProduccion() {
+  const sel = document.getElementById('prod-dia-sel').value;
+  const dia = sel === 'proxima' ? getProximaEntrega().sheet : sel;
 
-  CANALES.forEach(canal => {
-    const canalLow = canal.toLowerCase();
-    const cp       = pedidos.filter(p => getCanal(p['Barrio']) === canal);
-    const entregados = cp.filter(p => p['Estado'] === 'entregado');
-    const activos    = cp.filter(p => ['pendiente','confirmado'].includes(p['Estado']));
-    const facturado  = entregados.reduce((s,p) => s + parseMoney(p['Total']), 0);
-    const ticket     = entregados.length ? Math.round(facturado / entregados.length) : 0;
-    const estesMes   = cp.filter(p => {
-      const d = parseDate(p['Fecha solo'] || p['Fecha']);
-      return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey;
-    });
+  const cruce = calcCruce(dia);
+  document.getElementById('prod-cruce-content').innerHTML = renderCruceTable(cruce);
 
-    // Top product
-    const cpIds  = new Set(cp.map(p => p['ID Pedido']));
-    const pUnits = {};
-    detalle.filter(d => cpIds.has(d['ID Pedido'])).forEach(d => {
-      const n = d['Producto']; if (!n) return;
-      pUnits[n] = (pUnits[n]||0) + (parseInt(d['Cantidad'])||0);
-    });
-    const topProd = Object.entries(pUnits).sort((a,b) => b[1]-a[1])[0];
+  // Stock completo
+  const cero  = productos.filter(p => getStock(p) === 0);
+  const bajo  = productos.filter(p => { const s = getStock(p); return s > 0 && s <= 5; });
+  const ok    = productos.filter(p => getStock(p) > 5);
+  const total = productos.reduce((s,p) => s + getStock(p), 0);
 
-    // Update DOM
-    const card = document.getElementById(`canal-card-${canalLow}`);
-    card.querySelector(`[data-canal="${canalLow}"][data-kpi="count"]`).textContent  = cp.length;
-    card.querySelector(`[data-canal="${canalLow}"][data-kpi="fact"]`).textContent   = ars(facturado);
-    card.querySelector(`[data-canal="${canalLow}"][data-kpi="ticket"]`).textContent = ars(ticket);
-    card.querySelector(`[data-canal="${canalLow}"][data-kpi="activos"]`).textContent= activos.length;
-    card.querySelector(`[data-canal="${canalLow}"][data-kpi="mes"]`).textContent    = estesMes.length;
-    const topEl = card.querySelector(`[data-canal="${canalLow}"][data-kpi="top"]`);
-    if (topProd) topEl.innerHTML = `Top producto: <strong>${topProd[0]}</strong> (×${topProd[1]})`;
-    else topEl.textContent = 'Top producto: —';
-  });
+  document.getElementById('psk-zero').textContent = cero.length;
+  document.getElementById('psk-low').textContent  = bajo.length;
+  document.getElementById('psk-ok').textContent   = ok.length;
 
-  // Chart: evolución por semana (últimas 6)
-  const allWeeks = new Set();
-  pedidos.forEach(p => {
-    const d = parseDate(p['Fecha solo'] || p['Fecha']); if (!d) return;
-    allWeeks.add(getWeekKey(d));
-  });
-  const sortedWeeks = [...allWeeks].sort().slice(-6);
-  const canalDatasets = CANALES.map(canal => {
-    const cpAll = pedidos.filter(p => getCanal(p['Barrio']) === canal);
-    const weekMap = {};
-    cpAll.forEach(p => {
-      const d = parseDate(p['Fecha solo'] || p['Fecha']); if (!d) return;
-      const k = getWeekKey(d);
-      weekMap[k] = (weekMap[k]||0) + 1;
-    });
-    return {
-      label: canal,
-      data: sortedWeeks.map(w => weekMap[w]||0),
-      borderColor: CANAL_COLOR[canal],
-      backgroundColor: CANAL_COLOR[canal] + '22',
-      borderWidth: 2.5,
-      pointRadius: 4,
-      pointBackgroundColor: CANAL_COLOR[canal],
-      tension: .35,
-      fill: false,
-    };
-  });
-  makeChart('chart-canal-evolucion', {
-    type: 'line',
-    data: { labels: sortedWeeks.map(w => 'Sem ' + w.split('-W')[1]), datasets: canalDatasets },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{font:{family:FONT,size:11},padding:10} } }, scales:{ y:{beginAtZero:true, grid:{color:'#f0ebe4'}, ticks:{stepSize:1,font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
-  });
+  let html = '';
+  if (cero.length) html += `<div class="stock-section-label">🔴 Sin stock (${cero.length})</div><div class="stock-grid">${cero.map(p => stockCardHTML(p['Nombre'], 0, getStockFisico(p))).join('')}</div>`;
+  if (bajo.length) html += `<div class="stock-section-label">🟡 Stock crítico — 5 unidades o menos (${bajo.length})</div><div class="stock-grid">${bajo.map(p => stockCardHTML(p['Nombre'], getStock(p), getStockFisico(p))).join('')}</div>`;
+  if (ok.length)   html += `<div class="stock-section-label">🟢 Stock OK (${ok.length})</div><div class="stock-grid">${ok.map(p => stockCardHTML(p['Nombre'], getStock(p), getStockFisico(p))).join('')}</div>`;
+  if (!productos.length) html = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Sin datos de stock</div></div>';
 
-  // Chart: ingresos doughnut
-  const ingPorCanal = CANALES.map(canal =>
-    pedidos.filter(p => getCanal(p['Barrio']) === canal && p['Estado'] === 'entregado')
-           .reduce((s,p) => s + parseMoney(p['Total']), 0)
-  );
-  makeChart('chart-canal-ingresos', {
-    type: 'doughnut',
-    data: { labels: CANALES, datasets: [{ data: ingPorCanal, backgroundColor: CANALES.map(c => CANAL_COLOR[c]), borderWidth:2, borderColor:'#fff' }] },
-    options: { responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{position:'bottom',labels:{font:{family:FONT,size:11},padding:10}}, tooltip:{callbacks:{label:c=>`${c.label}: ${ars(c.raw)}`}} } }
-  });
-
-  // Chart: ticket promedio bar
-  const ticketPorCanal = CANALES.map(canal => {
-    const ent = pedidos.filter(p => getCanal(p['Barrio']) === canal && p['Estado'] === 'entregado');
-    const fact = ent.reduce((s,p) => s + parseMoney(p['Total']), 0);
-    return ent.length ? Math.round(fact / ent.length) : 0;
-  });
-  makeChart('chart-canal-ticket', {
-    type: 'bar',
-    data: { labels: CANALES, datasets: [{ label:'Ticket promedio', data: ticketPorCanal, backgroundColor: CANALES.map(c => CANAL_COLOR[c]), borderRadius:8, borderWidth:0 }] },
-    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>ars(c.raw)}}}, scales:{ x:{beginAtZero:true,grid:{color:'#f0ebe4'},ticks:{callback:v=>ars(v),font:{family:FONT,size:9}}}, y:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
-  });
+  document.getElementById('prod-stock-display').innerHTML = html;
 }
 
-// ── RESUMEN ────────────────────────────────────────────────────────
-function renderResumen() {
+// ── MÉTRICAS ──────────────────────────────────────────────────────
+function renderMetricas() {
   const entregados = pedidos.filter(p => p['Estado'] === 'entregado');
   const facturado  = entregados.reduce((s,p) => s + parseMoney(p['Total']), 0);
   const ticket     = entregados.length ? Math.round(facturado / entregados.length) : 0;
@@ -995,27 +973,18 @@ function renderResumen() {
     return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey;
   });
 
-  // Canal top
-  const canalCnt = {};
-  pedidos.forEach(p => { const c = getCanal(p['Barrio']); canalCnt[c] = (canalCnt[c]||0)+1; });
-  const topCanal = Object.entries(canalCnt).sort((a,b) => b[1]-a[1])[0];
-
-  document.getElementById('rk-total').textContent        = pedidos.length;
-  document.getElementById('rk-confirmados').textContent  = pedidos.filter(p => p['Estado'] === 'confirmado').length;
-  document.getElementById('rk-facturado').textContent    = ars(facturado);
+  document.getElementById('rk-total').textContent     = pedidos.length;
+  document.getElementById('rk-facturado').textContent = ars(facturado);
   document.getElementById('rk-ticket').textContent    = ars(ticket);
   document.getElementById('rk-pendiente').textContent = ars(pendiente);
   document.getElementById('rk-mes').textContent       = estesMes.length;
   document.getElementById('rk-mes-label').textContent = `pedidos en ${MONTHS[now.getMonth()]}`;
-  document.getElementById('rk-barrio').textContent    = topCanal ? topCanal[0] : '—';
 
-  // Revenue por semana (line)
+  // Revenue semanal
   const weekRev = {};
   entregados.forEach(p => {
-    const d = parseDate(p['Fecha solo'] || p['Fecha']);
-    if (!d) return;
-    const k = getWeekKey(d);
-    weekRev[k] = (weekRev[k]||0) + parseMoney(p['Total']);
+    const d = parseDate(p['Fecha solo'] || p['Fecha']); if (!d) return;
+    const k = getWeekKey(d); weekRev[k] = (weekRev[k]||0) + parseMoney(p['Total']);
   });
   const weeks = Object.keys(weekRev).sort().slice(-10);
   const ctx   = document.getElementById('chart-revenue').getContext('2d');
@@ -1024,14 +993,11 @@ function renderResumen() {
   grad.addColorStop(1, 'rgba(240,125,71,0)');
   makeChart('chart-revenue', {
     type: 'line',
-    data: {
-      labels: weeks.length ? weeks.map(w => 'Sem ' + w.split('-W')[1]) : ['Sin datos'],
-      datasets: [{ data: weeks.map(w => weekRev[w]||0), borderColor:'#F97035', backgroundColor: grad, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#F97035', fill:true, tension:.35 }]
-    },
+    data: { labels: weeks.length ? weeks.map(w => 'Sem ' + w.split('-W')[1]) : ['Sin datos'], datasets: [{ data: weeks.map(w => weekRev[w]||0), borderColor:'#F97035', backgroundColor: grad, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#F97035', fill:true, tension:.35 }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{callbacks:{label: c => ars(c.raw)}} }, scales:{ y:{beginAtZero:true, grid:{color:'#f0ebe4'}, ticks:{callback:v=>ars(v),font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 
-  // Estados doughnut
+  // Estados
   const estCnt = {pendiente:0,confirmado:0,entregado:0,cancelado:0};
   pedidos.forEach(p => { if (estCnt[p['Estado']] !== undefined) estCnt[p['Estado']]++; });
   const estLabels = Object.keys(estCnt).filter(k => estCnt[k] > 0);
@@ -1041,75 +1007,95 @@ function renderResumen() {
     options: { responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'bottom', labels:{ font:{family:FONT,size:11}, padding:10 } } } }
   });
 
-  // Pedidos por canal bar (replaces barrios)
-  const canalArr = CANALES.map(c => [c, canalCnt[c]||0]);
-  makeChart('chart-barrios', {
-    type: 'bar',
-    data: { labels: canalArr.map(([c]) => c), datasets: [{ label:'Pedidos', data: canalArr.map(([,v]) => v), backgroundColor: CANALES.map(c => CANAL_COLOR[c]), borderRadius:8, borderWidth:0 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, grid:{color:'#f0ebe4'}, ticks:{stepSize:1,font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
+  // Canales big cards
+  const canalCnt = {};
+  pedidos.forEach(p => { const c = getCanal(p['Barrio']); canalCnt[c] = (canalCnt[c]||0)+1; });
+  CANALES.forEach(canal => {
+    const canalLow   = canal.toLowerCase();
+    const cp         = pedidos.filter(p => getCanal(p['Barrio']) === canal);
+    const entregadosC = cp.filter(p => p['Estado'] === 'entregado');
+    const activosC    = cp.filter(p => ['pendiente','confirmado'].includes(p['Estado']));
+    const factC       = entregadosC.reduce((s,p) => s + parseMoney(p['Total']), 0);
+    const ticketC     = entregadosC.length ? Math.round(factC / entregadosC.length) : 0;
+    const estesMesC   = cp.filter(p => { const d = parseDate(p['Fecha solo']||p['Fecha']); return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mesKey; });
+    const cpIds = new Set(cp.map(p => p['ID Pedido']));
+    const pUnits = {};
+    detalle.filter(d => cpIds.has(d['ID Pedido'])).forEach(d => { const n = d['Producto']; if (n) pUnits[n] = (pUnits[n]||0)+(parseInt(d['Cantidad'])||0); });
+    const topProd = Object.entries(pUnits).sort((a,b) => b[1]-a[1])[0];
+    const card = document.getElementById(`canal-card-${canalLow}`);
+    card.querySelector(`[data-canal="${canalLow}"][data-kpi="count"]`).textContent   = cp.length;
+    card.querySelector(`[data-canal="${canalLow}"][data-kpi="fact"]`).textContent    = ars(factC);
+    card.querySelector(`[data-canal="${canalLow}"][data-kpi="ticket"]`).textContent  = ars(ticketC);
+    card.querySelector(`[data-canal="${canalLow}"][data-kpi="activos"]`).textContent = activosC.length;
+    card.querySelector(`[data-canal="${canalLow}"][data-kpi="mes"]`).textContent     = estesMesC.length;
+    const topEl = card.querySelector(`[data-canal="${canalLow}"][data-kpi="top"]`);
+    if (topProd) topEl.innerHTML = `Top producto: <strong>${topProd[0]}</strong> (×${topProd[1]})`; else topEl.textContent = 'Top producto: —';
   });
 
-  // Días bar
-  const dias = ['Miércoles','Viernes','Sábado','Domingo'];
-  makeChart('chart-dias', {
-    type: 'bar',
-    data: { labels: dias, datasets: [{ label:'Pedidos', data: dias.map(d => pedidos.filter(p => p['Día entrega']===d).length), backgroundColor:'rgba(240,125,71,.75)', borderRadius:8, borderWidth:0 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, grid:{color:'#f0ebe4'}, ticks:{stepSize:1,font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
+  // Canal evolución (line)
+  const allWeeks = new Set();
+  pedidos.forEach(p => { const d = parseDate(p['Fecha solo']||p['Fecha']); if (d) allWeeks.add(getWeekKey(d)); });
+  const sortedWeeks = [...allWeeks].sort().slice(-6);
+  makeChart('chart-canal-evolucion', {
+    type: 'line',
+    data: { labels: sortedWeeks.map(w => 'Sem ' + w.split('-W')[1]), datasets: CANALES.map(canal => {
+      const wm = {};
+      pedidos.filter(p => getCanal(p['Barrio'])===canal).forEach(p => { const d = parseDate(p['Fecha solo']||p['Fecha']); if (d) { const k=getWeekKey(d); wm[k]=(wm[k]||0)+1; } });
+      return { label:canal, data:sortedWeeks.map(w=>wm[w]||0), borderColor:CANAL_COLOR[canal], backgroundColor:CANAL_COLOR[canal]+'22', borderWidth:2.5, pointRadius:4, pointBackgroundColor:CANAL_COLOR[canal], tension:.35, fill:false };
+    })},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{font:{family:FONT,size:11},padding:10} } }, scales:{ y:{beginAtZero:true, grid:{color:'#f0ebe4'}, ticks:{stepSize:1,font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
-}
 
-// ── VENTAS ─────────────────────────────────────────────────────────
-function renderVentas() {
-  const entregadosIds = new Set(pedidos.filter(p => p['Estado']==='entregado').map(p => p['ID Pedido']));
-  const detEnt = detalle.filter(d => entregadosIds.has(d['ID Pedido']));
-
-  // Top productos por $ (entregados)
-  const pRev = {};
-  detEnt.forEach(d => {
-    const n = d['Producto']; if (!n) return;
-    const sub = parseMoney(d['Subtotal']);
-    const calc = (parseInt(d['Cantidad'])||0) * parseMoney(d['Precio unit.']||0);
-    pRev[n] = (pRev[n]||0) + (sub || calc);
+  // Canal ingresos (doughnut)
+  makeChart('chart-canal-ingresos', {
+    type: 'doughnut',
+    data: { labels: CANALES, datasets: [{ data: CANALES.map(c => pedidos.filter(p => getCanal(p['Barrio'])===c && p['Estado']==='entregado').reduce((s,p)=>s+parseMoney(p['Total']),0)), backgroundColor: CANALES.map(c=>CANAL_COLOR[c]), borderWidth:2, borderColor:'#fff' }] },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{position:'bottom',labels:{font:{family:FONT,size:11},padding:10}}, tooltip:{callbacks:{label:c=>`${c.label}: ${ars(c.raw)}`}} } }
   });
-  const topRev = Object.entries(pRev).sort((a,b) => b[1]-a[1]).slice(0,10);
-  makeChart('chart-top-rev', {
+
+  // Canal ticket (bar)
+  makeChart('chart-canal-ticket', {
     type: 'bar',
-    data: { labels: topRev.map(([n])=>n), datasets: [{ data: topRev.map(([,v])=>v), backgroundColor: topRev.map((_,i) => `rgba(240,125,71,${1-i*.07})`), borderRadius:6, borderWidth:0 }] },
+    data: { labels: CANALES, datasets: [{ label:'Ticket promedio', data: CANALES.map(c => { const ent=pedidos.filter(p=>getCanal(p['Barrio'])===c&&p['Estado']==='entregado'); const f=ent.reduce((s,p)=>s+parseMoney(p['Total']),0); return ent.length?Math.round(f/ent.length):0; }), backgroundColor: CANALES.map(c=>CANAL_COLOR[c]), borderRadius:8, borderWidth:0 }] },
     options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>ars(c.raw)}}}, scales:{ x:{beginAtZero:true,grid:{color:'#f0ebe4'},ticks:{callback:v=>ars(v),font:{family:FONT,size:9}}}, y:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 
-  // Top productos por unidades (todos los pedidos)
-  const pUnits = {};
-  detalle.forEach(d => { const n = d['Producto']; if (n) pUnits[n] = (pUnits[n]||0) + (parseInt(d['Cantidad'])||0); });
-  const topUnits = Object.entries(pUnits).sort((a,b) => b[1]-a[1]).slice(0,10);
-  makeChart('chart-top-units', {
-    type: 'bar',
-    data: { labels: topUnits.map(([n])=>n), datasets: [{ data: topUnits.map(([,v])=>v), backgroundColor: topUnits.map((_,i) => `rgba(51,28,28,${.85-i*.06})`), borderRadius:6, borderWidth:0 }] },
-    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{beginAtZero:true,ticks:{stepSize:1,font:{family:FONT,size:9}},grid:{color:'#f0ebe4'}}, y:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
+  // Top rev (bar)
+  const pRev = {};
+  detalle.filter(d => new Set(pedidos.filter(p=>p['Estado']==='entregado').map(p=>p['ID Pedido'])).has(d['ID Pedido'])).forEach(d => {
+    const n = d['Producto']; if (!n) return;
+    const sub = parseMoney(d['Subtotal']), calc = (parseInt(d['Cantidad'])||0)*parseMoney(d['Precio unit.']||0);
+    pRev[n] = (pRev[n]||0) + (sub||calc);
+  });
+  const topRev = Object.entries(pRev).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  makeChart('chart-top-rev', {
+    type:'bar', data:{ labels:topRev.map(([n])=>n), datasets:[{ data:topRev.map(([,v])=>v), backgroundColor:topRev.map((_,i)=>`rgba(240,125,71,${1-i*.07})`), borderRadius:6, borderWidth:0 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>ars(c.raw)}}}, scales:{ x:{beginAtZero:true,grid:{color:'#f0ebe4'},ticks:{callback:v=>ars(v),font:{family:FONT,size:9}}}, y:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 
-  // Método de pago (facturación)
-  const pagos = {};
-  pedidos.filter(p => p['Estado']==='entregado').forEach(p => {
-    const m = p['Pago']||'Otro'; pagos[m] = (pagos[m]||0) + parseMoney(p['Total']);
+  // Top units (bar)
+  const pUnits = {};
+  detalle.forEach(d => { const n=d['Producto']; if(n) pUnits[n]=(pUnits[n]||0)+(parseInt(d['Cantidad'])||0); });
+  const topUnits = Object.entries(pUnits).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  makeChart('chart-top-units', {
+    type:'bar', data:{ labels:topUnits.map(([n])=>n), datasets:[{ data:topUnits.map(([,v])=>v), backgroundColor:topUnits.map((_,i)=>`rgba(51,28,28,${.85-i*.06})`), borderRadius:6, borderWidth:0 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{beginAtZero:true,ticks:{stepSize:1,font:{family:FONT,size:9}},grid:{color:'#f0ebe4'}}, y:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
+
+  // Pagos (doughnut)
+  const pagos = {};
+  pedidos.filter(p=>p['Estado']==='entregado').forEach(p => { const m=p['Pago']||'Otro'; pagos[m]=(pagos[m]||0)+parseMoney(p['Total']); });
   const pagoL = Object.keys(pagos);
   makeChart('chart-pagos', {
-    type: 'doughnut',
-    data: { labels: pagoL, datasets: [{ data: pagoL.map(k=>pagos[k]), backgroundColor:['#F97035','#3D1C0A','#F39C12','#27AE60'], borderWidth:2, borderColor:'#fff' }] },
-    options: { responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{position:'bottom',labels:{font:{family:FONT,size:11},padding:10}}, tooltip:{callbacks:{label:c=>`${c.label}: ${ars(c.raw)}`}} } }
+    type:'doughnut', data:{ labels:pagoL, datasets:[{ data:pagoL.map(k=>pagos[k]), backgroundColor:['#F97035','#3D1C0A','#F39C12','#27AE60'], borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{position:'bottom',labels:{font:{family:FONT,size:11},padding:10}}, tooltip:{callbacks:{label:c=>`${c.label}: ${ars(c.raw)}`}} } }
   });
 
-  // Revenue por barrio
-  const bRev = {};
-  pedidos.filter(p => p['Estado']==='entregado').forEach(p => {
-    const b = p['Barrio']||'?'; bRev[b] = (bRev[b]||0) + parseMoney(p['Total']);
-  });
-  const bRevArr = Object.entries(bRev).sort((a,b) => b[1]-a[1]);
-  makeChart('chart-rev-barrio', {
-    type: 'bar',
-    data: { labels: bRevArr.map(([b])=>b), datasets: [{ data: bRevArr.map(([,v])=>v), backgroundColor:'#2980B9', borderRadius:8, borderWidth:0 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>ars(c.raw)}}}, scales:{ y:{beginAtZero:true,grid:{color:'#f0ebe4'},ticks:{callback:v=>ars(v),font:{family:FONT,size:9}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
+  // Días (bar)
+  const dias = ['Miércoles','Viernes','Sábado','Domingo'];
+  makeChart('chart-dias', {
+    type:'bar', data:{ labels:dias, datasets:[{ label:'Pedidos', data:dias.map(d=>pedidos.filter(p=>p['Día entrega']===d).length), backgroundColor:'rgba(240,125,71,.75)', borderRadius:8, borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,grid:{color:'#f0ebe4'},ticks:{stepSize:1,font:{family:FONT,size:10}}}, x:{grid:{display:false},ticks:{font:{family:FONT,size:10}}} } }
   });
 }
 
@@ -1152,7 +1138,7 @@ function renderPedidosTable() {
   : '<tr><td colspan="9" class="no-data">Sin resultados</td></tr>';
 }
 
-// ── STOCK ──────────────────────────────────────────────────────────
+// ── STOCK HELPERS ──────────────────────────────────────────────────
 function getStock(p) { return parseInt(p['Stock Disponible']||p['stock_disponible']||p['Stock disponible']||0); }
 function getStockFisico(p) { return p ? parseInt(p['Stock Físico']||p['Stock fisico']||p['stock_fisico']||getStock(p)) : 0; }
 function stockCardHTML(nombre, disp, fisico) {
@@ -1167,25 +1153,6 @@ function stockCardHTML(nombre, disp, fisico) {
         <span class="stock-fisico">${fisico} físico</span>
       </div>
     </div>`;
-}
-function renderStock() {
-  const cero  = productos.filter(p => getStock(p) === 0);
-  const bajo  = productos.filter(p => { const s = getStock(p); return s > 0 && s <= 5; });
-  const ok    = productos.filter(p => getStock(p) > 5);
-  const total = productos.reduce((s,p) => s + getStock(p), 0);
-
-  document.getElementById('sk-zero').textContent  = cero.length;
-  document.getElementById('sk-low').textContent   = bajo.length;
-  document.getElementById('sk-ok').textContent    = ok.length;
-  document.getElementById('sk-total').textContent = total;
-
-  let html = '';
-  if (cero.length) html += `<div class="stock-section-label">🔴 Sin stock (${cero.length})</div><div class="stock-grid">${cero.map(p => stockCardHTML(p['Nombre'], 0, getStockFisico(p))).join('')}</div>`;
-  if (bajo.length) html += `<div class="stock-section-label">🟡 Stock crítico — 5 unidades o menos (${bajo.length})</div><div class="stock-grid">${bajo.map(p => stockCardHTML(p['Nombre'], getStock(p), getStockFisico(p))).join('')}</div>`;
-  if (ok.length)   html += `<div class="stock-section-label">🟢 Stock OK (${ok.length})</div><div class="stock-grid">${ok.map(p => stockCardHTML(p['Nombre'], getStock(p), getStockFisico(p))).join('')}</div>`;
-  if (!productos.length) html = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Sin datos de stock</div></div>';
-
-  document.getElementById('stock-display').innerHTML = html;
 }
 
 // ── COMPRAS ───────────────────────────────────────────────────────
@@ -1304,7 +1271,6 @@ async function submitCompraLote() {
 
   try {
     await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-    // Reset cart
     comprasCart = {};
     cpAllItems().forEach(p => cpUpdateCard(p.id));
     cpUpdateSummary();
@@ -1315,7 +1281,7 @@ async function submitCompraLote() {
   } catch(err) {
     console.error(err);
     alert('Error al enviar. Intentá de nuevo.');
-    cpUpdateSummary(); // restore button
+    cpUpdateSummary();
   }
 }
 
@@ -1327,9 +1293,11 @@ async function loadCompras() {
     const r = await fetch(APPS_SCRIPT_URL + '?action=compras&t=' + Date.now());
     compras = await r.json();
     renderComprasUI();
+    renderAlerts(); // update alert bar with fresh compras data
+    if (currentTab === 'operacion') renderOperacion(); // refresh pendientes
   } catch(err) {
     console.error('Error cargando compras:', err);
-    document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="7" class="no-data">Error al cargar · verificá la conexión</td></tr>';
+    document.getElementById('compras-tbody').innerHTML = '<tr><td colspan="7" class="no-data">Error al cargar · redeploy Apps Script pendiente</td></tr>';
   } finally {
     document.getElementById('compras-loading').style.display = 'none';
     document.getElementById('compras-table-wrap').style.display = 'block';
@@ -1356,14 +1324,13 @@ function renderComprasUI() {
   tbody.innerHTML = [...compras].reverse().map(c => {
     const est      = c['Estado'] || 'Pendiente';
     const estClass = est==='Entregado' ? 'est-entregado' : est==='Pedido' ? 'est-pedido' : 'est-pendiente';
-    const id       = c['ID'] || '';
     return `
     <tr>
       <td style="color:#b09880;font-size:.74rem">${c['Fecha']||''}</td>
       <td><strong>${c['Proveedor']||''}</strong></td>
       <td>${c['Producto']||''}</td>
       <td>${c['Cantidad']||''} ${c['Unidad']||''}</td>
-      <td><select class="estado-compra-select ${estClass}" data-id="${id}" onchange="updateEstadoCompra(this)">
+      <td><select class="estado-compra-select ${estClass}" data-id="${c['ID']||''}" onchange="updateEstadoCompra(this)">
         <option${est==='Pendiente'?' selected':''}>Pendiente</option>
         <option${est==='Pedido'?' selected':''}>Pedido</option>
         <option${est==='Entregado'?' selected':''}>Entregado</option>
@@ -1381,7 +1348,7 @@ function updateEstadoCompra(sel) {
   sel.className  = `estado-compra-select ${estClass}`;
   fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateCompra',id,estado}) });
   const c = compras.find(c => c['ID'] === id);
-  if (c) { c['Estado'] = estado; renderComprasUI(); }
+  if (c) { c['Estado'] = estado; renderComprasUI(); renderAlerts(); }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
