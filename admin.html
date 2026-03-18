@@ -1197,15 +1197,17 @@ function _renderClubesDesglose() {
     p['Día entrega'] === 'Viernes'
   );
 
-  badge.textContent = clubPedidos.length ? `${clubPedidos.length} pedido${clubPedidos.length!==1?'s':''}` : 'sin pedidos';
+  const clubIds  = new Set(clubPedidos.map(p => p['ID Pedido']));
+  const clubDet  = detalle.filter(d => clubIds.has(d['ID Pedido']));
+  const totalPacksGlobal = clubDet.reduce((s, d) => s + (parseInt(d['Cantidad'])||0), 0);
+  badge.textContent = clubPedidos.length
+    ? `${clubPedidos.length} pedido${clubPedidos.length!==1?'s':''} · ${totalPacksGlobal} PACKS`
+    : 'sin pedidos';
 
   if (!clubPedidos.length) {
     content.innerHTML = `<div style="font-size:.82rem;color:#a08060;padding:.4rem 0">Sin pedidos de clubes para el viernes <strong>${fmtFri}</strong></div>`;
     return;
   }
-
-  const clubIds  = new Set(clubPedidos.map(p => p['ID Pedido']));
-  const clubDet  = detalle.filter(d => clubIds.has(d['ID Pedido']));
 
   // Agrupar detalle por pedido
   const detPorPedido = {};
@@ -1223,7 +1225,8 @@ function _renderClubesDesglose() {
     clubPedidos.map(p => {
       const items    = detPorPedido[p['ID Pedido']] || [];
       const total    = parseFloat(p['Total']) || items.reduce((s,d) => s + (parseInt(d['Cantidad'])||0)*(parseFloat(d['Precio unit.'])||0), 0);
-      const clubNom  = (p['Barrio']||'').replace(/^Club-/,'');
+      const clubNom   = (p['Barrio']||'').replace(/^Club-/,'');
+      const packsPed  = items.reduce((s, d) => s + (parseInt(d['Cantidad'])||0), 0);
       const itemsHtml = items.map(d =>
         `<div style="display:flex;justify-content:space-between;font-size:.75rem;color:#6b5a50;padding:.15rem 0;border-bottom:1px solid #f5f0e8">
           <span>${d['Producto']||''}</span>
@@ -1239,6 +1242,7 @@ function _renderClubesDesglose() {
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.25rem">
             ${estTag(p['Estado'])}
+            ${packsPed > 0 ? `<span style="font-size:.75rem;font-weight:800;color:var(--orange)">${packsPed} PACKS</span>` : ''}
             <span style="font-size:.8rem;font-weight:800;color:var(--brown)">${ars(total)}</span>
           </div>
         </div>
@@ -1874,15 +1878,19 @@ function _renderSemanaResumen() {
     let html = `<div style="font-size:.78rem;color:#a08060;margin-bottom:.75rem">Próximo viernes <strong>${fmtFri}</strong></div>`;
 
     Object.entries(byProv).forEach(([prov, { rows, costo }]) => {
-      const estados  = [...new Set(rows.map(r => r['Estado']))];
-      const isPend   = estados.includes('Pendiente');
-      const estBg    = isPend ? '#FEF3C7' : '#DBEAFE';
-      const estCol   = isPend ? '#92400E' : '#1E40AF';
-      const estLabel = isPend && estados.includes('Pedido') ? 'Mixto' : estados[0];
+      const estados     = [...new Set(rows.map(r => r['Estado']))];
+      const isPend      = estados.includes('Pendiente');
+      const estBg       = isPend ? '#FEF3C7' : '#DBEAFE';
+      const estCol      = isPend ? '#92400E' : '#1E40AF';
+      const estLabel    = isPend && estados.includes('Pedido') ? 'Mixto' : estados[0];
+      const totalPacks  = rows.reduce((s, c) => s + (parseInt(c['Cantidad'])||0), 0);
 
       html += `<div style="background:#f9f5ef;border-radius:14px;padding:.9rem 1.05rem;margin-bottom:.65rem">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
-          <span style="font-size:.92rem;font-weight:800;color:var(--brown)">${prov}</span>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span style="font-size:.92rem;font-weight:800;color:var(--brown)">${prov}</span>
+            <span style="font-size:.75rem;font-weight:800;color:var(--orange)">${totalPacks} PACKS</span>
+          </div>
           <div style="display:flex;gap:.4rem;align-items:center">
             ${costo > 0 ? `<span style="font-size:.75rem;font-weight:700;color:#a08060">${ars(costo)}</span>` : ''}
             <span style="background:${estBg};color:${estCol};font-size:.67rem;font-weight:800;padding:.18rem .6rem;border-radius:50px">${estLabel}</span>
