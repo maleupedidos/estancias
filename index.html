@@ -877,6 +877,7 @@ const STOCK_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOq210U9
 /* Estado */
 let cart = {};
 let _enviando = false;
+let _formVisible = false;
 let stockMap = {}; // { id: stockDisponible } — cargado desde Sheets al inicio
 
 function $id(id){ return document.getElementById(id); }
@@ -992,7 +993,7 @@ function updateUI(){
   badge.style.display = count > 0 ? 'flex' : 'none';
   const floatBtn = $id('float-cart-btn');
   if (floatBtn) {
-    floatBtn.style.display = count > 0 ? 'flex' : 'none';
+    floatBtn.style.display = (count > 0 && !_formVisible) ? 'flex' : 'none';
     if (count > 0) floatBtn.textContent = '\uD83D\uDED2 Ver pedido \u00B7 ' + ars(total) + ' \u2192';
   }
   const bodyEl = $id('cart-body'), footEl = $id('cart-foot');
@@ -1389,6 +1390,13 @@ renderCatalog();
 renderCatNav();
 loadClientData();
 loadLastOrder();
+
+/* Ocultar botón flotante cuando el formulario es visible */
+const _formObs = new IntersectionObserver(([entry]) => {
+  _formVisible = entry.isIntersecting;
+  updateUI();
+}, { threshold: 0.1 });
+_formObs.observe(document.querySelector('.form-section'));
 $id('cart-badge').style.display = 'none';
 fetchStock();
 /* BARRA DE CATEGORÍAS */
