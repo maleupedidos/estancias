@@ -432,47 +432,40 @@ function onEdit(e) {
   if (sheetName === 'Pedidos') return _onEditPedidos(e);
 }
 
-// ── Home: sync stock cuando cambia Origen (H) o Estado Entrega (J) ──
+// ── Home: sync stock cuando cambia Estado de Entrega (col J) ─────
+// Flujo: Pendiente → Reservado → Entregado (o Cancelado)
+// Solo aplica cuando Origen (col H) = "Depósito"
 function _onEditHome(e) {
   const col = e.range.getColumn();
   const row = e.range.getRow();
-  if (row <= 1) return; // ignorar header
+  if (row <= 1 || col !== 10) return; // solo col J (10) = Estado de Entrega
+
+  const sh     = e.range.getSheet();
+  const origen = String(sh.getRange(row, 8).getValue());
+  if (origen !== 'Depósito') return; // solo sync si sale del depósito
 
   const hProductos = SS.getSheetByName('Productos');
   if (!hProductos) return;
 
-  // Col 8 = H (Origen)
-  if (col === 8) {
-    const nuevo   = String(e.value || '');
-    const anterior = String(e.oldValue || '');
+  const nuevo    = String(e.value || '');
+  const anterior = String(e.oldValue || '');
 
-    // Cambió A "Depósito" → reservar stock
-    if (nuevo === 'Depósito' && anterior !== 'Depósito') {
-      _homeStockOp(e.range.getSheet(), row, hProductos, 'reservar');
-    }
-    // Cambió DESDE "Depósito" a otra cosa → liberar reserva
-    if (anterior === 'Depósito' && nuevo !== 'Depósito') {
-      _homeStockOp(e.range.getSheet(), row, hProductos, 'liberar');
-    }
+  // Pendiente → Reservado: reservar stock
+  if (nuevo === 'Reservado' && anterior !== 'Reservado') {
+    _homeStockOp(sh, row, hProductos, 'reservar');
   }
 
-  // Col 10 = J (Estado de Entrega)
-  if (col === 10) {
-    const origen = String(e.range.getSheet().getRange(row, 8).getValue());
-    if (origen !== 'Depósito') return; // solo sync si sale del depósito
-
-    const nuevo   = String(e.value || '');
-    const anterior = String(e.oldValue || '');
-
-    if (nuevo === 'Entregado' && anterior !== 'Entregado') {
-      // Entregado → bajar Stock Físico y Reservado
-      _homeStockOp(e.range.getSheet(), row, hProductos, 'entregar');
-    }
-    if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
-      // Cancelado → liberar reserva
-      _homeStockOp(e.range.getSheet(), row, hProductos, 'liberar');
-    }
+  // Reservado → Entregado: bajar Stock Físico y Reservado
+  if (nuevo === 'Entregado' && anterior === 'Reservado') {
+    _homeStockOp(sh, row, hProductos, 'entregar');
   }
+
+  // Reservado → Cancelado: liberar reserva
+  if (nuevo === 'Cancelado' && anterior === 'Reservado') {
+    _homeStockOp(sh, row, hProductos, 'liberar');
+  }
+
+  // Pendiente → Cancelado: nada que deshacer (no se reservó)
 }
 
 // Lee las cantidades de productos de la fila Home y actualiza Productos
@@ -646,7 +639,7 @@ function _setupHome() {
 
   // ── Dropdown: J — Estado de Entrega ───────────────────────
   const entregaRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Pendiente','Entregado','Cancelado'], true)
+    .requireValueInList(['Pendiente','Reservado','Entregado','Cancelado'], true)
     .setAllowInvalid(false).build();
   sh.getRange('J2:J5000').setDataValidation(entregaRule);
 
@@ -685,6 +678,10 @@ function _setupHome() {
   rules.push(SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Pendiente')
     .setBackground('#FFF9C4').setFontColor('#7A6000').setBold(true)
+    .setRanges([jRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Reservado')
+    .setBackground('#BBDEFB').setFontColor('#0D47A1').setBold(true)
     .setRanges([jRange]).build());
   rules.push(SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Entregado')
