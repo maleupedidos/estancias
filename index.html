@@ -1353,19 +1353,34 @@ function repeatLastOrder() {
 }
 
 /* STOCK — carga desde Google Sheets CSV */
+// Mapeo ID producto (página) → abreviatura en hoja Productos (col C)
+// Los IDs de la página NO coinciden con los IDs de la hoja Productos,
+// así que cruzamos por abreviatura.
+const PROD_ABBR = {
+  5:'PPM', 6:'PPJyQ', 7:'PPCyQ',
+  8:'SCo', 9:'SJyQ', 10:'SCa',
+  11:'ECaC', 12:'EJyQ',
+  14:'TG', 15:'TLC', 16:'TC', 13:'F',
+  1:'PMar', 2:'PJyQ', 3:'PCC', 4:'PJyM',
+};
 async function fetchStock() {
   if (!STOCK_CSV_URL) return;
   try {
     const res  = await fetch(STOCK_CSV_URL);
     const text = await res.text();
     const rows = text.trim().split('\n');
-    // Fila 0 = headers: ID, Nombre, Abreviatura, Stock Físico, Reservado, Stock Disponible, ...
+    // CSV: ID, Nombre, Abreviatura, Stock Físico, Reservado, Stock Disponible, ...
+    const abbrStock = {};
     rows.slice(1).forEach(row => {
-      // El CSV de Sheets puede tener valores entre comillas
       const cols = row.split(',').map(c => c.replace(/^"|"$/g, '').trim());
-      const id   = parseInt(cols[0]);
-      const disp = parseInt(cols[5]); // col F = Stock Disponible
-      if (!isNaN(id) && !isNaN(disp)) stockMap[id] = disp;
+      const abbr = cols[2];                // col C = Abreviatura
+      const disp = parseInt(cols[5]);      // col F = Stock Disponible
+      if (abbr && !isNaN(disp)) abbrStock[abbr] = disp;
+    });
+    // Cruzar con IDs de la página usando abreviatura
+    PRODUCTOS.forEach(p => {
+      const abbr = PROD_ABBR[p.id];
+      if (abbr && abbrStock[abbr] !== undefined) stockMap[p.id] = abbrStock[abbr];
     });
     updateStockDisplay();
   } catch(e) { console.warn('fetchStock:', e); }

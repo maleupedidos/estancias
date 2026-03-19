@@ -152,7 +152,7 @@ function _doPostPedido(data) {
 //  Columnas A–AP según el esquema de análisis de Tadeo
 // ════════════════════════════════════════════════════════════
 
-// Mapeo id de producto → columna 1-based de la hoja Home
+// Mapeo id de producto (página web) → columna 1-based de la hoja Home
 // R=18 S=19 T=20 U=21 V=22 W=23 X=24 Y=25
 // Z=26 AA=27 AB=28 AC=29 AD=30 AE=31 AF=32 AG=33
 const HOME_PRODUCT_COLS = {
@@ -172,6 +172,17 @@ const HOME_PRODUCT_COLS = {
   2:  31,  // PJyQ  — Pizza Jamón y Queso
   3:  32,  // PCC   — Pizza Cebolla Caramelizada
   4:  33,  // PJyM  — Pizza Jamón y Morrón
+};
+
+// Mapeo id de producto (página web) → abreviatura en hoja Productos (col C)
+// Los IDs de la página NO coinciden con los IDs de la hoja Productos,
+// así que usamos la Abreviatura como clave de cruce universal.
+const PAGE_ID_TO_ABBR = {
+  5:  'PPM',   6:  'PPJyQ', 7:  'PPCyQ',
+  8:  'SCo',   9:  'SJyQ',  10: 'SCa',
+  11: 'ECaC',  12: 'EJyQ',
+  14: 'TG',    15: 'TLC',   16: 'TC',   13: 'F',
+  1:  'PMar',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
 };
 
 function _doPostHome(data) {
@@ -218,15 +229,17 @@ function _doPostHome(data) {
     qtys[Number(item.id)] = Number(item.qty) || 0;
   });
 
-  // ── Costo desde hoja Productos (col H = índice 7) ────────
+  // ── Costo desde hoja Productos (col C=Abreviatura, col H=Costo) ──
   let costoTotal = 0;
   const hProductos = SS.getSheetByName('Productos');
   if (hProductos) {
     const prodData = hProductos.getDataRange().getValues();
     (data.items || []).forEach(function(item) {
+      const abbr = PAGE_ID_TO_ABBR[Number(item.id)];
+      if (!abbr) return;
       for (let r = 1; r < prodData.length; r++) {
-        if (prodData[r][0] === Number(item.id)) {
-          const costoUnit = Number(prodData[r][7]) || 0; // col H (índice 7)
+        if (String(prodData[r][2]).trim() === abbr) { // col C = Abreviatura
+          const costoUnit = Number(prodData[r][7]) || 0; // col H = Costo
           costoTotal += costoUnit * (Number(item.qty) || 0);
           break;
         }
@@ -391,24 +404,24 @@ function _actualizarStockFisico(nombreProducto, cantidad) {
 //  onEdit — actualiza stock al cambiar estado de un pedido
 // ════════════════════════════════════════════════════════════
 
-// Mapeo inverso: columna Home (1-based) → ID producto en Productos
-const HOME_COL_TO_ID = {
-  18: 5,   // R  → PPM
-  19: 6,   // S  → PPJyQ
-  20: 7,   // T  → PPCyQ
-  21: 8,   // U  → SCo
-  22: 9,   // V  → SJyQ
-  23: 10,  // W  → SCa
-  24: 11,  // X  → ECaC
-  25: 12,  // Y  → EJyQ
-  26: 14,  // Z  → TG
-  27: 15,  // AA → TLC
-  28: 16,  // AB → TC
-  29: 13,  // AC → F
-  30: 1,   // AD → PMar
-  31: 2,   // AE → PJyQ
-  32: 3,   // AF → PCC
-  33: 4,   // AG → PJyM
+// Mapeo inverso: columna Home (1-based) → Abreviatura en Productos (col C)
+const HOME_COL_TO_ABBR = {
+  18: 'PPM',   // R
+  19: 'PPJyQ', // S
+  20: 'PPCyQ', // T
+  21: 'SCo',   // U
+  22: 'SJyQ',  // V
+  23: 'SCa',   // W
+  24: 'ECaC',  // X
+  25: 'EJyQ',  // Y
+  26: 'TG',    // Z
+  27: 'TLC',   // AA
+  28: 'TC',    // AB
+  29: 'F',     // AC
+  30: 'PMar',  // AD
+  31: 'PJyQ',  // AE
+  32: 'PCC',   // AF
+  33: 'PJyM',  // AG
 };
 
 function onEdit(e) {
@@ -469,15 +482,15 @@ function _homeStockOp(shHome, row, hProductos, op) {
   const cantidades = shHome.getRange(row, 18, 1, 16).getValues()[0]; // 16 columnas
   const prodData   = hProductos.getDataRange().getValues();
 
-  Object.keys(HOME_COL_TO_ID).forEach(function(colStr) {
+  Object.keys(HOME_COL_TO_ABBR).forEach(function(colStr) {
     const colIdx  = Number(colStr);
-    const prodId  = HOME_COL_TO_ID[colIdx];
+    const abbr    = HOME_COL_TO_ABBR[colIdx];
     const qty     = Number(cantidades[colIdx - 18]) || 0;
     if (qty === 0) return;
 
-    // Buscar producto por ID en Productos
+    // Buscar producto por Abreviatura (col C = índice 2) en Productos
     for (let r = 1; r < prodData.length; r++) {
-      if (Number(prodData[r][0]) === prodId) {
+      if (String(prodData[r][2]).trim() === abbr) {
         const rowProd   = r + 1;
         const celdaFis  = hProductos.getRange(rowProd, 4); // D = Stock Físico
         const celdaRes  = hProductos.getRange(rowProd, 5); // E = Reservado
