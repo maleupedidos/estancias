@@ -688,22 +688,34 @@
         <span class="field-error" id="err-nombre">⚠ Completá tu nombre y apellido</span>
       </div>
       <div class="field-group">
+        <label for="f-barrio-privado">Barrio Privado</label>
+        <div class="select-wrapper">
+          <select id="f-barrio-privado" onchange="filtrarSubBarrios()" onblur="validateOnBlur('barrioPrivado')">
+            <option value="">Elegí tu barrio privado</option>
+            <option value="Estancias del Pilar">Estancias del Pilar</option>
+            <option value="Los Alcanfores">Los Alcanfores</option>
+            <option value="Estancias del Río">Estancias del Río</option>
+          </select>
+        </div>
+        <span class="field-error" id="err-barrio-privado">⚠ Elegí tu barrio privado</span>
+      </div>
+      <div class="field-group" id="field-sub-barrio" style="display:none">
         <label for="f-barrio">Sub Barrio</label>
         <div class="select-wrapper">
           <select id="f-barrio" onblur="validateOnBlur('barrio')">
-            <option value="">Elegí tu barrio</option>
-            <option value="Champagnat Alto">Champagnat Alto</option>
-            <option value="Champagnat Bajo">Champagnat Bajo</option>
-            <option value="La Pionera">La Pionera</option>
-            <option value="La Paz">La Paz</option>
-            <option value="El Recuerdo">El Recuerdo</option>
-            <option value="Golf">Golf</option>
-            <option value="Argentina 1">Argentina 1</option>
-            <option value="Argentina 2">Argentina 2</option>
-            <option value="Argentina 3">Argentina 3</option>
-            <option value="Argentina 4">Argentina 4</option>
-            <option value="Barrio Los Alcanfores">Barrio Los Alcanfores</option>
-            <option value="Barrio Estancias del Rio">Barrio Estancias del Rio</option>
+            <option value="">Elegí tu sub barrio</option>
+            <option value="Champagnat Alto" data-privado="Estancias del Pilar">Champagnat Alto</option>
+            <option value="Champagnat Bajo" data-privado="Estancias del Pilar">Champagnat Bajo</option>
+            <option value="La Pionera" data-privado="Estancias del Pilar">La Pionera</option>
+            <option value="La Paz" data-privado="Estancias del Pilar">La Paz</option>
+            <option value="El Recuerdo" data-privado="Estancias del Pilar">El Recuerdo</option>
+            <option value="Golf" data-privado="Estancias del Pilar">Golf</option>
+            <option value="Argentina 1" data-privado="Estancias del Pilar">Argentina 1</option>
+            <option value="Argentina 2" data-privado="Estancias del Pilar">Argentina 2</option>
+            <option value="Argentina 3" data-privado="Estancias del Pilar">Argentina 3</option>
+            <option value="Argentina 4" data-privado="Estancias del Pilar">Argentina 4</option>
+            <option value="Barrio Los Alcanfores" data-privado="Los Alcanfores">Barrio Los Alcanfores</option>
+            <option value="Barrio Estancias del Rio" data-privado="Estancias del Río">Barrio Estancias del Rio</option>
           </select>
         </div>
         <span class="field-error" id="err-barrio">⚠ Elegí tu sub barrio</span>
@@ -1063,6 +1075,10 @@ function validateOnBlur(campo) {
     const v = $id('f-nombre').value.trim();
     v ? clearError('f-nombre','err-nombre') : showError('f-nombre','err-nombre');
   }
+  if(campo === 'barrioPrivado') {
+    const v = $id('f-barrio-privado').value;
+    v ? clearError('f-barrio-privado','err-barrio-privado') : showError('f-barrio-privado','err-barrio-privado');
+  }
   if(campo === 'barrio') {
     const v = $id('f-barrio').value;
     v ? clearError('f-barrio','err-barrio') : showError('f-barrio','err-barrio');
@@ -1080,19 +1096,48 @@ function validateOnBlur(campo) {
     v ? clearError('f-dia','err-dia') : showError('f-dia','err-dia');
   }
 }
+function filtrarSubBarrios() {
+  const privado  = $id('f-barrio-privado').value;
+  const subField = $id('field-sub-barrio');
+  const subSel   = $id('f-barrio');
+
+  if (!privado) { subField.style.display = 'none'; subSel.value = ''; return; }
+
+  // Mostrar/ocultar opciones según barrio privado elegido
+  Array.from(subSel.options).forEach(opt => {
+    if (!opt.value) return; // placeholder
+    opt.hidden = opt.dataset.privado !== privado;
+  });
+
+  // Si sólo hay una opción disponible, auto-seleccionarla
+  const visibles = Array.from(subSel.options).filter(o => o.value && !o.hidden);
+  if (visibles.length === 1) {
+    subSel.value = visibles[0].value;
+    subField.style.display = 'none'; // sub barrio implícito, no hace falta mostrarlo
+  } else {
+    subSel.value = '';
+    subField.style.display = '';
+  }
+
+  clearError('f-barrio-privado','err-barrio-privado');
+  clearError('f-barrio','err-barrio');
+}
+
 /* WHATSAPP */
 function enviarPedido(){
   if (_enviando) return;
-  const nombre    = $id('f-nombre').value.trim();
-  const barrio    = $id('f-barrio').value;
+  const nombre        = $id('f-nombre').value.trim();
+  const barrioPrivado = $id('f-barrio-privado').value;
+  const barrio        = $id('f-barrio').value;
   const direccion = $id('f-direccion').value.trim();
   const telefono  = $id('f-telefono').value.trim();
   const dia       = $id('f-dia').value;
   const horario   = HORARIOS[dia] || '';
   const pagoEl    = document.querySelector('input[name="pago"]:checked');
   /* Limpiar todos los errores previos */
-  clearError('f-nombre',   'err-nombre');
-  clearError('f-barrio',   'err-barrio');
+  clearError('f-nombre',        'err-nombre');
+  clearError('f-barrio-privado','err-barrio-privado');
+  clearError('f-barrio',        'err-barrio');
   clearError('f-direccion','err-direccion');
   clearError('f-telefono', 'err-telefono');
   clearError('f-dia',      'err-dia');
@@ -1104,9 +1149,13 @@ function enviarPedido(){
   }
   /* Validar campos — recolectar todos los errores de una vez */
   let primerCampoInvalido = null;
- if(!nombre) {
+  if(!nombre) {
     showError('f-nombre','err-nombre');
     if(!primerCampoInvalido) primerCampoInvalido = $id('f-nombre');
+  }
+  if(!barrioPrivado) {
+    showError('f-barrio-privado','err-barrio-privado');
+    if(!primerCampoInvalido) primerCampoInvalido = $id('f-barrio-privado');
   }
   if(!barrio) {
     showError('f-barrio','err-barrio');
