@@ -1101,26 +1101,21 @@ function filtrarSubBarrios() {
   const subField = $id('field-sub-barrio');
   const subSel   = $id('f-barrio');
 
-  if (!privado) { subField.style.display = 'none'; subSel.value = ''; return; }
-
-  // Mostrar/ocultar opciones según barrio privado elegido
-  Array.from(subSel.options).forEach(opt => {
-    if (!opt.value) return; // placeholder
-    opt.hidden = opt.dataset.privado !== privado;
-  });
-
-  // Si sólo hay una opción disponible, auto-seleccionarla
-  const visibles = Array.from(subSel.options).filter(o => o.value && !o.hidden);
-  if (visibles.length === 1) {
-    subSel.value = visibles[0].value;
-    subField.style.display = 'none'; // sub barrio implícito, no hace falta mostrarlo
-  } else {
-    subSel.value = '';
-    subField.style.display = '';
-  }
-
+  subSel.value = '';
   clearError('f-barrio-privado','err-barrio-privado');
   clearError('f-barrio','err-barrio');
+
+  if (privado === 'Estancias del Pilar') {
+    // Mostrar sub barrio con opciones filtradas
+    Array.from(subSel.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.hidden = opt.dataset.privado !== 'Estancias del Pilar';
+    });
+    subField.style.display = '';
+  } else {
+    // Los Alcanfores / Estancias del Río: ocultar sub barrio
+    subField.style.display = 'none';
+  }
 }
 
 /* WHATSAPP */
@@ -1128,7 +1123,9 @@ function enviarPedido(){
   if (_enviando) return;
   const nombre        = $id('f-nombre').value.trim();
   const barrioPrivado = $id('f-barrio-privado').value;
-  const barrio        = $id('f-barrio').value;
+  const barrio        = barrioPrivado === 'Estancias del Pilar'
+    ? $id('f-barrio').value
+    : barrioPrivado;
   const direccion = $id('f-direccion').value.trim();
   const telefono  = $id('f-telefono').value.trim();
   const dia       = $id('f-dia').value;
@@ -1157,7 +1154,7 @@ function enviarPedido(){
     showError('f-barrio-privado','err-barrio-privado');
     if(!primerCampoInvalido) primerCampoInvalido = $id('f-barrio-privado');
   }
-  if(!barrio) {
+  if(barrioPrivado === 'Estancias del Pilar' && !barrio) {
     showError('f-barrio','err-barrio');
     if(!primerCampoInvalido) primerCampoInvalido = $id('f-barrio');
   }
