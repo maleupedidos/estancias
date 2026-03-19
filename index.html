@@ -872,7 +872,7 @@ const WA_NUMBER = "5491155038905";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7HR-op6KSz2a-B2Dvloua6sJ63tsUmkEOWJACqQHAHeG8hOZ3a5HCNjiljjTpWSs/exec";
 // URL del CSV público de la hoja "Productos" en Google Sheets.
 // Instrucciones: Archivo → Compartir → Publicar en la web → Hoja "Productos" → Valores separados por comas
-const STOCK_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU90rLSsMLIZysclthumNVS-wWma0g0ugJJlUBkO_lk1e_xhjmoIbqpmPFpTSVdYkyI1rk4BUCJyrd/pub?gid=0&single=true&output=csv';
+const STOCK_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOq210U9LeSxvXbx_sdglHS0K9DZP8H_5pGXC-WwlMo8AE4UacIN0bpagQqAr79XeJNQ1Nm1eql271/pub?gid=792614962&single=true&output=csv';
 
 /* Estado */
 let cart = {};
@@ -1251,16 +1251,18 @@ function enviarPedido(){
     mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({
-      fecha:     new Date().toLocaleString('es-AR'),
+      fecha:         new Date().toLocaleString('es-AR'),
       nombre,
+      barrioPrivado,
+      subBarrio:     barrioPrivado === 'Estancias del Pilar' ? barrio : '',
       barrio,
-      lote:      direccion,
+      lote:          direccion,
       telefono,
       dia,
       horario,
-      pago:      pagoEl.value,
+      pago:          pagoEl.value,
       items,
-      total:     cartTotal()
+      total:         cartTotal()
     })
   }).catch(() => {});
 
