@@ -1231,14 +1231,14 @@ function enviarPedido(){
     _sep,
     '',
     EM.u + '%20*Nombre%3A*%20' + enc(nombre),
-    EM.h + '%20*Barrio%3A*%20' + enc(barrio),
+    EM.h + '%20*Barrio%3A*%20' + enc(barrioPrivado) + (barrioPrivado === 'Estancias del Pilar' ? '%20%E2%80%94%20' + enc(barrio) : ''),
     EM.n + '%20*Lote%3A*%20' + enc(direccion),
     EM.t + '%20*Tel%3A*%20' + enc(telefono),
     EM.c + '%20*Entrega%3A*%20' + enc(dia) + '%20%C2%B7%20' + enc(horario),
     EM.k + '%20*Pago%3A*%20' + enc(pagoEl.value),
     '',
     _sep,
-    '_Pedido%20generado%20en%20maleupedidos.github.io_',
+    '_Rico%2C%20simple%20y%20listo%20en%20minutos.%20Gracias%20por%20elegirnos!_',
   ].join(_nl);
 
   /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
