@@ -220,8 +220,8 @@ function _doPostHome(data) {
   row[13] = total;                              // N  Total ($)
   row[14] = efectivo;                           // O  Efectivo ($)
   row[15] = transferencia;                      // P  Transferencia ($)
-  // row[16] Q  Propina Efectivo  — MANUAL (vacío)
-  // row[17] R  Propina Transfer  — MANUAL (vacío)
+  row[16] = 0;                                  // Q  Propina Efectivo (default $0)
+  row[17] = 0;                                  // R  Propina Transferencia (default $0)
 
   // Productos: cols S–AH (índices 18–33 en base-0)
   Object.keys(HOME_PRODUCT_COLS).forEach(function(id) {
