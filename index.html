@@ -1183,7 +1183,7 @@ function enviarPedido(){
   }
   /* Guardar datos del cliente y último pedido en localStorage */
   try {
-    localStorage.setItem('maleu_cliente', JSON.stringify({ nombre, barrio, direccion, telefono }));
+    localStorage.setItem('maleu_cliente', JSON.stringify({ nombre, barrioPrivado, barrio, direccion, telefono }));
     const cartSnapshot = Object.entries(cart).map(([id, qty]) => ({ id: +id, qty }));
     localStorage.setItem('maleu_ultimo_pedido', JSON.stringify(cartSnapshot));
   } catch(e) {}
@@ -1282,10 +1282,6 @@ function enviarPedido(){
     cart = {};
     updateUI();
     Object.values(PRODUCTOS).forEach(p => renderCardFooter(p.id));
-    $id('f-nombre').value    = '';
-    $id('f-barrio').value    = '';
-    $id('f-direccion').value = '';
-    $id('f-telefono').value  = '';
     $id('f-dia').value       = '';
     onDiaChange();
     document.querySelectorAll('input[name="pago"]').forEach(r => r.checked = false);
@@ -1311,10 +1307,14 @@ function loadClientData() {
   try {
     const saved = JSON.parse(localStorage.getItem('maleu_cliente') || 'null');
     if (!saved) return;
-    if (saved.nombre)    $id('f-nombre').value    = saved.nombre;
-    if (saved.barrio)    $id('f-barrio').value    = saved.barrio;
-    if (saved.direccion) $id('f-direccion').value = saved.direccion;
-    if (saved.telefono)  $id('f-telefono').value  = saved.telefono;
+    if (saved.nombre)        $id('f-nombre').value         = saved.nombre;
+    if (saved.barrioPrivado) {
+      $id('f-barrio-privado').value = saved.barrioPrivado;
+      filtrarSubBarrios(); // mostrar sub-barrios si corresponde
+    }
+    if (saved.barrio)        $id('f-barrio').value         = saved.barrio;
+    if (saved.direccion)     $id('f-direccion').value      = saved.direccion;
+    if (saved.telefono)      $id('f-telefono').value       = saved.telefono;
   } catch(e) {}
 }
 
