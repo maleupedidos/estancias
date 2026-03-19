@@ -201,8 +201,8 @@ function _doPostHome(data) {
   const barrioPrivado = String(data.barrioPrivado || data.barrio || '');
   const subBarrio     = String(data.subBarrio     || '');
 
-  // ── Construir fila de 39 columnas (A a AM) ────────────────
-  const row = new Array(39).fill('');
+  // ── Construir fila de 40 columnas (A a AN) ────────────────
+  const row = new Array(40).fill('');
 
   row[0]  = horaStr;                            // A  Hora
   row[1]  = orderNum;                           // B  N° Pedido
@@ -233,6 +233,7 @@ function _doPostHome(data) {
   row[36] = barrioPrivado;                      // AK  Barrio
   row[37] = subBarrio;                          // AL  Sub Barrio
   row[38] = String(data.lote || '');            // AM  Domicilio - Lote
+  row[39] = String(data.telefono || '');        // AN  Teléfono
 
   sh.appendRow(row);
 }
@@ -525,6 +526,7 @@ function setupSheets() {
   _setupProveedores();
   _setupEgresos();
   _setupHome();
+  _setupOrdenDeCompra();
   SS.toast('✅  Sheets de Maleu configurados correctamente', 'Setup completo', 5);
 }
 
@@ -541,7 +543,7 @@ function _setupHome() {
     'Propina Efectivo','Propina Transferencia',
     'PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ',
     'TG','TLC','TC','F','PMar','PJyQ','PCC','PJyM',
-    'Costo','Margen Bruto','Barrio','Sub Barrio','Domicilio - Lote'
+    'Costo','Margen Bruto','Barrio','Sub Barrio','Domicilio - Lote','Teléfono'
   ];
   sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
@@ -575,8 +577,8 @@ function _setupHome() {
   widths.forEach((w, i) => sh.setColumnWidth(i + 1, w));
   // Productos (S–AH) → compactas
   for (let c = 19; c <= 34; c++) sh.setColumnWidth(c, 55);
-  // AI–AM
-  [95, 100, 140, 140, 130].forEach((w, i) => sh.setColumnWidth(35 + i, w));
+  // AI–AN
+  [95, 100, 140, 140, 130, 130].forEach((w, i) => sh.setColumnWidth(35 + i, w));
 
   // ── Formato numérico ──────────────────────────────────────
   sh.getRange('N2:P5000').setNumberFormat('$#,##0');
@@ -675,11 +677,75 @@ function _setupHome() {
 
   // ── Color de fondo alterno (banding) ──────────────────────
   try {
-    sh.getRange('A2:AM5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+    sh.getRange('A2:AN5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
   } catch(ex) {}
 
   // ── Tab color ─────────────────────────────────────────────
   sh.setTabColor(ORANGE);
+}
+
+// ── Hoja: Orden de Compra — vista automática desde Home ─────
+function _setupOrdenDeCompra() {
+  let sh = SS.getSheetByName('Orden de Compra');
+  if (!sh) sh = SS.insertSheet('Orden de Compra');
+
+  // Limpiar contenido previo
+  sh.clear();
+
+  // ── Título ──────────────────────────────────────────────────
+  sh.setRowHeight(1, 48);
+  sh.getRange('A1:H1').merge()
+    .setValue('📋  ÓRDENES DE COMPRA — Vista automática desde Home')
+    .setBackground(BROWN).setFontColor('#FFFFFF')
+    .setFontSize(14).setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // ── QUERY automática ────────────────────────────────────────
+  // Trae las columnas más útiles de Home donde Origen = "Orden de Compra"
+  // A=Hora, B=N°Pedido, D=Fecha, H=Cliente, K=EstadoEntrega, L=FormaPago,
+  // M=EstadoPago, N=Total, AK=Barrio, AL=SubBarrio, AM=Lote, AN=Teléfono
+  sh.getRange('A3').setFormulaLocal(
+    '=SI.ERROR(' +
+      'QUERY(Home!A:AN;' +
+        '"SELECT B, A, D, H, K, L, M, N, AK, AL, AM, AN ' +
+        'WHERE I = \'Orden de Compra\' ' +
+        'ORDER BY D DESC, A DESC";1)' +
+    ';"No hay órdenes de compra todavía")'
+  );
+
+  // ── Formato de la zona de datos ─────────────────────────────
+  // Encabezados del QUERY (fila 3) se formatean automáticamente
+  sh.getRange('A3:L3')
+    .setBackground('#E8DFC4').setFontColor(BROWN)
+    .setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center');
+
+  // Ancho de columnas
+  const widths = [
+    95,  // A  N° Pedido
+    65,  // B  Hora
+    100, // C  Fecha
+    170, // D  Cliente
+    130, // E  Estado de Entrega
+    120, // F  Forma de Pago
+    120, // G  Estado de Pago
+    95,  // H  Total ($)
+    140, // I  Barrio
+    140, // J  Sub Barrio
+    130, // K  Domicilio
+    130, // L  Teléfono
+  ];
+  widths.forEach((w, i) => sh.setColumnWidth(i + 1, w));
+
+  // Formato moneda en Total (col H en esta hoja)
+  sh.getRange('H4:H5000').setNumberFormat('$#,##0');
+
+  sh.setFrozenRows(3);
+  sh.setTabColor('#0D47A1'); // azul — distinguir de Home (naranja)
+
+  // ── Nota informativa ────────────────────────────────────────
+  sh.getRange('A2').setValue('⚡ Esta hoja se actualiza automáticamente. Para gestionar pedidos, editá la hoja Home.')
+    .setFontSize(9).setFontColor('#666666').setFontStyle('italic');
 }
 
 // ════════════════════════════════════════════════════════════
