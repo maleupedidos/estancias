@@ -1359,12 +1359,12 @@ async function fetchStock() {
     const res  = await fetch(STOCK_CSV_URL);
     const text = await res.text();
     const rows = text.trim().split('\n');
-    // Fila 0 = headers (id, nombre, stock_fisico, reservado, stock_disponible, ...)
+    // Fila 0 = headers: ID, Nombre, Abreviatura, Stock Físico, Reservado, Stock Disponible, ...
     rows.slice(1).forEach(row => {
       // El CSV de Sheets puede tener valores entre comillas
       const cols = row.split(',').map(c => c.replace(/^"|"$/g, '').trim());
       const id   = parseInt(cols[0]);
-      const disp = parseInt(cols[4]); // columna stock_disponible
+      const disp = parseInt(cols[5]); // col F = Stock Disponible
       if (!isNaN(id) && !isNaN(disp)) stockMap[id] = disp;
     });
     updateStockDisplay();

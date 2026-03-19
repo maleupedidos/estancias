@@ -390,19 +390,135 @@ function _actualizarStockFisico(nombreProducto, cantidad) {
 // ════════════════════════════════════════════════════════════
 //  onEdit — actualiza stock al cambiar estado de un pedido
 // ════════════════════════════════════════════════════════════
+
+// Mapeo inverso: columna Home (1-based) → ID producto en Productos
+const HOME_COL_TO_ID = {
+  18: 5,   // R  → PPM
+  19: 6,   // S  → PPJyQ
+  20: 7,   // T  → PPCyQ
+  21: 8,   // U  → SCo
+  22: 9,   // V  → SJyQ
+  23: 10,  // W  → SCa
+  24: 11,  // X  → ECaC
+  25: 12,  // Y  → EJyQ
+  26: 14,  // Z  → TG
+  27: 15,  // AA → TLC
+  28: 16,  // AB → TC
+  29: 13,  // AC → F
+  30: 1,   // AD → PMar
+  31: 2,   // AE → PJyQ
+  32: 3,   // AF → PCC
+  33: 4,   // AG → PJyM
+};
+
 function onEdit(e) {
   const sheet = e.range.getSheet();
-  if (sheet.getName() !== 'Pedidos') return;
-  if (e.range.getColumn() !== 12) return; // col 12 = Estado (Canal agregado en col 2)
+  const sheetName = sheet.getName();
+
+  if (sheetName === 'Home')    return _onEditHome(e);
+  if (sheetName === 'Pedidos') return _onEditPedidos(e);
+}
+
+// ── Home: sync stock cuando cambia Origen (H) o Estado Entrega (J) ──
+function _onEditHome(e) {
+  const col = e.range.getColumn();
+  const row = e.range.getRow();
+  if (row <= 1) return; // ignorar header
+
+  const hProductos = SS.getSheetByName('Productos');
+  if (!hProductos) return;
+
+  // Col 8 = H (Origen)
+  if (col === 8) {
+    const nuevo   = String(e.value || '');
+    const anterior = String(e.oldValue || '');
+
+    // Cambió A "Depósito" → reservar stock
+    if (nuevo === 'Depósito' && anterior !== 'Depósito') {
+      _homeStockOp(e.range.getSheet(), row, hProductos, 'reservar');
+    }
+    // Cambió DESDE "Depósito" a otra cosa → liberar reserva
+    if (anterior === 'Depósito' && nuevo !== 'Depósito') {
+      _homeStockOp(e.range.getSheet(), row, hProductos, 'liberar');
+    }
+  }
+
+  // Col 10 = J (Estado de Entrega)
+  if (col === 10) {
+    const origen = String(e.range.getSheet().getRange(row, 8).getValue());
+    if (origen !== 'Depósito') return; // solo sync si sale del depósito
+
+    const nuevo   = String(e.value || '');
+    const anterior = String(e.oldValue || '');
+
+    if (nuevo === 'Entregado' && anterior !== 'Entregado') {
+      // Entregado → bajar Stock Físico y Reservado
+      _homeStockOp(e.range.getSheet(), row, hProductos, 'entregar');
+    }
+    if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
+      // Cancelado → liberar reserva
+      _homeStockOp(e.range.getSheet(), row, hProductos, 'liberar');
+    }
+  }
+}
+
+// Lee las cantidades de productos de la fila Home y actualiza Productos
+// op: 'reservar' | 'liberar' | 'entregar'
+function _homeStockOp(shHome, row, hProductos, op) {
+  // Leer cantidades de cols R–AG (18–33) de la fila
+  const cantidades = shHome.getRange(row, 18, 1, 16).getValues()[0]; // 16 columnas
+  const prodData   = hProductos.getDataRange().getValues();
+
+  Object.keys(HOME_COL_TO_ID).forEach(function(colStr) {
+    const colIdx  = Number(colStr);
+    const prodId  = HOME_COL_TO_ID[colIdx];
+    const qty     = Number(cantidades[colIdx - 18]) || 0;
+    if (qty === 0) return;
+
+    // Buscar producto por ID en Productos
+    for (let r = 1; r < prodData.length; r++) {
+      if (Number(prodData[r][0]) === prodId) {
+        const rowProd   = r + 1;
+        const celdaFis  = hProductos.getRange(rowProd, 4); // D = Stock Físico
+        const celdaRes  = hProductos.getRange(rowProd, 5); // E = Reservado
+        const celdaDisp = hProductos.getRange(rowProd, 6); // F = Stock Disponible
+        const fisico    = Number(celdaFis.getValue()) || 0;
+        const reservado = Number(celdaRes.getValue()) || 0;
+
+        if (op === 'reservar') {
+          celdaRes.setValue(reservado + qty);
+          celdaDisp.setValue(fisico - (reservado + qty));
+        } else if (op === 'liberar') {
+          const nuevoRes = Math.max(0, reservado - qty);
+          celdaRes.setValue(nuevoRes);
+          celdaDisp.setValue(fisico - nuevoRes);
+        } else if (op === 'entregar') {
+          const nuevoFis = Math.max(0, fisico - qty);
+          const nuevoRes = Math.max(0, reservado - qty);
+          celdaFis.setValue(nuevoFis);
+          celdaRes.setValue(nuevoRes);
+          celdaDisp.setValue(nuevoFis - nuevoRes);
+        }
+        break;
+      }
+    }
+  });
+}
+
+// ── Pedidos (legacy): sync stock cuando cambia Estado ────────
+function _onEditPedidos(e) {
+  if (e.range.getColumn() !== 12) return; // col 12 = Estado
 
   const nuevoEstado = e.value;
   if (nuevoEstado !== 'entregado' && nuevoEstado !== 'cancelado') return;
 
-  const idPedido   = sheet.getRange(e.range.getRow(), 1).getValue();
-  const barrio     = sheet.getRange(e.range.getRow(), 5).getValue(); // col 5 = Barrio
-  const esClub     = String(barrio).startsWith('Club-'); // Clubes no toca stock
+  const idPedido   = e.range.getSheet().getRange(e.range.getRow(), 1).getValue();
+  const barrio     = e.range.getSheet().getRange(e.range.getRow(), 5).getValue();
+  const esClub     = String(barrio).startsWith('Club-');
   const hDetalle   = SS.getSheetByName('Detalle_Pedidos');
   const hProductos = SS.getSheetByName('Productos');
+  if (!hDetalle || !hProductos) return;
+
   const detalleData = hDetalle.getDataRange().getValues();
   const prodData    = hProductos.getDataRange().getValues();
 
@@ -414,8 +530,8 @@ function onEdit(e) {
 
       for (let r = 1; r < prodData.length; r++) {
         if (prodData[r][0] === idProd) {
-          const celdaRes = hProductos.getRange(r + 1, 4);
-          const celdaFis = hProductos.getRange(r + 1, 3);
+          const celdaRes = hProductos.getRange(r + 1, 5); // E = Reservado
+          const celdaFis = hProductos.getRange(r + 1, 4); // D = Stock Físico
           if (nuevoEstado === 'entregado') {
             celdaFis.setValue(Math.max(0, celdaFis.getValue() - qty));
             celdaRes.setValue(Math.max(0, celdaRes.getValue() - qty));
@@ -428,7 +544,6 @@ function onEdit(e) {
     });
   }
 
-  // Cancelado: eliminar filas del Detalle (de abajo hacia arriba para no correr índices)
   if (nuevoEstado === 'cancelado') {
     for (let r = detalleData.length - 1; r >= 1; r--) {
       if (detalleData[r][0] === idPedido) {
