@@ -704,13 +704,13 @@ function _setupOrdenDeCompra() {
   // Trae las columnas más útiles de Home donde Origen = "Orden de Compra"
   // A=Hora, B=N°Pedido, D=Fecha, H=Cliente, K=EstadoEntrega, L=FormaPago,
   // M=EstadoPago, N=Total, AK=Barrio, AL=SubBarrio, AM=Lote, AN=Teléfono
-  sh.getRange('A3').setFormulaLocal(
-    '=SI.ERROR(' +
-      'QUERY(Home!A:AN;' +
+  sh.getRange('A3').setFormula(
+    '=IFERROR(' +
+      'QUERY(Home!A:AN,' +
         '"SELECT B, A, D, H, K, L, M, N, AK, AL, AM, AN ' +
         'WHERE I = \'Orden de Compra\' ' +
-        'ORDER BY D DESC, A DESC";1)' +
-    ';"No hay órdenes de compra todavía")'
+        'ORDER BY D DESC, A DESC",1)' +
+    ',"No hay órdenes de compra todavía")'
   );
 
   // ── Formato de la zona de datos ─────────────────────────────
