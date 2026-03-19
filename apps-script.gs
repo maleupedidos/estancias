@@ -376,7 +376,10 @@ const HOME_COL_TO_ABBR = {
   33: 'PJyM',  // AG
 };
 
-function onEdit(e) {
+// IMPORTANTE: esta función debe configurarse SOLO como trigger instalable.
+// NO usar el nombre "onEdit" para evitar doble ejecución (simple + instalable).
+// En Activadores: función = onEditHandler, evento = Al editar
+function onEditHandler(e) {
   const sheet = e.range.getSheet();
   const sheetName = sheet.getName();
 
