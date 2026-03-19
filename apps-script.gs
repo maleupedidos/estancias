@@ -91,56 +91,8 @@ function doPost(e) {
 }
 
 function _doPostPedido(data) {
-    // ── 1. Escribir en hoja Home PRIMERO (prioridad) ──────────
+    // Escribir en hoja Home — el stock se maneja vía onEdit (J=Reservado/Entregado)
     _doPostHome(data);
-
-    // ── 2. Escribir en Pedidos + Detalle (si las hojas existen) ─
-    try {
-      const ahora    = new Date();
-      const idPedido = 'P-' + ahora.getTime();
-      const fecha    = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
-      const fechaDate = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
-      const items    = data.items || [];
-
-      const esClub = String(data.barrio || '').startsWith('Club-');
-      const canal  = esClub
-        ? 'Clubes'
-        : (String(data.barrio || '').startsWith('Delivery-') ? 'Delivery' : 'Estancias');
-
-      const hPedidos = SS.getSheetByName('Pedidos');
-      if (hPedidos) {
-        hPedidos.appendRow([
-          idPedido, canal, fecha,
-          data.nombre || '', data.barrio || '', data.lote || '',
-          data.telefono || '', data.dia || '', data.horario || '',
-          data.pago || '', data.total || 0, 'pendiente', fechaDate, ''
-        ]);
-      }
-
-      const hDetalle   = SS.getSheetByName('Detalle_Pedidos');
-      const hProductos = SS.getSheetByName('Productos');
-      if (hDetalle && hProductos) {
-        const prodData = hProductos.getDataRange().getValues();
-        items.forEach(item => {
-          hDetalle.appendRow([
-            idPedido, data.nombre || '', item.id, item.nombre, item.qty, item.precio,
-            item.qty * item.precio
-          ]);
-          if (!esClub) {
-            for (let r = 1; r < prodData.length; r++) {
-              if (prodData[r][0] === item.id) {
-                const cell = hProductos.getRange(r + 1, 4);
-                cell.setValue((cell.getValue() || 0) + item.qty);
-                break;
-              }
-            }
-          }
-        });
-      }
-    } catch(e) {
-      // Si Pedidos/Detalle fallan, Home ya se escribió — no romper el flujo
-      console.error('_doPostPedido (Pedidos/Detalle):', e);
-    }
 
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
