@@ -545,6 +545,8 @@
     }
     .repeat-item-name { flex:1; }
     .repeat-item-qty  { font-weight:700; color:var(--brown-mid); margin-left:.5rem; white-space:nowrap; }
+    .repeat-item-nostock { opacity:.45; text-decoration:line-through; }
+    .repeat-btn:disabled { opacity:.4; cursor:not-allowed; }
     .repeat-btn {
       display:block; width:100%; background:var(--orange); color:#fff; border:none; border-radius:9px;
       padding:.62rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer;
@@ -1330,10 +1332,19 @@ function loadLastOrder() {
     const lines = items.map(({ id, qty }) => {
       const p = PRODUCTOS.find(p => p.id === id);
       if (!p) return '';
-      return `<div class="repeat-item"><span class="repeat-item-name">${p.nombre}</span><span class="repeat-item-qty">\u00D7${qty}</span></div>`;
+      const avail = stockMap[id];
+      const sinStock = avail !== undefined && avail === 0;
+      return `<div class="repeat-item${sinStock ? ' repeat-item-nostock' : ''}"><span class="repeat-item-name">${p.nombre}${sinStock ? ' <small>(sin stock)</small>' : ''}</span><span class="repeat-item-qty">\u00D7${qty}</span></div>`;
     }).filter(Boolean).join('');
     if (!lines) return;
     list.innerHTML = lines;
+    // Si todos los productos están sin stock, deshabilitar el botón
+    const hayAlgoDisponible = items.some(({ id }) => {
+      const avail = stockMap[id];
+      return avail === undefined || avail > 0;
+    });
+    const btn = block.querySelector('.repeat-btn');
+    if (btn) btn.disabled = !hayAlgoDisponible;
     block.style.display = 'block';
   } catch(e) {}
 }
@@ -1341,14 +1352,21 @@ function repeatLastOrder() {
   try {
     const items = JSON.parse(localStorage.getItem('maleu_ultimo_pedido') || 'null');
     if (!items || !items.length) return;
+    let agregados = 0;
     items.forEach(({ id, qty }) => {
       const p = PRODUCTOS.find(p => p.id === id);
       if (!p) return;
-      cart[id] = (cart[id] || 0) + qty;
+      const avail = stockMap[id];
+      if (avail !== undefined && avail === 0) return; // saltar sin stock
+      const maxQty = avail !== undefined ? Math.min(qty, avail - (cart[id] || 0)) : qty;
+      if (maxQty <= 0) return;
+      cart[id] = (cart[id] || 0) + maxQty;
+      agregados++;
       renderCardFooter(id);
     });
     updateUI();
-    toast('\u2713 Productos del pedido anterior agregados');
+    if (agregados > 0) toast('\u2713 Productos del pedido anterior agregados');
+    else toast('\u26A0\uFE0F No hay stock disponible');
   } catch(e) {}
 }
 
@@ -1383,6 +1401,7 @@ async function fetchStock() {
       if (abbr && abbrStock[abbr] !== undefined) stockMap[p.id] = abbrStock[abbr];
     });
     updateStockDisplay();
+    loadLastOrder(); // re-renderizar con info de stock actualizada
   } catch(e) { console.warn('fetchStock:', e); }
 }
 
