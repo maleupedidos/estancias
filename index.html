@@ -12,7 +12,7 @@
 <meta property="og:url"         content="https://maleupedidos.github.io/estancias/" />
 <meta property="og:title"       content="Maleu — Rico, listo, sin drama." />
 <meta property="og:description" content="Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar. Pedís por WhatsApp, nosotros entregamos." />
-<meta property="og:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita.jpg" />
+<meta property="og:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg" />
 <meta property="og:image:width"  content="960" />
 <meta property="og:image:height" content="1280" />
 <meta property="og:locale"      content="es_AR" />
@@ -21,7 +21,7 @@
 <meta name="twitter:card"        content="summary_large_image" />
 <meta name="twitter:title"       content="Maleu — Rico, listo, sin drama." />
 <meta name="twitter:description" content="Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar. Pedís por WhatsApp, nosotros entregamos." />
-<meta name="twitter:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita.jpg" />
+<meta name="twitter:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg" />
 <!-- Favicon provisional (emoji) -->
 <link rel="icon" href="img/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1252,7 +1252,7 @@ function enviarPedido(){
     enc(lineas),
     '',
     _sep,
-    EM.m + '%20*TOTAL%3A%20' + enc(totalStr) + '*',
+    '*TOTAL%3A%20' + enc(totalStr) + '*',
     _sep,
     '',
     EM.u + '%20*Nombre%3A*%20' + enc(nombre),
@@ -1263,7 +1263,7 @@ function enviarPedido(){
     EM.k + '%20*Pago%3A*%20' + enc(pagoEl.value),
     '',
     _sep,
-    '_Rico%2C%20simple%20y%20listo%20en%20minutos.%20Gracias%20por%20elegirnos!_',
+    '%F0%9F%A7%A1%20_' + enc('¡Gracias por elegirnos!') + '_',
   ].join(_nl);
 
   /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
