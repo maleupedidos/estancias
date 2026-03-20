@@ -388,9 +388,9 @@ function onEditHandler(e) {
   if (sheetName === 'Pedidos') return _onEditPedidos(e);
 }
 
-// ── Home: sync stock cuando cambia Estado de Entrega (col J) ─────
-// Flujo: Pendiente → Reservado → Entregado (o Cancelado)
-// Solo aplica cuando Origen (col H) = "Depósito"
+// ── Home: sync stock cuando cambia Estado de Entrega (col K=11) ──
+// Reservado y Disponible se manejan con FÓRMULAS en Productos (siempre precisos).
+// El trigger SOLO se ocupa de descontar Stock Físico al marcar "Entregado".
 function _onEditHome(e) {
   const col = e.range.getColumn();
   const row = e.range.getRow();
@@ -398,73 +398,80 @@ function _onEditHome(e) {
 
   const sh     = e.range.getSheet();
   const origen = String(sh.getRange(row, 9).getValue()); // col I (9) = Origen
-  if (origen !== 'Depósito') return; // solo sync si sale del depósito
-
-  const hProductos = SS.getSheetByName('Productos');
-  if (!hProductos) return;
+  if (origen !== 'Depósito') return;
 
   const nuevo    = String(e.value || '');
   const anterior = String(e.oldValue || '');
 
-  // Pendiente → Reservado: reservar stock
-  if (nuevo === 'Reservado' && anterior !== 'Reservado') {
-    _homeStockOp(sh, row, hProductos, 'reservar');
+  const hProductos = SS.getSheetByName('Productos');
+  if (!hProductos) return;
+
+  // → Entregado: descontar Stock Físico (col D)
+  if (nuevo === 'Entregado' && anterior !== 'Entregado') {
+    _homeStockFisico(sh, row, hProductos, -1); // restar
   }
 
-  // Reservado → Entregado: bajar Stock Físico y Reservado
-  if (nuevo === 'Entregado' && anterior === 'Reservado') {
-    _homeStockOp(sh, row, hProductos, 'entregar');
+  // ← Sale de Entregado (corrección manual): devolver Stock Físico
+  if (anterior === 'Entregado' && nuevo !== 'Entregado') {
+    _homeStockFisico(sh, row, hProductos, +1); // sumar de vuelta
   }
-
-  // Reservado → Cancelado: liberar reserva
-  if (nuevo === 'Cancelado' && anterior === 'Reservado') {
-    _homeStockOp(sh, row, hProductos, 'liberar');
-  }
-
-  // Pendiente → Cancelado: nada que deshacer (no se reservó)
 }
 
-// Lee las cantidades de productos de la fila Home y actualiza Productos
-// op: 'reservar' | 'liberar' | 'entregar'
-function _homeStockOp(shHome, row, hProductos, op) {
-  // Leer cantidades de cols S–AH (19–34) de la fila
-  const cantidades = shHome.getRange(row, 19, 1, 16).getValues()[0]; // 16 columnas
+// Ajusta Stock Físico (col D) de Productos. signo: -1 = restar, +1 = sumar
+function _homeStockFisico(shHome, row, hProductos, signo) {
+  const cantidades = shHome.getRange(row, 19, 1, 16).getValues()[0]; // cols S–AH
   const prodData   = hProductos.getDataRange().getValues();
 
   Object.keys(HOME_COL_TO_ABBR).forEach(function(colStr) {
-    const colIdx  = Number(colStr);
-    const abbr    = HOME_COL_TO_ABBR[colIdx];
-    const qty     = Number(cantidades[colIdx - 19]) || 0;
+    const colIdx = Number(colStr);
+    const abbr   = HOME_COL_TO_ABBR[colIdx];
+    const qty    = Number(cantidades[colIdx - 19]) || 0;
     if (qty === 0) return;
 
-    // Buscar producto por Abreviatura (col C = índice 2) en Productos
     for (let r = 1; r < prodData.length; r++) {
       if (String(prodData[r][2]).trim() === abbr) {
-        const rowProd   = r + 1;
-        const celdaFis  = hProductos.getRange(rowProd, 4); // D = Stock Físico
-        const celdaRes  = hProductos.getRange(rowProd, 5); // E = Reservado
-        const celdaDisp = hProductos.getRange(rowProd, 6); // F = Stock Disponible
-        const fisico    = Number(celdaFis.getValue()) || 0;
-        const reservado = Number(celdaRes.getValue()) || 0;
-
-        if (op === 'reservar') {
-          celdaRes.setValue(reservado + qty);
-          celdaDisp.setValue(fisico - (reservado + qty));
-        } else if (op === 'liberar') {
-          const nuevoRes = Math.max(0, reservado - qty);
-          celdaRes.setValue(nuevoRes);
-          celdaDisp.setValue(fisico - nuevoRes);
-        } else if (op === 'entregar') {
-          const nuevoFis = Math.max(0, fisico - qty);
-          const nuevoRes = Math.max(0, reservado - qty);
-          celdaFis.setValue(nuevoFis);
-          celdaRes.setValue(nuevoRes);
-          celdaDisp.setValue(nuevoFis - nuevoRes);
-        }
+        const celdaFis = hProductos.getRange(r + 1, 4); // D = Stock Físico
+        const fisico   = Number(celdaFis.getValue()) || 0;
+        celdaFis.setValue(Math.max(0, fisico + (qty * signo)));
         break;
       }
     }
   });
+}
+
+// ── Fórmulas en Productos: Reservado (E) y Disponible (F) ───
+// Ejecutar UNA vez — pone fórmulas SUMPRODUCT que se auto-actualizan.
+// Abreviatura (col C de Productos) → letra de columna en Home
+const ABBR_TO_HOME_COL = {
+  'PPM':'S', 'PPJyQ':'T', 'PPCyQ':'U',
+  'SCo':'V', 'SJyQ':'W', 'SCa':'X',
+  'ECaC':'Y', 'EJyQ':'Z',
+  'TG':'AA', 'TLC':'AB', 'TC':'AC', 'F':'AD',
+  'PMar':'AE', 'PJyQ':'AF', 'PCC':'AG', 'PJyM':'AH',
+};
+
+function setupProductosFormulas() {
+  const hProd = SS.getSheetByName('Productos');
+  if (!hProd) return;
+  const data = hProd.getDataRange().getValues();
+
+  for (let r = 1; r < data.length; r++) {
+    const abbr    = String(data[r][2]).trim(); // col C = Abreviatura
+    const homeCol = ABBR_TO_HOME_COL[abbr];
+    if (!homeCol) continue;
+
+    const rowNum = r + 1;
+
+    // Col E (Reservado) = SUMPRODUCT: suma cantidades donde I="Depósito" Y K="Reservado"
+    hProd.getRange(rowNum, 5).setFormula(
+      '=SUMPRODUCT((Home!$I:$I="Depósito")*(Home!$K:$K="Reservado")*(Home!' + homeCol + ':' + homeCol + '))'
+    );
+
+    // Col F (Disponible) = Stock Físico - Reservado
+    hProd.getRange(rowNum, 6).setFormula('=D' + rowNum + '-E' + rowNum);
+  }
+
+  SS.toast('✅ Fórmulas de Reservado y Disponible actualizadas', 'Productos', 5);
 }
 
 // ── Pedidos (legacy): sync stock cuando cambia Estado ────────
