@@ -1142,6 +1142,28 @@ function enviarPedido(){
   clearError('f-telefono', 'err-telefono');
   clearError('f-dia',      'err-dia');
   $id('err-pago').classList.remove('visible');
+  /* Validar stock en tiempo real antes de enviar */
+  let stockProblems = [];
+  Object.entries(cart).forEach(([id, qty]) => {
+    const avail = stockMap[+id];
+    if (avail !== undefined) {
+      if (avail === 0) {
+        const p = PRODUCTOS.find(p => p.id === +id);
+        stockProblems.push(p ? p.nombre + ' (sin stock)' : 'Producto sin stock');
+        delete cart[id];
+      } else if (qty > avail) {
+        const p = PRODUCTOS.find(p => p.id === +id);
+        cart[id] = avail;
+        stockProblems.push(p ? p.nombre + ' (solo quedan ' + avail + ')' : 'Stock ajustado');
+      }
+    }
+  });
+  if (stockProblems.length > 0) {
+    updateUI();
+    Object.keys(cart).forEach(id => renderCardFooter(id));
+    toast('⚠️ Stock actualizado: ' + stockProblems.join(', '));
+    return;
+  }
   /* Validar carrito */
   if(cartCount() === 0) {
     toast('⚠️ Agregá al menos un producto');
@@ -1400,8 +1422,20 @@ async function fetchStock() {
       const abbr = PROD_ABBR[p.id];
       if (abbr && abbrStock[abbr] !== undefined) stockMap[p.id] = abbrStock[abbr];
     });
+    // Ajustar carrito si el stock bajó mientras navegaba
+    let ajustado = false;
+    Object.entries(cart).forEach(([id, qty]) => {
+      const avail = stockMap[+id];
+      if (avail !== undefined && qty > avail) {
+        if (avail === 0) delete cart[id];
+        else cart[id] = avail;
+        ajustado = true;
+        renderCardFooter(id);
+      }
+    });
+    if (ajustado) { updateUI(); toast('⚠️ Tu carrito fue ajustado por cambios de stock'); }
     updateStockDisplay();
-    loadLastOrder(); // re-renderizar con info de stock actualizada
+    loadLastOrder();
   } catch(e) { console.warn('fetchStock:', e); }
 }
 
@@ -1433,6 +1467,8 @@ const _formObs = new IntersectionObserver(([entry]) => {
 _formObs.observe(document.querySelector('.form-section'));
 $id('cart-badge').style.display = 'none';
 fetchStock();
+// Auto-refresh stock cada 30 segundos
+setInterval(fetchStock, 30000);
 /* BARRA DE CATEGORÍAS */
 function renderCatNav() {
   const nav = $id('cat-nav');
