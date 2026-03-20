@@ -462,13 +462,13 @@ function setupProductosFormulas() {
 
     const rowNum = r + 1;
 
-    // Col E (Reservado) = SUMPRODUCT: suma cantidades donde I="Depósito" Y K="Reservado"
-    hProd.getRange(rowNum, 5).setFormula(
-      '=SUMPRODUCT((Home!$I:$I="Depósito")*(Home!$K:$K="Reservado")*(Home!' + homeCol + ':' + homeCol + '))'
+    // Col E (Reservado) = SUMAPRODUCTO (español): suma cantidades donde I="Depósito" Y K="Reservado"
+    hProd.getRange(rowNum, 5).setFormulaLocal(
+      '=SUMAPRODUCTO((Home!$I:$I="Depósito")*(Home!$K:$K="Reservado")*(Home!' + homeCol + ':' + homeCol + '))'
     );
 
     // Col F (Disponible) = Stock Físico - Reservado
-    hProd.getRange(rowNum, 6).setFormula('=D' + rowNum + '-E' + rowNum);
+    hProd.getRange(rowNum, 6).setFormulaLocal('=D' + rowNum + '-E' + rowNum);
   }
 
   SS.toast('✅ Fórmulas de Reservado y Disponible actualizadas', 'Productos', 5);
