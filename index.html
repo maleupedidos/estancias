@@ -344,7 +344,7 @@
     .cart-total-row span:last-child { color:var(--orange); }
     .go-form-btn {
       display:block; width:100%; background:var(--brown); color:var(--cream);
-      border:none; border-radius:11px; padding:.85rem; font-family:var(--font);
+      border:none; border-radius:10px; padding:.85rem; font-family:var(--font);
       font-size:.97rem; font-weight:700; cursor:pointer; text-align:center;
       transition:background .15s;
     }
@@ -377,7 +377,7 @@
     label { font-size:.82rem; font-weight:700; color:var(--brown); }
     input[type="text"], input[type="tel"], select {
       width:100%; padding:.76rem 1rem; background:#fff;
-      border:1.5px solid var(--cream-dark); border-radius:11px;
+      border:1.5px solid var(--cream-dark); border-radius:10px;
       font-family:var(--font); font-size:.94rem; color:var(--brown);
       outline:none; appearance:none; transition:border-color .15s, box-shadow .15s;
     }
@@ -393,20 +393,21 @@
     .horario-hint {
       font-size:.78rem; color:var(--brown-mid); margin-top:.3rem; display:none;
     }
-    .pago-label { font-size:.82rem; font-weight:700; color:var(--brown); margin-bottom:.45rem; display:block; }
+    .pago-fieldset { border:none; margin:0; padding:0; }
+    .pago-label { font-size:.82rem; font-weight:700; color:var(--brown); margin-bottom:.45rem; display:block; padding:0; }
     .radio-row { display:flex; gap:.75rem; }
     .radio-opt { flex:1; position:relative; }
     .radio-opt input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
     .radio-opt label {
       display:flex; align-items:center; justify-content:center; gap:.4rem;
-      padding:.73rem .5rem; border:1.5px solid var(--cream-dark); border-radius:11px;
+      padding:.73rem .5rem; border:1.5px solid var(--cream-dark); border-radius:10px;
       background:#fff; cursor:pointer; font-size:.89rem; font-weight:600; color:var(--brown);
       transition:border-color .15s, background .15s, color .15s; user-select:none;
     }
     .radio-opt input:checked + label { border-color:var(--orange); background:var(--orange); color:#fff; }
     .whatsapp-btn {
       display:flex; align-items:center; justify-content:center; gap:.6rem;
-      width:100%; background:#25D366; color:#fff; border:none; border-radius:13px;
+      width:100%; background:#25D366; color:#fff; border:none; border-radius:10px;
       padding:1rem; font-family:var(--font); font-size:1.04rem; font-weight:700;
       cursor:pointer; margin-top:1.5rem;
       transition:background .15s, transform .1s, box-shadow .15s;
@@ -550,7 +551,7 @@
     .repeat-item-nostock { opacity:.45; text-decoration:line-through; }
     .repeat-btn:disabled { opacity:.4; cursor:not-allowed; }
     .repeat-btn {
-      display:block; width:100%; background:var(--orange); color:#fff; border:none; border-radius:9px;
+      display:block; width:100%; background:var(--orange); color:#fff; border:none; border-radius:10px;
       padding:.62rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer;
       transition:background .15s;
     }
@@ -660,7 +661,7 @@
 <aside class="cart-sidebar" id="cart-sidebar">
   <div class="cart-head">
     <h3>Tu pedido</h3>
-    <button class="close-cart-btn" onclick="toggleCart()">×</button>
+    <button class="close-cart-btn" onclick="toggleCart()" aria-label="Cerrar carrito">×</button>
   </div>
   <div class="cart-body" id="cart-body">
     <div class="cart-empty-msg"><span>🛒</span>Todavía no agregaste nada.</div>
@@ -676,7 +677,7 @@
 
 <!-- FORMULARIO -->
 <section class="form-section">
-  <div class="form-wrap">
+  <form class="form-wrap" onsubmit="event.preventDefault(); enviarPedido();">
     <h2 class="section-heading">Completá tu pedido</h2>
     <p class="section-sub">Revisá el resumen y completá tus datos.</p>
 
@@ -689,7 +690,7 @@
       <div class="field-group">
         <label for="f-nombre">Nombre y apellido</label>
         <input type="text" id="f-nombre" placeholder="Ej: Ana García" autocomplete="name" onblur="validateOnBlur('nombre')">
-        <span class="field-error" id="err-nombre">⚠ Completá tu nombre y apellido</span>
+        <span class="field-error" role="alert" id="err-nombre">⚠ Completá tu nombre y apellido</span>
       </div>
       <div class="field-group">
         <label for="f-barrio-privado">Barrio Privado</label>
@@ -701,7 +702,7 @@
             <option value="Estancias del Río">Estancias del Río</option>
           </select>
         </div>
-        <span class="field-error" id="err-barrio-privado">⚠ Elegí tu barrio privado</span>
+        <span class="field-error" role="alert" id="err-barrio-privado">⚠ Elegí tu barrio privado</span>
       </div>
       <div class="field-group" id="field-sub-barrio" style="display:none">
         <label for="f-barrio">Sub Barrio</label>
@@ -722,18 +723,18 @@
             <option value="Barrio Estancias del Rio" data-privado="Estancias del Río">Barrio Estancias del Rio</option>
           </select>
         </div>
-        <span class="field-error" id="err-barrio">⚠ Elegí tu sub barrio</span>
+        <span class="field-error" role="alert" id="err-barrio">⚠ Elegí tu sub barrio</span>
       </div>
       <div class="field-group">
         <label for="f-direccion">Lote</label>
         <input type="text" id="f-direccion" placeholder="Ej: 45" autocomplete="street-address" onblur="validateOnBlur('direccion')">
-        <span class="field-error" id="err-direccion">⚠ Completá tu lote</span>
+        <span class="field-error" role="alert" id="err-direccion">⚠ Completá tu lote</span>
       </div>
       <div class="form-row form-row-2">
         <div class="field-group">
           <label for="f-telefono">WhatsApp / Teléfono</label>
           <input type="tel" id="f-telefono" placeholder="11 5555 5555" autocomplete="tel" onblur="validateOnBlur('telefono')">
-          <span class="field-error" id="err-telefono">⚠ Completá tu número de WhatsApp</span>
+          <span class="field-error" role="alert" id="err-telefono">⚠ Completá tu número de WhatsApp</span>
         </div>
         <div class="field-group">
           <label for="f-dia">Día de entrega</label>
@@ -747,12 +748,12 @@
               <option value="Domingo">Domingo</option>
             </select>
           </div>
-          <span class="field-error" id="err-dia">⚠ Elegí un día de entrega</span>
+          <span class="field-error" role="alert" id="err-dia">⚠ Elegí un día de entrega</span>
         </div>
       </div>
       <p class="horario-hint" id="horario-hint"></p>
-      <div id="pago-group">
-  <span class="pago-label">Método de pago</span>
+      <fieldset id="pago-group" class="pago-fieldset">
+  <legend class="pago-label">Método de pago</legend>
   <div class="radio-row">
     <div class="radio-opt">
       <input type="radio" id="pago-ef" name="pago" value="Efectivo">
@@ -763,17 +764,17 @@
       <label for="pago-tr">📲 Transferencia</label>
     </div>
   </div>
-  <span class="pago-error" id="err-pago">⚠ Elegí un método de pago</span>
-</div>
+  <span class="pago-error" id="err-pago" role="alert">⚠ Elegí un método de pago</span>
+</fieldset>
       </div>
     </div>
 
     <p class="form-note">Abrimos WhatsApp con tu pedido completo — vos confirmás antes de que salga.</p>
-    <button class="whatsapp-btn" onclick="enviarPedido()">
+    <button type="submit" class="whatsapp-btn">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
       Pedir por WhatsApp
     </button>
-  </div>
+  </form>
 </section>
 
 <!-- FOOTER -->
@@ -809,7 +810,7 @@
 </footer>
 
 <button class="float-cart-btn" id="float-cart-btn" onclick="toggleCart()"></button>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
   
