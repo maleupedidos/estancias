@@ -22,10 +22,11 @@
 <meta name="twitter:title"       content="Maleu — Rico, listo, sin drama." />
 <meta name="twitter:description" content="Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar. Pedís por WhatsApp, nosotros entregamos." />
 <meta name="twitter:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg" />
+<meta name="theme-color" content="#3D1C0A" />
 <!-- Favicon provisional (emoji) -->
 <link rel="icon" href="img/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
 
   <!--
   ═══════════════════════════════════════════════════════
@@ -72,6 +73,7 @@
       --white:  #FAFAFA;
       --brown-mid: #7A4A4A;
       --cream-dark: #D4C8A0;
+      --hover-orange: #D96B38;
       --font: 'Montserrat', system-ui, sans-serif;
     }
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
@@ -87,14 +89,14 @@
     .logo-wrap { display:flex; align-items:center; gap:.6rem; }
     .logo-ico  { height:38px; width:auto; }
     .logo-name { font-size:1.65rem; font-weight:800; color:#fff; letter-spacing:-.03em; line-height:1; }
-    .logo-tag  { font-size:.65rem; color:rgba(255,255,255,.5); margin-top:2px; letter-spacing:.04em; }
+    .logo-tag  { font-size:.65rem; color:rgba(255,255,255,.75); margin-top:2px; letter-spacing:.04em; }
     .cart-btn {
       display:flex; align-items:center; gap:.45rem;
       background:var(--orange); color:#fff; border:none; border-radius:50px;
       padding:.55rem 1.1rem .55rem .85rem; font-family:var(--font); font-weight:700; font-size:.9rem;
       cursor:pointer; transition:background .15s, transform .1s;
     }
-    .cart-btn:hover  { background:#D96B38; }
+    .cart-btn:hover  { background:var(--hover-orange); }
     .cart-btn:active { transform:scale(.97); }
     .cart-badge {
       background:#fff; color:var(--orange); border-radius:50%;
@@ -122,7 +124,7 @@
       line-height:1.1; letter-spacing:-.02em; margin-bottom:.75rem;
     }
     .hero h2 span { color:var(--orange); }
-    .hero-sub { font-size:.98rem; color:var(--brown-mid); max-width:420px; margin:0 auto 1.4rem; }
+    .hero-sub { font-size:.98rem; color:#5A3535; max-width:420px; margin:0 auto 1.4rem; }
     .hero-delivery {
       font-size:.78rem; color:var(--brown-mid); margin-bottom:1.2rem;
       background:rgba(51,28,28,.07); display:inline-block;
@@ -269,8 +271,8 @@
     .product-top-badge {
       display:inline-flex; align-items:center; gap:.2rem;
       background:#FFF3CD; color:#7a5a00; border:1px solid #f0d060;
-      font-size:.58rem; font-weight:700; letter-spacing:.03em;
-      padding:.12rem .4rem; border-radius:50px; margin-bottom:.3rem; width:fit-content;
+      font-size:.7rem; font-weight:700; letter-spacing:.03em;
+      padding:.18rem .5rem; border-radius:50px; margin-bottom:.3rem; width:fit-content;
     }
     .product-name   { font-size:1.01rem; font-weight:700; color:var(--brown); margin-bottom:.32rem; line-height:1.25; }
     .product-desc   { font-size:.79rem; color:var(--brown-mid); line-height:1.48; flex:1; margin-bottom:.85rem; }
@@ -283,7 +285,7 @@
       cursor:pointer; transition:background .15s, transform .1s, box-shadow .15s; flex-shrink:0;
       box-shadow:0 2px 8px rgba(240,125,71,.35);
     }
-    .add-btn:hover  { background:#D96B38; box-shadow:0 4px 14px rgba(240,125,71,.45); }
+    .add-btn:hover  { background:var(--hover-orange); box-shadow:0 4px 14px rgba(240,125,71,.45); }
     .add-btn:active { transform:scale(.95); box-shadow:none; }
 
     /* CART */
@@ -307,7 +309,8 @@
     .cart-head h3 { font-size:1.05rem; font-weight:700; }
     .close-cart-btn {
       background:none; border:none; color:#fff; font-size:1.65rem; line-height:1;
-      cursor:pointer; opacity:.8; transition:opacity .15s; padding:0 .2rem;
+      cursor:pointer; opacity:.8; transition:opacity .15s; padding:.5rem;
+      min-width:2.75rem; min-height:2.75rem; display:flex; align-items:center; justify-content:center;
     }
     .close-cart-btn:hover { opacity:1; }
     .cart-body { flex:1; overflow-y:auto; padding:1.1rem 1.2rem; }
@@ -324,10 +327,10 @@
     .cart-item-info  { flex:1; min-width:0; }
     .cart-item-name  { font-size:.95rem; font-weight:700; color:var(--brown); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .cart-item-sub   { font-size:.82rem; color:var(--brown-mid); margin-top:1px; }
-    .qty-controls { display:flex; align-items:center; gap:.45rem; flex-shrink:0; }
+    .qty-controls { display:flex; align-items:center; gap:.5rem; flex-shrink:0; }
     .qty-btn {
-      background:var(--cream); border:none; border-radius:8px;
-      width:2.25rem; height:2.25rem; font-size:1.1rem; font-weight:700; color:var(--brown);
+      background:var(--cream); border:none; border-radius:10px;
+      width:2.6rem; height:2.6rem; font-size:1.15rem; font-weight:700; color:var(--brown);
       cursor:pointer; display:flex; align-items:center; justify-content:center;
       transition:background .12s, color .12s;
     }
@@ -453,9 +456,9 @@
   color: #fff;
   border: none;
   border-radius: 9px;
-  width: 2.35rem;
-  height: 2.35rem;
-  font-size: 1.15rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  font-size: 1.2rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -463,9 +466,8 @@
   justify-content: center;
   transition: background .12s, transform .1s;
   flex-shrink: 0;
-  /* Área táctil generosa para mobile */
-  min-width: 2.35rem;
-  min-height: 2.35rem;
+  min-width: 2.6rem;
+  min-height: 2.6rem;
 }
 .card-qty-btn:hover  { background: #D96B38; }
 .card-qty-btn:active { transform: scale(.93); }
@@ -552,7 +554,7 @@
       padding:.62rem; font-family:var(--font); font-size:.88rem; font-weight:700; cursor:pointer;
       transition:background .15s;
     }
-    .repeat-btn:hover { background:#D96B38; }
+    .repeat-btn:hover { background:var(--hover-orange); }
 
     /* FLOATING CART BUTTON (mobile only) */
     .float-cart-btn {
@@ -724,7 +726,7 @@
       </div>
       <div class="field-group">
         <label for="f-direccion">Lote</label>
-        <input type="text" id="f-direccion" placeholder="Ej: Lote 45" autocomplete="street-address" onblur="validateOnBlur('direccion')">
+        <input type="text" id="f-direccion" placeholder="Ej: 45" autocomplete="street-address" onblur="validateOnBlur('direccion')">
         <span class="field-error" id="err-direccion">⚠ Completá tu lote</span>
       </div>
       <div class="form-row form-row-2">
@@ -883,6 +885,7 @@ let cart = {};
 let _enviando = false;
 let _formVisible = false;
 let stockMap = {}; // { id: stockDisponible } — cargado desde Sheets al inicio
+const PROD_MAP = {}; PRODUCTOS.forEach(p => PROD_MAP[p.id] = p); // lookup O(1)
 
 function $id(id){ return document.getElementById(id); }
 function ars(n) { return '$' + n.toLocaleString('es-AR'); }
@@ -934,7 +937,7 @@ function renderCardFooter(id) {
   if (!card) return;
   const footer = card.querySelector('.product-footer');
   if (!footer) return;
-  const p = PRODUCTOS.find(p => p.id === +id);
+  const p = PROD_MAP[+id];
   if (!p) return;
   const qty = cart[id] || 0;
   const avail = stockMap[+id];
@@ -966,11 +969,18 @@ function addToCart(id){
   cart[id] = (cart[id] || 0) + 1;
   updateUI();
   renderCardFooter(id);
-  const p = PRODUCTOS.find(p => p.id === id);
+  const p = PROD_MAP[id];
   toast(`✓ ${p.nombre} agregado`);
 }
 function changeQty(id, delta){
   if (!cart[id]) return;
+  if (delta > 0) {
+    const avail = stockMap[+id];
+    if (avail !== undefined && cart[id] >= avail) {
+      toast('⚠️ No hay más stock de este producto');
+      return;
+    }
+  }
   cart[id] += delta;
   if (cart[id] <= 0) delete cart[id];
   updateUI();
@@ -1007,7 +1017,7 @@ function updateUI(){
   } else {
     footEl.style.display = 'block';
     bodyEl.innerHTML = Object.entries(cart).map(([id, qty]) => {
-      const p = PRODUCTOS.find(p => p.id === +id);
+      const p = PROD_MAP[+id];
       if (!p) return '';
       return `<div class="cart-item">
         <span class="cart-item-emoji">${p.emoji}</span>
@@ -1033,7 +1043,7 @@ function updateFormSummary(){
     return;
   }
   el.innerHTML = Object.entries(cart).map(([id,qty]) => {
-    const p = PRODUCTOS.find(p => p.id === +id);
+    const p = PROD_MAP[+id];
     if(!p) return '';
     return `<div class="summary-line"><span>${p.nombre} <strong>×${qty}</strong></span><span>${ars(p.precio*qty)}</span></div>`;
   }).join('') + `<div class="summary-line total-line"><span>Total</span><span>${ars(cartTotal())}</span></div>`;
@@ -1150,11 +1160,11 @@ function enviarPedido(){
     const avail = stockMap[+id];
     if (avail !== undefined) {
       if (avail === 0) {
-        const p = PRODUCTOS.find(p => p.id === +id);
+        const p = PROD_MAP[+id];
         stockProblems.push(p ? p.nombre + ' (sin stock)' : 'Producto sin stock');
         delete cart[id];
       } else if (qty > avail) {
-        const p = PRODUCTOS.find(p => p.id === +id);
+        const p = PROD_MAP[+id];
         cart[id] = avail;
         stockProblems.push(p ? p.nombre + ' (solo quedan ' + avail + ')' : 'Stock ajustado');
       }
@@ -1219,7 +1229,7 @@ function enviarPedido(){
 /* Agrupar productos por categoría */
   const porCategoria = {};
   Object.entries(cart).forEach(([id, qty]) => {
-    const p = PRODUCTOS.find(p => p.id === +id);
+    const p = PROD_MAP[+id];
     if (!p) return;
     if (!porCategoria[p.cat]) porCategoria[p.cat] = [];
     porCategoria[p.cat].push({ nombre: p.nombre, qty, subtotal: p.precio * qty });
@@ -1270,7 +1280,7 @@ function enviarPedido(){
 
   /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
   const items = Object.entries(cart).map(([id, qty]) => {
-    const p = PRODUCTOS.find(p => p.id === +id);
+    const p = PROD_MAP[+id];
     return p ? { id: p.id, nombre: p.nombre, qty, precio: p.precio } : null;
   }).filter(Boolean);
   fetch(APPS_SCRIPT_URL, {
@@ -1302,7 +1312,7 @@ function enviarPedido(){
     waBtn.innerHTML = '<span>\u2713</span> \u00A1Listo! Abrimos WhatsApp\u2026';
   }
 
-  window.open('https://wa.me/' + WA_NUMBER + '?text=' + urlText, '_blank');
+  window.location.href = 'https://wa.me/' + WA_NUMBER + '?text=' + urlText;
 
   /* Limpiar estado tras envío */
   setTimeout(() => {
@@ -1354,7 +1364,7 @@ function loadLastOrder() {
     const list  = $id('repeat-items');
     if (!block || !list) return;
     const lines = items.map(({ id, qty }) => {
-      const p = PRODUCTOS.find(p => p.id === id);
+      const p = PROD_MAP[id];
       if (!p) return '';
       const avail = stockMap[id];
       const sinStock = avail !== undefined && avail === 0;
@@ -1378,7 +1388,7 @@ function repeatLastOrder() {
     if (!items || !items.length) return;
     let agregados = 0;
     items.forEach(({ id, qty }) => {
-      const p = PRODUCTOS.find(p => p.id === id);
+      const p = PROD_MAP[id];
       if (!p) return;
       const avail = stockMap[id];
       if (avail !== undefined && avail === 0) return; // saltar sin stock
@@ -1414,7 +1424,13 @@ async function fetchStock() {
     // CSV: ID, Nombre, Abreviatura, Stock Físico, Reservado, Stock Disponible, ...
     const abbrStock = {};
     rows.slice(1).forEach(row => {
-      const cols = row.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+      const cols = []; let cur = ''; let inQ = false;
+      for (const ch of row) {
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      cols.push(cur.trim());
       const abbr = cols[2];                // col C = Abreviatura
       const disp = parseInt(cols[5]);      // col F = Stock Disponible
       if (abbr && !isNaN(disp)) abbrStock[abbr] = disp;
@@ -1465,12 +1481,16 @@ loadLastOrder();
 const _formObs = new IntersectionObserver(([entry]) => {
   _formVisible = entry.isIntersecting;
   updateUI();
-}, { threshold: 0.1 });
+}, { threshold: 0.3 });
 _formObs.observe(document.querySelector('.form-section'));
 $id('cart-badge').style.display = 'none';
 fetchStock();
-// Auto-refresh stock cada 30 segundos
-setInterval(fetchStock, 30000);
+// Auto-refresh stock cada 30 seg (pausa cuando la pestaña no es visible)
+let _stockTimer = setInterval(fetchStock, 30000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { clearInterval(_stockTimer); _stockTimer = null; }
+  else { fetchStock(); _stockTimer = setInterval(fetchStock, 30000); }
+});
 /* BARRA DE CATEGORÍAS */
 function renderCatNav() {
   const nav = $id('cat-nav');
