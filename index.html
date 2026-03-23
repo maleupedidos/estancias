@@ -738,6 +738,7 @@
           <div class="select-wrapper">
             <select id="f-dia" onchange="onDiaChange()" onblur="validateOnBlur('dia')">
               <option value="">Elegí un día</option>
+              <option value="Lunes">Lunes</option>
               <option value="Miércoles">Miércoles</option>
               <option value="Viernes">Viernes</option>
               <option value="Sábado">Sábado</option>
@@ -785,6 +786,7 @@
     <div class="footer-col">
       <div class="footer-col-label">Días y horarios de entrega</div>
       <table class="hours-table">
+        <tr><td>Lunes</td><td>19 a 21 hs</td></tr>
         <tr><td>Miércoles</td><td>19 a 21 hs</td></tr>
         <tr><td>Viernes</td><td>19 a 21 hs</td></tr>
         <tr><td>Sábado</td><td>19 a 21 hs</td></tr>
@@ -869,7 +871,7 @@ const CATEGORIAS = [
 ];
 
 /* Horarios */
-const HORARIOS = { "Miércoles":"19 a 21 hs", "Viernes":"19 a 21 hs", "Sábado":"19 a 21 hs", "Domingo":"11 a 13 hs" };
+const HORARIOS = { "Lunes":"19 a 21 hs", "Miércoles":"19 a 21 hs", "Viernes":"19 a 21 hs", "Sábado":"19 a 21 hs", "Domingo":"11 a 13 hs" };
 const WA_NUMBER = "5491155038905";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxgM94Ya29bOGeZFv4Y_si_oaX50rMz8vGoqyql9tVPAdw9f5RpIEN-A92hB1VP6kzeNQ/exec";
 // URL del CSV público de la hoja "Productos" en Google Sheets.
