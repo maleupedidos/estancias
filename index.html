@@ -1433,7 +1433,7 @@ async function fetchStock() {
       }
       cols.push(cur.trim());
       const abbr = cols[2];                // col C = Abreviatura
-      const disp = parseInt(cols[5]);      // col F = Stock Disponible
+      const disp = parseInt(cols[7]);      // col H = Stock Disponible
       if (abbr && !isNaN(disp)) abbrStock[abbr] = disp;
     });
     // Cruzar con IDs de la página usando abreviatura

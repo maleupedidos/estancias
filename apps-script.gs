@@ -189,7 +189,7 @@ function _doPostHome(data) {
       if (!abbr) return;
       for (let r = 1; r < prodData.length; r++) {
         if (String(prodData[r][2]).trim() === abbr) { // col C = Abreviatura
-          const costoUnit = Number(prodData[r][7]) || 0; // col H = Costo
+          const costoUnit = Number(prodData[r][9]) || 0; // col J = Costo
           costoTotal += costoUnit * (Number(item.qty) || 0);
           break;
         }
@@ -417,7 +417,7 @@ function _onEditHome(e) {
   }
 }
 
-// Ajusta Stock Físico (col D) de Productos. signo: -1 = restar, +1 = sumar
+// Ajusta Stock Físico (col F=6) de Productos. signo: -1 = restar, +1 = sumar
 function _homeStockFisico(shHome, row, hProductos, signo) {
   const cantidades = shHome.getRange(row, 19, 1, 16).getValues()[0]; // cols S–AH
   const prodData   = hProductos.getDataRange().getValues();
@@ -430,7 +430,7 @@ function _homeStockFisico(shHome, row, hProductos, signo) {
 
     for (let r = 1; r < prodData.length; r++) {
       if (String(prodData[r][2]).trim() === abbr) {
-        const celdaFis = hProductos.getRange(r + 1, 4); // D = Stock Físico
+        const celdaFis = hProductos.getRange(r + 1, 6); // F = Stock Físico
         const fisico   = Number(celdaFis.getValue()) || 0;
         celdaFis.setValue(Math.max(0, fisico + (qty * signo)));
         break;
@@ -461,17 +461,43 @@ function setupProductosFormulas() {
     if (!homeCol) continue;
 
     const rowNum = r + 1;
+    var dep = 'Dep' + '\u00F3sito';
 
-    // Col E (Reservado) = SUMPRODUCT: suma cantidades donde I="Depósito" Y K="Reservado"
-    // Rango desde fila 2 para excluir headers y evitar #VALUE!
-    var formulaRes = '=SUMPRODUCT((Home!$I$2:$I$10000="Dep' + '\u00F3sito")*(Home!$K$2:$K$10000="Reservado")*(Home!' + homeCol + '$2:' + homeCol + '$10000))';
-    hProd.getRange(rowNum, 5).setFormula(formulaRes);
+    // Col E (Vendidos Semana) = SUMPRODUCT: Entregados esta semana
+    hProd.getRange(rowNum, 5).setFormula(
+      '=SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Entregado")' +
+      '*(Home!$F$2:$F$10000=WEEKNUM(TODAY(),21))*(Home!$G$2:$G$10000=YEAR(TODAY()))' +
+      '*(Home!' + homeCol + '$2:' + homeCol + '$10000))'
+    );
 
-    // Col F (Disponible) = Stock Físico - Reservado
-    hProd.getRange(rowNum, 6).setFormula('=D' + rowNum + '-E' + rowNum);
+    // Col G (Reservado) = SUMPRODUCT: Reservados activos
+    hProd.getRange(rowNum, 7).setFormula(
+      '=SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Reservado")' +
+      '*(Home!' + homeCol + '$2:' + homeCol + '$10000))'
+    );
+
+    // Col H (Stock Disponible) = Stock Físico - Reservado
+    hProd.getRange(rowNum, 8).setFormula('=F' + rowNum + '-G' + rowNum);
+
+    // Col K (Margen Unitario) = Precio - Costo
+    hProd.getRange(rowNum, 11).setFormula('=I' + rowNum + '-J' + rowNum);
   }
 
-  SS.toast('Fórmulas de Reservado y Disponible actualizadas', 'Productos', 5);
+  SS.toast('Fórmulas actualizadas (Vendidos, Reservado, Disponible, Margen)', 'Productos', 5);
+}
+
+// Ejecutar al inicio de cada semana: copia Stock Físico → Stock Inicial Semana
+function resetStockSemanal() {
+  const hProd = SS.getSheetByName('Productos');
+  if (!hProd) return;
+  const lastRow = hProd.getLastRow();
+  if (lastRow < 2) return;
+
+  // Copiar col F (Stock Físico) → col D (Stock Inicial Semana)
+  const fisico = hProd.getRange(2, 6, lastRow - 1, 1).getValues();
+  hProd.getRange(2, 4, lastRow - 1, 1).setValues(fisico);
+
+  SS.toast('Stock Inicial Semana actualizado con el Stock Físico actual', 'Reset semanal', 5);
 }
 
 // ── Pedidos (legacy): sync stock cuando cambia Estado ────────
@@ -867,34 +893,73 @@ function _setupProductos() {
   let sh = SS.getSheetByName('Productos');
   if (!sh) return;
 
-  sh.getRange(1, 1, 1, 6).setValues([['ID','Nombre','Stock Físico','Reservado','Stock Disponible','Precio']])
+  // ── Encabezados ─────────────────────────────────────────────
+  const headers = [
+    'ID','Producto','Abreviatura',
+    'Stock Inicial\nSemana','Vendidos\nSemana','Stock Físico',
+    'Reservado','Stock Disponible',
+    'Precio','Costo','Margen Unit.'
+  ];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
     .setFontWeight('bold').setFontSize(10)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setWrap(true);
 
   sh.setFrozenRows(1);
-  sh.setRowHeight(1, 36);
-  [50, 230, 100, 90, 140, 90].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setRowHeight(1, 44);
 
-  sh.getRange('F2:F100').setNumberFormat('$#,##0');
-  sh.getRange('C2:E100').setHorizontalAlignment('center');
+  // ── Ancho de columnas ──────────────────────────────────────
+  [40, 230, 70, 100, 90, 95, 90, 115, 90, 90, 95].forEach((w, i) => sh.setColumnWidth(i + 1, w));
 
-  // Conditional formatting — Stock Disponible (col E)
+  // ── Formato numérico ──────────────────────────────────────
+  sh.getRange('I2:K100').setNumberFormat('$#,##0');
+
+  // ── Centrar columnas numéricas ─────────────────────────────
+  sh.getRange('A2:A100').setHorizontalAlignment('center');
+  sh.getRange('C2:H100').setHorizontalAlignment('center');
+
+  // ── Conditional formatting — Stock Disponible (col H) ──────
+  const hRange = sh.getRange('H2:H100');
+  const rules = [];
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberEqualTo(0)
+    .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true)
+    .setRanges([hRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberBetween(1, 5)
+    .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
+    .setRanges([hRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberGreaterThan(5)
+    .setBackground('#C8E6C9').setFontColor('#1B5E20')
+    .setRanges([hRange]).build());
+
+  // Vendidos Semana (col E) — resaltar si vendió algo
   const eRange = sh.getRange('E2:E100');
-  sh.setConditionalFormatRules([
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenNumberEqualTo(0)
-      .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true)
-      .setRanges([eRange]).build(),
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenNumberBetween(1, 5)
-      .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
-      .setRanges([eRange]).build(),
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenNumberGreaterThan(5)
-      .setBackground('#C8E6C9').setFontColor('#1B5E20')
-      .setRanges([eRange]).build(),
-  ]);
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberGreaterThan(0)
+    .setBackground('#E3F2FD').setFontColor('#0D47A1').setBold(true)
+    .setRanges([eRange]).build());
+
+  // Margen Unitario (col K) — verde positivo, rojo negativo
+  const kRange = sh.getRange('K2:K100');
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberGreaterThan(0)
+    .setBackground('#E8F5E9').setFontColor('#1B5E20')
+    .setRanges([kRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberLessThanOrEqualTo(0)
+    .setBackground('#FFEBEE').setFontColor('#B71C1C')
+    .setRanges([kRange]).build());
+
+  sh.setConditionalFormatRules(rules);
+
+  // ── Banding ────────────────────────────────────────────────
+  try { sh.getRange('A2:K100').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
+  catch(ex) {}
+
+  sh.setTabColor('#1B5E20');
 }
 
 // ── Hoja: Detalle_Pedidos ────────────────────────────────────
