@@ -455,6 +455,12 @@ function setupProductosFormulas() {
   if (!hProd) return;
   const data = hProd.getDataRange().getValues();
 
+  // Calcular semana y año actuales en el script (evita funciones de locale)
+  var ahora = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var semanaActual = _isoWeek(argDate);
+  var anioActual   = argDate.getFullYear();
+
   for (let r = 1; r < data.length; r++) {
     const abbr    = String(data[r][2]).trim(); // col C = Abreviatura
     const homeCol = ABBR_TO_HOME_COL[abbr];
@@ -463,10 +469,10 @@ function setupProductosFormulas() {
     const rowNum = r + 1;
     var dep = 'Dep' + '\u00F3sito';
 
-    // Col E (Vendidos Semana) = SUMPRODUCT: Entregados esta semana
+    // Col E (Vendidos Semana) = SUMPRODUCT: Entregados semana actual
     hProd.getRange(rowNum, 5).setFormula(
       '=SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Entregado")' +
-      '*(Home!$F$2:$F$10000=WEEKNUM(TODAY(),21))*(Home!$G$2:$G$10000=YEAR(TODAY()))' +
+      '*(Home!$F$2:$F$10000=' + semanaActual + ')*(Home!$G$2:$G$10000=' + anioActual + ')' +
       '*(Home!' + homeCol + '$2:' + homeCol + '$10000))'
     );
 
@@ -483,10 +489,10 @@ function setupProductosFormulas() {
     hProd.getRange(rowNum, 11).setFormula('=I' + rowNum + '-J' + rowNum);
   }
 
-  SS.toast('Fórmulas actualizadas (Vendidos, Reservado, Disponible, Margen)', 'Productos', 5);
+  SS.toast('Formulas actualizadas (semana ' + semanaActual + '/' + anioActual + ')', 'Productos', 5);
 }
 
-// Ejecutar al inicio de cada semana: copia Stock Físico → Stock Inicial Semana
+// Ejecutar al inicio de cada semana: copia Stock Físico → Stock Inicial + actualiza fórmulas
 function resetStockSemanal() {
   const hProd = SS.getSheetByName('Productos');
   if (!hProd) return;
@@ -497,7 +503,10 @@ function resetStockSemanal() {
   const fisico = hProd.getRange(2, 6, lastRow - 1, 1).getValues();
   hProd.getRange(2, 4, lastRow - 1, 1).setValues(fisico);
 
-  SS.toast('Stock Inicial Semana actualizado con el Stock Físico actual', 'Reset semanal', 5);
+  // Actualizar fórmulas de Vendidos con la nueva semana
+  setupProductosFormulas();
+
+  SS.toast('Stock Inicial y formulas actualizados para la nueva semana', 'Reset semanal', 5);
 }
 
 // ── Pedidos (legacy): sync stock cuando cambia Estado ────────
