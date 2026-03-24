@@ -487,6 +487,9 @@ function setupProductosFormulas() {
 
     // Col K (Margen Unitario) = Precio - Costo
     hProd.getRange(rowNum, 11).setFormula('=I' + rowNum + '-J' + rowNum);
+
+    // Col L (Check D-E) = Stock Inicial - Vendidos (referencia para comparar con F)
+    hProd.getRange(rowNum, 12).setFormula('=D' + rowNum + '-E' + rowNum);
   }
 
   SS.toast('Formulas actualizadas (semana ' + semanaActual + '/' + anioActual + ')', 'Productos', 5);
@@ -907,7 +910,7 @@ function _setupProductos() {
     'ID','Producto','Abreviatura',
     'Stock Inicial\nSemana','Vendidos\nSemana','Stock Físico',
     'Reservado','Stock Disponible',
-    'Precio','Costo','Margen Unit.'
+    'Precio','Costo','Margen Unit.','Check\n(D-E)'
   ];
   sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
@@ -919,7 +922,7 @@ function _setupProductos() {
   sh.setRowHeight(1, 44);
 
   // ── Ancho de columnas ──────────────────────────────────────
-  [40, 230, 70, 100, 90, 95, 90, 115, 90, 90, 95].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  [40, 230, 70, 100, 90, 95, 90, 115, 90, 90, 95, 80].forEach((w, i) => sh.setColumnWidth(i + 1, w));
 
   // ── Formato numérico ──────────────────────────────────────
   sh.getRange('I2:K100').setNumberFormat('$#,##0');
@@ -962,10 +965,13 @@ function _setupProductos() {
     .setBackground('#FFEBEE').setFontColor('#B71C1C')
     .setRanges([kRange]).build());
 
+  // Check D-E (col L) — centrar
+  sh.getRange('L2:L100').setHorizontalAlignment('center');
+
   sh.setConditionalFormatRules(rules);
 
   // ── Banding ────────────────────────────────────────────────
-  try { sh.getRange('A2:K100').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
+  try { sh.getRange('A2:L100').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
   catch(ex) {}
 
   sh.setTabColor('#1B5E20');
