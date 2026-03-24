@@ -432,9 +432,9 @@ function _registrarFechaEntrega(sh, row) {
   var mi      = String(argDate.getMinutes()).padStart(2, '0');
 
   sh.getRange(row, 41, 1, 5).setValues([[
-    dd + '/' + mm + '/' + yyyy,       // AO  Fecha Entrega
-    hh + ':' + mi,                     // AP  Hora Entrega
-    DIAS[argDate.getDay()],            // AQ  Día Entrega
+    hh + ':' + mi,                     // AO  Hora Entrega
+    DIAS[argDate.getDay()],            // AP  Día Entrega
+    dd + '/' + mm + '/' + yyyy,        // AQ  Fecha Entrega
     _isoWeek(argDate),                 // AR  Semana Entrega
     yyyy                               // AS  Año Entrega
   ]]);
@@ -612,7 +612,7 @@ function _setupHome() {
     'PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ',
     'TG','TLC','TC','F','PMar','PJyQ','PCC','PJyM',
     'Costo','Margen Bruto','Barrio','Sub Barrio','Domicilio - Lote','Teléfono',
-    'Fecha Entrega','Hora Entrega','Día Entrega','Semana Entrega','Año Entrega'
+    'Hora Entrega','Día Entrega','Fecha Entrega','Semana Entrega','Año Entrega'
   ];
   sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
@@ -649,7 +649,7 @@ function _setupHome() {
   // AI–AN
   [95, 100, 140, 140, 130, 130].forEach((w, i) => sh.setColumnWidth(35 + i, w));
   // AO–AS (Entrega)
-  [100, 65, 90, 75, 60].forEach((w, i) => sh.setColumnWidth(41 + i, w));
+  [65, 90, 100, 75, 60].forEach((w, i) => sh.setColumnWidth(41 + i, w));
 
   // ── Formato numérico ──────────────────────────────────────
   sh.getRange('N2:P5000').setNumberFormat('$#,##0');
