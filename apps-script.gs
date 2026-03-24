@@ -201,14 +201,15 @@ function _doPostHome(data) {
   const barrioPrivado = String(data.barrioPrivado || data.barrio || '');
   const subBarrio     = String(data.subBarrio     || '');
 
-  // ── Construir fila de 45 columnas (A a AS) ────────────────
-  const row = new Array(45).fill('');
+  // ── Construir fila de 46 columnas (A a AT) ────────────────
+  const row = new Array(46).fill('');
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
   row[0]  = horaStr;                            // A  Hora Pedido
   row[1]  = orderNum;                           // B  N° Pedido
   row[2]  = diaNombre;                          // C  Día Pedido
   row[3]  = fechaStr;                           // D  Fecha Pedido
-  row[4]  = mes;                                // E  Mes Pedido
+  row[4]  = MESES[mes - 1];                      // E  Mes Pedido (nombre)
   row[5]  = semana;                             // F  Semana Pedido
   row[6]  = yyyy;                               // G  Año Pedido
   row[7]  = String(data.nombre || '');          // H  Cliente
@@ -416,27 +417,29 @@ function _onEditHome(e) {
   // ← Sale de Entregado (corrección manual): devolver Stock Físico + borrar fecha entrega
   if (anterior === 'Entregado' && nuevo !== 'Entregado') {
     _homeStockFisico(sh, row, hProductos, +1);
-    sh.getRange(row, 41, 1, 5).clearContent(); // limpiar AO-AS
+    sh.getRange(row, 41, 1, 6).clearContent(); // limpiar AO-AT
   }
 }
 
-// Llena cols AO-AS con fecha/hora de entrega en zona Argentina
+// Llena cols AO-AT con fecha/hora de entrega en zona Argentina
 function _registrarFechaEntrega(sh, row) {
   var ahora   = new Date();
   var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
   var DIAS    = ['Domingo','Lunes','Martes','Mi\u00E9rcoles','Jueves','Viernes','S\u00E1bado'];
+  var MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var dd      = String(argDate.getDate()).padStart(2, '0');
   var mm      = String(argDate.getMonth() + 1).padStart(2, '0');
   var yyyy    = argDate.getFullYear();
   var hh      = String(argDate.getHours()).padStart(2, '0');
   var mi      = String(argDate.getMinutes()).padStart(2, '0');
 
-  sh.getRange(row, 41, 1, 5).setValues([[
+  sh.getRange(row, 41, 1, 6).setValues([[
     hh + ':' + mi,                     // AO  Hora Entrega
     DIAS[argDate.getDay()],            // AP  Día Entrega
     dd + '/' + mm + '/' + yyyy,        // AQ  Fecha Entrega
-    _isoWeek(argDate),                 // AR  Semana Entrega
-    yyyy                               // AS  Año Entrega
+    MESES[argDate.getMonth()],         // AR  Mes Entrega
+    _isoWeek(argDate),                 // AS  Semana Entrega
+    yyyy                               // AT  Año Entrega
   ]]);
 }
 
@@ -495,7 +498,7 @@ function setupProductosFormulas() {
     // Col E (Vendidos Semana) = SUMPRODUCT: Entregados por semana de ENTREGA (AR/AS)
     hProd.getRange(rowNum, 5).setFormula(
       '=SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Entregado")' +
-      '*(Home!$AR$2:$AR$10000=' + semanaActual + ')*(Home!$AS$2:$AS$10000=' + anioActual + ')' +
+      '*(Home!$AS$2:$AS$10000=' + semanaActual + ')*(Home!$AT$2:$AT$10000=' + anioActual + ')' +
       '*(Home!' + homeCol + '$2:' + homeCol + '$10000))'
     );
 
@@ -612,7 +615,7 @@ function _setupHome() {
     'PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ',
     'TG','TLC','TC','F','PMar','PJyQ','PCC','PJyM',
     'Costo','Margen Bruto','Barrio','Sub Barrio','Domicilio - Lote','Teléfono',
-    'Hora Entrega','Día Entrega','Fecha Entrega','Semana Entrega','Año Entrega'
+    'Hora Entrega','Día Entrega','Fecha Entrega','Mes Entrega','Semana Entrega','Año Entrega'
   ];
   sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
@@ -648,8 +651,8 @@ function _setupHome() {
   for (let c = 19; c <= 34; c++) sh.setColumnWidth(c, 55);
   // AI–AN
   [95, 100, 140, 140, 130, 130].forEach((w, i) => sh.setColumnWidth(35 + i, w));
-  // AO–AS (Entrega)
-  [65, 90, 100, 75, 60].forEach((w, i) => sh.setColumnWidth(41 + i, w));
+  // AO–AT (Entrega)
+  [65, 90, 100, 90, 75, 60].forEach((w, i) => sh.setColumnWidth(41 + i, w));
 
   // ── Formato numérico ──────────────────────────────────────
   sh.getRange('N2:P5000').setNumberFormat('$#,##0');
@@ -748,7 +751,7 @@ function _setupHome() {
 
   // ── Color de fondo alterno (banding) ──────────────────────
   try {
-    sh.getRange('A2:AS5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+    sh.getRange('A2:AT5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
   } catch(ex) {}
 
   // ── Tab color ─────────────────────────────────────────────
