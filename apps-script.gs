@@ -201,16 +201,16 @@ function _doPostHome(data) {
   const barrioPrivado = String(data.barrioPrivado || data.barrio || '');
   const subBarrio     = String(data.subBarrio     || '');
 
-  // ── Construir fila de 40 columnas (A a AN) ────────────────
-  const row = new Array(40).fill('');
+  // ── Construir fila de 45 columnas (A a AS) ────────────────
+  const row = new Array(45).fill('');
 
-  row[0]  = horaStr;                            // A  Hora
+  row[0]  = horaStr;                            // A  Hora Pedido
   row[1]  = orderNum;                           // B  N° Pedido
-  row[2]  = diaNombre;                          // C  Día
-  row[3]  = fechaStr;                           // D  Fecha
-  row[4]  = mes;                                // E  Mes
-  row[5]  = semana;                             // F  Semana
-  row[6]  = yyyy;                               // G  Año
+  row[2]  = diaNombre;                          // C  Día Pedido
+  row[3]  = fechaStr;                           // D  Fecha Pedido
+  row[4]  = mes;                                // E  Mes Pedido
+  row[5]  = semana;                             // F  Semana Pedido
+  row[6]  = yyyy;                               // G  Año Pedido
   row[7]  = String(data.nombre || '');          // H  Cliente
   row[8]  = 'Pendiente';                        // I  Origen (default)
   row[9]  = String(data.dia || '');             // J  Día de entrega elegido
@@ -234,6 +234,7 @@ function _doPostHome(data) {
   row[37] = subBarrio;                          // AL  Sub Barrio
   row[38] = String(data.lote || '');            // AM  Domicilio - Lote
   row[39] = String(data.telefono || '');        // AN  Teléfono
+  // AO-AS (indices 40-44) = Fecha/Hora/Día/Semana/Año Entrega → se llenan al marcar K="Entregado"
 
   sh.appendRow(row);
 }
@@ -406,15 +407,37 @@ function _onEditHome(e) {
   const hProductos = SS.getSheetByName('Productos');
   if (!hProductos) return;
 
-  // → Entregado: descontar Stock Físico (col D)
+  // → Entregado: descontar Stock Físico + registrar fecha/hora de entrega
   if (nuevo === 'Entregado' && anterior !== 'Entregado') {
-    _homeStockFisico(sh, row, hProductos, -1); // restar
+    _homeStockFisico(sh, row, hProductos, -1);
+    _registrarFechaEntrega(sh, row);
   }
 
-  // ← Sale de Entregado (corrección manual): devolver Stock Físico
+  // ← Sale de Entregado (corrección manual): devolver Stock Físico + borrar fecha entrega
   if (anterior === 'Entregado' && nuevo !== 'Entregado') {
-    _homeStockFisico(sh, row, hProductos, +1); // sumar de vuelta
+    _homeStockFisico(sh, row, hProductos, +1);
+    sh.getRange(row, 41, 1, 5).clearContent(); // limpiar AO-AS
   }
+}
+
+// Llena cols AO-AS con fecha/hora de entrega en zona Argentina
+function _registrarFechaEntrega(sh, row) {
+  var ahora   = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var DIAS    = ['Domingo','Lunes','Martes','Mi\u00E9rcoles','Jueves','Viernes','S\u00E1bado'];
+  var dd      = String(argDate.getDate()).padStart(2, '0');
+  var mm      = String(argDate.getMonth() + 1).padStart(2, '0');
+  var yyyy    = argDate.getFullYear();
+  var hh      = String(argDate.getHours()).padStart(2, '0');
+  var mi      = String(argDate.getMinutes()).padStart(2, '0');
+
+  sh.getRange(row, 41, 1, 5).setValues([[
+    dd + '/' + mm + '/' + yyyy,       // AO  Fecha Entrega
+    hh + ':' + mi,                     // AP  Hora Entrega
+    DIAS[argDate.getDay()],            // AQ  Día Entrega
+    _isoWeek(argDate),                 // AR  Semana Entrega
+    yyyy                               // AS  Año Entrega
+  ]]);
 }
 
 // Ajusta Stock Físico (col F=6) de Productos. signo: -1 = restar, +1 = sumar
@@ -469,10 +492,10 @@ function setupProductosFormulas() {
     const rowNum = r + 1;
     var dep = 'Dep' + '\u00F3sito';
 
-    // Col E (Vendidos Semana) = SUMPRODUCT: Entregados semana actual
+    // Col E (Vendidos Semana) = SUMPRODUCT: Entregados por semana de ENTREGA (AR/AS)
     hProd.getRange(rowNum, 5).setFormula(
       '=SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Entregado")' +
-      '*(Home!$F$2:$F$10000=' + semanaActual + ')*(Home!$G$2:$G$10000=' + anioActual + ')' +
+      '*(Home!$AR$2:$AR$10000=' + semanaActual + ')*(Home!$AS$2:$AS$10000=' + anioActual + ')' +
       '*(Home!' + homeCol + '$2:' + homeCol + '$10000))'
     );
 
@@ -582,13 +605,14 @@ function _setupHome() {
 
   // ── Encabezados ─────────────────────────────────────────────
   const headers = [
-    'Hora','N° Pedido','Día','Fecha','Mes','Semana','Año','Cliente',
-    'Origen','Día de Entrega','Estado de Entrega','Forma de Pago',
+    'Hora Pedido','N° Pedido','Día Pedido','Fecha Pedido','Mes Pedido','Semana Pedido','Año Pedido',
+    'Cliente','Origen','Día de Entrega Elegido','Estado de Entrega','Forma de Pago',
     'Estado de Pago','Total ($)','Efectivo','Transferencia',
     'Propina Efectivo','Propina Transferencia',
     'PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ',
     'TG','TLC','TC','F','PMar','PJyQ','PCC','PJyM',
-    'Costo','Margen Bruto','Barrio','Sub Barrio','Domicilio - Lote','Teléfono'
+    'Costo','Margen Bruto','Barrio','Sub Barrio','Domicilio - Lote','Teléfono',
+    'Fecha Entrega','Hora Entrega','Día Entrega','Semana Entrega','Año Entrega'
   ];
   sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
@@ -624,6 +648,8 @@ function _setupHome() {
   for (let c = 19; c <= 34; c++) sh.setColumnWidth(c, 55);
   // AI–AN
   [95, 100, 140, 140, 130, 130].forEach((w, i) => sh.setColumnWidth(35 + i, w));
+  // AO–AS (Entrega)
+  [100, 65, 90, 75, 60].forEach((w, i) => sh.setColumnWidth(41 + i, w));
 
   // ── Formato numérico ──────────────────────────────────────
   sh.getRange('N2:P5000').setNumberFormat('$#,##0');
@@ -722,7 +748,7 @@ function _setupHome() {
 
   // ── Color de fondo alterno (banding) ──────────────────────
   try {
-    sh.getRange('A2:AN5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+    sh.getRange('A2:AS5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
   } catch(ex) {}
 
   // ── Tab color ─────────────────────────────────────────────
