@@ -105,7 +105,7 @@ function _doPostPedido(data) {
 // ════════════════════════════════════════════════════════════
 
 // Mapeo id de producto (página web) → columna 1-based de la hoja Home
-// Con col A=Hora, los productos empiezan en col S (19) hasta AH (34)
+// Con col A=Hora, los productos empiezan en col S (19) hasta AJ (36)
 const HOME_PRODUCT_COLS = {
   5:  19,  // PPM   — Pack Muzarella x2
   6:  20,  // PPJyQ — Pack Jamón y Queso x2
@@ -115,21 +115,23 @@ const HOME_PRODUCT_COLS = {
   10: 24,  // SCa   — Sorrentinos Calabaza y Queso
   11: 25,  // ECaC  — Empanadas Carne a Cuchillo x8
   12: 26,  // EJyQ  — Empanadas Jamón y Queso x8
-  14: 27,  // TG    — Torta Golosa
-  15: 28,  // TLC   — Torta Lemon Crumble
-  16: 29,  // TC    — Torta Coco
-  13: 30,  // F     — Franui Leche
-  1:  31,  // PMar  — Pizza Margarita
-  2:  32,  // PJyQ  — Pizza Jamón y Queso
-  3:  33,  // PCC   — Pizza Cebolla Caramelizada
-  4:  34,  // PJyM  — Pizza Jamón y Morrón
+  17: 27,  // ECyQ  — Empanadas Cebolla y Queso x8
+  18: 28,  // EV    — Empanadas Verdura x8
+  14: 29,  // TG    — Torta Golosa
+  15: 30,  // TLC   — Torta Lemon Crumble
+  16: 31,  // TC    — Torta Coco
+  13: 32,  // F     — Franui Leche
+  1:  33,  // PMar  — Pizza Margarita
+  2:  34,  // PJyQ  — Pizza Jamón y Queso
+  3:  35,  // PCC   — Pizza Cebolla Caramelizada
+  4:  36,  // PJyM  — Pizza Jamón y Morrón
 };
 
 // Mapeo id de producto (página web) → abreviatura en hoja Productos (col C)
 const PAGE_ID_TO_ABBR = {
   5:  'PPM',   6:  'PPJyQ', 7:  'PPCyQ',
   8:  'SCo',   9:  'SJyQ',  10: 'SCa',
-  11: 'ECaC',  12: 'EJyQ',
+  11: 'ECaC',  12: 'EJyQ',  17: 'ECyQ', 18: 'EV',
   14: 'TG',    15: 'TLC',   16: 'TC',   13: 'F',
   1:  'PMar',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
 };
@@ -201,8 +203,8 @@ function _doPostHome(data) {
   const barrioPrivado = String(data.barrioPrivado || data.barrio || '');
   const subBarrio     = String(data.subBarrio     || '');
 
-  // ── Construir fila de 46 columnas (A a AT) ────────────────
-  const row = new Array(46).fill('');
+  // ── Construir fila de 48 columnas (A a AV) ────────────────
+  const row = new Array(48).fill('');
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
   row[0]  = horaStr;                            // A  Hora Pedido
@@ -224,18 +226,18 @@ function _doPostHome(data) {
   row[16] = 0;                                  // Q  Propina Efectivo (default $0)
   row[17] = 0;                                  // R  Propina Transferencia (default $0)
 
-  // Productos: cols S–AH (índices 18–33 en base-0)
+  // Productos: cols S–AJ (índices 18–35 en base-0)
   Object.keys(HOME_PRODUCT_COLS).forEach(function(id) {
     row[HOME_PRODUCT_COLS[id] - 1] = qtys[Number(id)] || 0;
   });
 
-  row[34] = costoTotal;                         // AI  Costo
-  row[35] = total - costoTotal;                 // AJ  Margen Bruto (Cobrado - Costo)
-  row[36] = barrioPrivado;                      // AK  Barrio
-  row[37] = subBarrio;                          // AL  Sub Barrio
-  row[38] = String(data.lote || '');            // AM  Domicilio - Lote
-  row[39] = String(data.telefono || '');        // AN  Teléfono
-  // AO-AS (indices 40-44) = Fecha/Hora/Día/Semana/Año Entrega → se llenan al marcar K="Entregado"
+  row[36] = costoTotal;                         // AK  Costo
+  row[37] = total - costoTotal;                 // AL  Margen Bruto (Cobrado - Costo)
+  row[38] = barrioPrivado;                      // AM  Barrio
+  row[39] = subBarrio;                          // AN  Sub Barrio
+  row[40] = String(data.lote || '');            // AO  Domicilio - Lote
+  row[41] = String(data.telefono || '');        // AP  Teléfono
+  // AQ-AV (indices 42-47) = Fecha/Hora/Día/Semana/Año Entrega → se llenan al marcar K="Entregado"
 
   sh.appendRow(row);
 }
@@ -369,14 +371,16 @@ const HOME_COL_TO_ABBR = {
   24: 'SCa',   // X
   25: 'ECaC',  // Y
   26: 'EJyQ',  // Z
-  27: 'TG',    // AA
-  28: 'TLC',   // AB
-  29: 'TC',    // AC
-  30: 'F',     // AD
-  31: 'PMar',  // AE
-  32: 'PJyQ',  // AF
-  33: 'PCC',   // AG
-  34: 'PJyM',  // AH
+  27: 'ECyQ',  // AA
+  28: 'EV',    // AB
+  29: 'TG',    // AC
+  30: 'TLC',   // AD
+  31: 'TC',    // AE
+  32: 'F',     // AF
+  33: 'PMar',  // AG
+  34: 'PJyQ',  // AH
+  35: 'PCC',   // AI
+  36: 'PJyM',  // AJ
 };
 
 // IMPORTANTE: esta función debe configurarse SOLO como trigger instalable.
@@ -390,13 +394,175 @@ function onEditHandler(e) {
   if (sheetName === 'Pedidos') return _onEditPedidos(e);
 }
 
-// ── Home: sync stock cuando cambia Estado de Entrega (col K=11) ──
-// Reservado y Disponible se manejan con FÓRMULAS en Productos (siempre precisos).
-// El trigger SOLO se ocupa de descontar Stock Físico al marcar "Entregado".
+// ════════════════════════════════════════════════════════════
+//  Orden de Compra — auto-generación desde Home/Delivery/Clubes
+// ════════════════════════════════════════════════════════════
+
+// Mapeo abreviatura → proveedor (desde hoja Proveedores)
+function _getAbbrToProveedor() {
+  const hProv = SS.getSheetByName('Proveedores');
+  if (!hProv) return {};
+  const data = hProv.getDataRange().getValues();
+  const map = {};
+  let lastProv = '';
+  for (let r = 1; r < data.length; r++) {
+    if (data[r][2] && String(data[r][2]).trim()) lastProv = String(data[r][2]).trim(); // col C = Proveedor
+    const abbr = String(data[r][4]).trim(); // col E = Abreviatura
+    if (abbr) map[abbr] = lastProv;
+  }
+  return map;
+}
+
+// Mapeo abreviatura → nombre producto (desde hoja Proveedores)
+function _getAbbrToProductName() {
+  const hProv = SS.getSheetByName('Proveedores');
+  if (!hProv) return {};
+  const data = hProv.getDataRange().getValues();
+  const map = {};
+  let lastProd = '';
+  for (let r = 1; r < data.length; r++) {
+    if (data[r][1] && String(data[r][1]).trim()) lastProd = String(data[r][1]).trim(); // col B = Producto
+    const abbr  = String(data[r][4]).trim(); // col E = Abreviatura
+    const gusto = String(data[r][3]).trim(); // col D = Gusto
+    if (abbr) map[abbr] = lastProd + (gusto ? ' — ' + gusto : '');
+  }
+  return map;
+}
+
+// Mapeo abreviatura → costo unitario (desde hoja Productos)
+function _getAbbrToCosto() {
+  const hProd = SS.getSheetByName('Productos');
+  if (!hProd) return {};
+  const data = hProd.getDataRange().getValues();
+  const map = {};
+  for (let r = 1; r < data.length; r++) {
+    const abbr = String(data[r][2]).trim(); // col C = Abreviatura
+    const costo = String(data[r][9]).replace(/[$.]/g, '').replace(/,/g, '').trim(); // col J = Costo
+    if (abbr) map[abbr] = parseFloat(costo) || 0;
+  }
+  return map;
+}
+
+/**
+ * Genera filas en Orden de Compra para un pedido dado.
+ * @param {string} canal - 'Home', 'Delivery' o 'Clubes'
+ * @param {number} row - fila del pedido en la hoja de origen
+ */
+function generarOrdenDeCompra(canal, row) {
+  const shOrigen = SS.getSheetByName(canal);
+  const shOC     = SS.getSheetByName('Orden de Compra');
+  if (!shOrigen || !shOC) return;
+
+  const rowData = shOrigen.getRange(row, 1, 1, shOrigen.getLastColumn()).getValues()[0];
+
+  // Determinar columnas de productos según canal
+  let prodStartCol, prodEndCol, colCliente, colPedido, colTelefono, colDiaEntrega;
+  let direccion = '';
+
+  if (canal === 'Home') {
+    prodStartCol = 18; prodEndCol = 35; // S(18) a AJ(35) en 0-based
+    colCliente = 7; colPedido = 1; colTelefono = 41; colDiaEntrega = 9;
+    direccion = [rowData[38], rowData[39], 'Lote ' + rowData[40]].filter(Boolean).join(' · ');
+  } else if (canal === 'Delivery') {
+    prodStartCol = 18; prodEndCol = 35;
+    colCliente = 7; colPedido = 1; colTelefono = 41; colDiaEntrega = 9;
+    direccion = [rowData[38], rowData[39], 'Lote ' + rowData[40]].filter(Boolean).join(' · ');
+  } else if (canal === 'Clubes') {
+    prodStartCol = 21; prodEndCol = 23; // PPM(21) a PPCyQ(23) en 0-based
+    colCliente = 7; colPedido = 1; colTelefono = 26; colDiaEntrega = 12;
+    direccion = String(rowData[8] || '') + ' — ' + String(rowData[9] || ''); // Club + Deporte
+  }
+
+  const abbrToProvMap = _getAbbrToProveedor();
+  const abbrToNameMap = _getAbbrToProductName();
+  const abbrToCostoMap = _getAbbrToCosto();
+
+  // Obtener abreviaturas en orden de columna
+  const colToAbbrMap = (canal === 'Clubes')
+    ? {21:'PPM', 22:'PPJyQ', 23:'PPCyQ'}
+    : HOME_COL_TO_ABBR;
+
+  const cliente    = String(rowData[colCliente] || '');
+  const numPedido  = String(rowData[colPedido] || '');
+  const telefono   = String(rowData[colTelefono] || '');
+  const diaEntrega = String(rowData[colDiaEntrega] || '');
+
+  // N° de Orden autoincremental
+  const ocData = shOC.getDataRange().getValues();
+  let maxOC = 0;
+  for (let r = 1; r < ocData.length; r++) {
+    const match = String(ocData[r][0]).match(/^OC-(\d+)$/);
+    if (match) { const n = parseInt(match[1]); if (n > maxOC) maxOC = n; }
+  }
+
+  const ahora   = new Date();
+  const argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const dd      = String(argDate.getDate()).padStart(2, '0');
+  const mm      = String(argDate.getMonth() + 1).padStart(2, '0');
+  const yyyy    = argDate.getFullYear();
+  const fechaStr = dd + '/' + mm + '/' + yyyy;
+
+  const newRows = [];
+  Object.keys(colToAbbrMap).forEach(function(colStr) {
+    const colIdx = Number(colStr);
+    const abbr   = colToAbbrMap[colIdx];
+    const qty    = Number(rowData[colIdx - 1]) || 0; // 0-based
+    if (qty === 0) return;
+
+    maxOC++;
+    const costoUnit  = abbrToCostoMap[abbr] || 0;
+    const costoTotal = costoUnit * qty;
+
+    newRows.push([
+      'OC-' + String(maxOC).padStart(3, '0'),  // A  N° Orden
+      fechaStr,                                   // B  Fecha Generada
+      canal,                                      // C  Canal
+      numPedido,                                  // D  N° Pedido Origen
+      cliente,                                    // E  Cliente
+      telefono,                                   // F  Teléfono
+      direccion,                                  // G  Dirección Entrega
+      abbrToProvMap[abbr] || '',                  // H  Proveedor
+      abbrToNameMap[abbr] || abbr,                // I  Producto
+      abbr,                                       // J  Abreviatura
+      qty,                                        // K  Cantidad
+      costoUnit,                                  // L  Costo Unitario
+      costoTotal,                                 // M  Costo Total
+      'Pendiente',                                // N  Estado
+      '',                                         // O  Fecha Pedido Proveedor
+      '',                                         // P  Fecha Búsqueda
+      '',                                         // Q  Fecha Recibido
+      diaEntrega,                                 // R  Día Entrega Cliente
+      'No',                                       // S  Pagado
+    ]);
+  });
+
+  if (newRows.length > 0) {
+    shOC.getRange(shOC.getLastRow() + 1, 1, newRows.length, 19).setValues(newRows);
+    // Formato moneda en costo
+    const startRow = shOC.getLastRow() - newRows.length + 1;
+    shOC.getRange(startRow, 12, newRows.length, 2).setNumberFormat('$#,##0');
+  }
+}
+
+// ── Home: sync stock + auto-generar Orden de Compra ──
+// Col I (9) = Origen → si cambia a "Orden de Compra", genera filas en OC
+// Col K (11) = Estado de Entrega → si cambia a "Entregado", descuenta stock
 function _onEditHome(e) {
   const col = e.range.getColumn();
   const row = e.range.getRow();
-  if (row <= 1 || col !== 11) return; // solo col K (11) = Estado de Entrega
+  if (row <= 1) return;
+
+  // Si cambió Origen (col I=9) a "Orden de Compra" → generar OC
+  if (col === 9) {
+    const nuevoOrigen = String(e.value || '');
+    if (nuevoOrigen === 'Orden de Compra') {
+      generarOrdenDeCompra('Home', row);
+      SS.toast('Orden de Compra generada para ' + e.range.getSheet().getRange(row, 2).getValue(), 'OC', 5);
+    }
+    return;
+  }
+
+  if (col !== 11) return; // solo col K (11) = Estado de Entrega
 
   const sh     = e.range.getSheet();
   const origen = String(sh.getRange(row, 9).getValue()); // col I (9) = Origen
@@ -417,7 +583,7 @@ function _onEditHome(e) {
   // ← Sale de Entregado (corrección manual): devolver Stock Físico + borrar fecha entrega
   if (anterior === 'Entregado' && nuevo !== 'Entregado') {
     _homeStockFisico(sh, row, hProductos, +1);
-    sh.getRange(row, 41, 1, 6).clearContent(); // limpiar AO-AT
+    sh.getRange(row, 43, 1, 6).clearContent(); // limpiar AQ-AV
   }
 }
 
@@ -433,19 +599,19 @@ function _registrarFechaEntrega(sh, row) {
   var hh      = String(argDate.getHours()).padStart(2, '0');
   var mi      = String(argDate.getMinutes()).padStart(2, '0');
 
-  sh.getRange(row, 41, 1, 6).setValues([[
-    hh + ':' + mi,                     // AO  Hora Entrega
-    DIAS[argDate.getDay()],            // AP  Día Entrega
-    dd + '/' + mm + '/' + yyyy,        // AQ  Fecha Entrega
-    MESES[argDate.getMonth()],         // AR  Mes Entrega
-    _isoWeek(argDate),                 // AS  Semana Entrega
-    yyyy                               // AT  Año Entrega
+  sh.getRange(row, 43, 1, 6).setValues([[
+    hh + ':' + mi,                     // AQ  Hora Entrega
+    DIAS[argDate.getDay()],            // AR  Día Entrega
+    dd + '/' + mm + '/' + yyyy,        // AS  Fecha Entrega
+    MESES[argDate.getMonth()],         // AT  Mes Entrega
+    _isoWeek(argDate),                 // AU  Semana Entrega
+    yyyy                               // AV  Año Entrega
   ]]);
 }
 
 // Ajusta Stock Físico (col F=6) de Productos. signo: -1 = restar, +1 = sumar
 function _homeStockFisico(shHome, row, hProductos, signo) {
-  const cantidades = shHome.getRange(row, 19, 1, 16).getValues()[0]; // cols S–AH
+  const cantidades = shHome.getRange(row, 19, 1, 18).getValues()[0]; // cols S–AJ
   const prodData   = hProductos.getDataRange().getValues();
 
   Object.keys(HOME_COL_TO_ABBR).forEach(function(colStr) {
@@ -471,9 +637,9 @@ function _homeStockFisico(shHome, row, hProductos, signo) {
 const ABBR_TO_HOME_COL = {
   'PPM':'S', 'PPJyQ':'T', 'PPCyQ':'U',
   'SCo':'V', 'SJyQ':'W', 'SCa':'X',
-  'ECaC':'Y', 'EJyQ':'Z',
-  'TG':'AA', 'TLC':'AB', 'TC':'AC', 'F':'AD',
-  'PMar':'AE', 'PJyQ':'AF', 'PCC':'AG', 'PJyM':'AH',
+  'ECaC':'Y', 'EJyQ':'Z', 'ECyQ':'AA', 'EV':'AB',
+  'TG':'AC', 'TLC':'AD', 'TC':'AE', 'F':'AF',
+  'PMar':'AG', 'PJyQ':'AH', 'PCC':'AI', 'PJyM':'AJ',
 };
 
 function setupProductosFormulas() {
