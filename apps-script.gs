@@ -13,7 +13,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 
-const SS      = SpreadsheetApp.getActiveSpreadsheet();
+const SS      = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById('1ILXCc9ddbC_gJPNoUADBiSMXAWLM9v73ov2_xXb8YsY');
 const BROWN   = '#3D1C0A';
 const ORANGE  = '#F97035';
 const CREAM   = '#E8DFC4';
