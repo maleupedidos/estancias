@@ -516,7 +516,24 @@ function onEditHandler(e) {
   const sheetName = sheet.getName();
 
   if (sheetName === 'Home')    return _onEditHome(e);
+  if (sheetName === 'Clubes')  return _onEditClubes(e);
   if (sheetName === 'Pedidos') return _onEditPedidos(e);
+}
+
+// ── Clubes: auto-generar Orden de Compra cuando Origen cambia ──
+function _onEditClubes(e) {
+  const col = e.range.getColumn();
+  const row = e.range.getRow();
+  if (row <= 1) return;
+
+  // Col L (12) = Origen en Clubes
+  if (col === 12) {
+    const nuevoOrigen = String(e.value || '');
+    if (nuevoOrigen === 'Orden de Compra') {
+      generarOrdenDeCompra('Clubes', row);
+      SS.toast('Orden de Compra generada para ' + e.range.getSheet().getRange(row, 2).getValue(), 'OC', 5);
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -593,8 +610,8 @@ function generarOrdenDeCompra(canal, row) {
     colCliente = 7; colPedido = 1; colTelefono = 41; colDiaEntrega = 9;
     direccion = [rowData[38], rowData[39], 'Lote ' + rowData[40]].filter(Boolean).join(' · ');
   } else if (canal === 'Clubes') {
-    prodStartCol = 21; prodEndCol = 23; // PPM(21) a PPCyQ(23) en 0-based
-    colCliente = 7; colPedido = 1; colTelefono = 26; colDiaEntrega = 12;
+    prodStartCol = 21; prodEndCol = 28; // PMu(21) a PPCyQ(28) en 0-based
+    colCliente = 7; colPedido = 1; colTelefono = 31; colDiaEntrega = 12;
     direccion = String(rowData[8] || '') + ' — ' + String(rowData[9] || ''); // Club + Deporte
   }
 
@@ -604,7 +621,7 @@ function generarOrdenDeCompra(canal, row) {
 
   // Obtener abreviaturas en orden de columna
   const colToAbbrMap = (canal === 'Clubes')
-    ? {21:'PPM', 22:'PPJyQ', 23:'PPCyQ'}
+    ? {22:'PMu', 23:'PMar', 24:'PJyQ', 25:'PCC', 26:'PJyM', 27:'PPM', 28:'PPJyQ', 29:'PPCyQ'}
     : HOME_COL_TO_ABBR;
 
   const cliente    = String(rowData[colCliente] || '');
