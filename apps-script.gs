@@ -91,8 +91,9 @@ function doPost(e) {
 }
 
 function _doPostPedido(data) {
-    // Escribir en hoja Home — el stock se maneja vía onEdit (J=Reservado/Entregado)
-    _doPostHome(data);
+    const canal = String(data.canal || 'Home');
+    if (canal === 'Clubes') _doPostClubes(data);
+    else _doPostHome(data);
 
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
@@ -238,6 +239,130 @@ function _doPostHome(data) {
   row[40] = String(data.lote || '');            // AO  Domicilio - Lote
   row[41] = String(data.telefono || '');        // AP  Teléfono
   // AQ-AV (indices 42-47) = Fecha/Hora/Día/Semana/Año Entrega → se llenan al marcar K="Entregado"
+
+  sh.appendRow(row);
+}
+
+// ════════════════════════════════════════════════════════════
+//  _doPostClubes — escribe en la hoja "Clubes"
+//  Columnas: Hora, N°Pedido, Día, Fecha, Mes, Semana, Año,
+//  Cliente, Club, Deporte, Grupo, Origen, Día Entrega,
+//  Estado Entrega, Forma Pago, Estado Pago, Total, Efectivo,
+//  Transferencia, Propina Ef, Propina Tr,
+//  PMu, PMa, PJyQ, PCC, PJyM, PPM, PPJyQ, PPCyQ,
+//  Costo, Margen Bruto, Teléfono
+// ════════════════════════════════════════════════════════════
+
+// Mapeo ID producto (web clubes) → columna 1-based hoja Clubes
+const CLUBES_PRODUCT_COLS = {
+  'pmu': 22,  // PMu  — Pizza Muzzarella
+  'pma': 23,  // PMa  — Pizza Margarita
+  'pjq': 24,  // PJyQ — Pizza Jamón y Queso
+  'pcc': 25,  // PCC  — Pizza Cebolla Caramelizada
+  'pjm': 26,  // PJyM — Pizza Jamón y Morrón
+  'pp1': 27,  // PPM  — Pack Muzarella x2
+  'pp2': 28,  // PPJyQ — Pack Jamón y Queso x2
+  'pp3': 29,  // PPCyQ — Pack Cebolla y Queso x2
+};
+
+// Mapeo ID producto (web clubes) → abreviatura en hoja Productos
+const CLUBES_ID_TO_ABBR = {
+  'pmu':'PMu', 'pma':'PMar', 'pjq':'PJyQ', 'pcc':'PCC', 'pjm':'PJyM',
+  'pp1':'PPM', 'pp2':'PPJyQ', 'pp3':'PPCyQ',
+};
+
+function _doPostClubes(data) {
+  const sh = SS.getSheetByName('Clubes');
+  if (!sh) return;
+
+  // N° de pedido autoincremental C-XXX
+  const lastRow = sh.getLastRow();
+  let maxNum = 0;
+  if (lastRow > 1) {
+    const colB = sh.getRange(2, 2, lastRow - 1, 1).getValues();
+    colB.forEach(function(row) {
+      const match = String(row[0]).match(/^C-(\d+)$/);
+      if (match) { const n = parseInt(match[1], 10); if (n > maxNum) maxNum = n; }
+    });
+  }
+  const orderNum = 'C-' + String(maxNum + 1).padStart(3, '0');
+
+  // Fecha y hora Argentina
+  const ahora   = new Date();
+  const argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const DIAS    = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const diaNombre = DIAS[argDate.getDay()];
+  const dd   = String(argDate.getDate()).padStart(2, '0');
+  const mm   = String(argDate.getMonth() + 1).padStart(2, '0');
+  const yyyy = argDate.getFullYear();
+  const fechaStr = dd + '/' + mm + '/' + yyyy;
+  const horaStr  = String(argDate.getHours()).padStart(2, '0') + ':' + String(argDate.getMinutes()).padStart(2, '0');
+  const mes    = MESES[argDate.getMonth()];
+  const semana = _isoWeek(argDate);
+
+  // Pago
+  const total         = Number(data.total) || 0;
+  const pago          = String(data.pago || '');
+  const efectivo      = pago === 'Efectivo'      ? total : 0;
+  const transferencia = pago === 'Transferencia' ? total : 0;
+
+  // Cantidades
+  const qtys = {};
+  (data.items || []).forEach(function(item) {
+    qtys[String(item.id)] = Number(item.qty) || 0;
+  });
+
+  // Costo desde hoja Productos
+  let costoTotal = 0;
+  const hProductos = SS.getSheetByName('Productos');
+  if (hProductos) {
+    const prodData = hProductos.getDataRange().getValues();
+    (data.items || []).forEach(function(item) {
+      const abbr = CLUBES_ID_TO_ABBR[String(item.id)];
+      if (!abbr) return;
+      for (let r = 1; r < prodData.length; r++) {
+        if (String(prodData[r][2]).trim() === abbr) {
+          const costoUnit = Number(String(prodData[r][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+          costoTotal += costoUnit * (Number(item.qty) || 0);
+          break;
+        }
+      }
+    });
+  }
+
+  // Construir fila de 32 columnas (A a AF)
+  const row = new Array(32).fill('');
+  row[0]  = horaStr;                           // A  Hora
+  row[1]  = orderNum;                          // B  N° Pedido
+  row[2]  = diaNombre;                         // C  Día
+  row[3]  = fechaStr;                          // D  Fecha
+  row[4]  = mes;                               // E  Mes
+  row[5]  = semana;                            // F  Semana
+  row[6]  = yyyy;                              // G  Año
+  row[7]  = String(data.nombre || '');         // H  Cliente
+  row[8]  = String(data.club || '');           // I  Club
+  row[9]  = String(data.deporte || '');        // J  Deporte
+  row[10] = String(data.grupo || '');          // K  Grupo
+  row[11] = 'Pendiente';                       // L  Origen
+  row[12] = String(data.dia || '');            // M  Día de Entrega
+  row[13] = 'Pendiente';                       // N  Estado de Entrega
+  row[14] = pago;                              // O  Forma de Pago
+  row[15] = 'No Cobrado';                      // P  Estado de Pago
+  row[16] = total;                             // Q  Total ($)
+  row[17] = efectivo;                          // R  Efectivo
+  row[18] = transferencia;                     // S  Transferencia
+  row[19] = 0;                                 // T  Propina Efectivo
+  row[20] = 0;                                 // U  Propina Transferencia
+
+  // Productos: cols V–AC (índices 21–28 en base-0)
+  Object.keys(CLUBES_PRODUCT_COLS).forEach(function(id) {
+    row[CLUBES_PRODUCT_COLS[id] - 1] = qtys[id] || 0;
+  });
+
+  row[29] = costoTotal;                        // AD  Costo
+  row[30] = total - costoTotal;                // AE  Margen Bruto
+  row[31] = String(data.telefono || '');       // AF  Teléfono
 
   sh.appendRow(row);
 }

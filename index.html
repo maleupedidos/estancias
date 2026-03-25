@@ -1351,6 +1351,7 @@ function enviarPedido(){
     mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({
+      canal:         'Home',
       fecha:         new Date().toLocaleString('es-AR'),
       nombre,
       barrioPrivado,
