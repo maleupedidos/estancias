@@ -1637,28 +1637,37 @@ function renderCatNav() {
   });
   // Intersection Observer para resaltar el botón activo al hacer scroll
   const observer = new IntersectionObserver((entries) => {
+    if (_scrollingToCat) return; // No interferir mientras se hace scroll programático
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         const slug = entry.target.id.replace('cat-', '');
         setActiveNav(slug);
       }
     });
-  }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+  }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
   document.querySelectorAll('.cat-section').forEach(s => observer.observe(s));
 }
+let _scrollingToCat = false;
 function scrollToCat(slug) {
   const section = $id('cat-' + slug);
   if (!section) return;
-  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  _scrollingToCat = true;
   setActiveNav(slug);
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Desbloquear el observer después de que termine el scroll
+  setTimeout(() => { _scrollingToCat = false; }, 800);
 }
 function setActiveNav(slug) {
+  const container = $id('cat-nav-inner');
   document.querySelectorAll('.cat-nav-btn').forEach(btn => {
     const isActive = btn.dataset.slug === slug;
     btn.classList.toggle('active', isActive);
-    // Hacer scroll horizontal al botón activo dentro de la barra
-    if (isActive) {
-      btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    // Scroll horizontal SOLO dentro del contenedor de nav (sin mover la página)
+    if (isActive && container) {
+      const navRect = container.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      const scrollLeft = container.scrollLeft + (btnRect.left - navRect.left) - (navRect.width / 2) + (btnRect.width / 2);
+      container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
     }
   });
 }
