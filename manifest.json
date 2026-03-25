@@ -1,0 +1,21 @@
+{
+  "name": "Maleu — Rico, listo, sin drama.",
+  "short_name": "Maleu",
+  "description": "Comida casera lista para llevar a la mesa. Delivery en Estancias del Pilar.",
+  "start_url": "/estancias/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#3D1C0A",
+  "icons": [
+    {
+      "src": "img/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "img/logo-icono.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

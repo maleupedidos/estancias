@@ -23,10 +23,43 @@
 <meta name="twitter:description" content="Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar. Pedís por WhatsApp, nosotros entregamos." />
 <meta name="twitter:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg" />
 <meta name="theme-color" content="#3D1C0A" />
-<!-- Favicon provisional (emoji) -->
+<link rel="canonical" href="https://maleupedidos.github.io/estancias/" />
+<!-- Favicon -->
 <link rel="icon" href="img/favicon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<link rel="manifest" href="manifest.json" />
+<!-- Preload critical assets -->
+<link rel="preload" href="img/logo-icono.png" as="image" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<!-- JSON-LD Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Maleu",
+  "description": "Comida casera lista para llevar a la mesa. Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar.",
+  "url": "https://maleupedidos.github.io/estancias/",
+  "logo": "https://maleupedidos.github.io/estancias/img/logo-icono.png",
+  "image": "https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg",
+  "telephone": "+5491155038905",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Pilar",
+    "addressRegion": "Buenos Aires",
+    "addressCountry": "AR"
+  },
+  "areaServed": "Estancias del Pilar",
+  "priceRange": "$$",
+  "openingHoursSpecification": [
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": "Monday", "opens": "19:00", "closes": "21:00"},
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": "Wednesday", "opens": "19:00", "closes": "21:00"},
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": "Friday", "opens": "19:00", "closes": "21:00"},
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "19:00", "closes": "21:00"},
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": "Sunday", "opens": "11:00", "closes": "13:00"}
+  ]
+}
+</script>
 
   <!--
   ═══════════════════════════════════════════════════════
@@ -71,7 +104,7 @@
       --orange: #F07D47;
       --cream:  #F2E8C7;
       --white:  #FAFAFA;
-      --brown-mid: #7A4A4A;
+      --brown-mid: #5C3333;
       --cream-dark: #D4C8A0;
       --hover-orange: #D96B38;
       --font: 'Montserrat', system-ui, sans-serif;
@@ -101,12 +134,14 @@
     .cart-badge {
       background:#fff; color:var(--orange); border-radius:50%;
       width:1.35rem; height:1.35rem; display:flex; align-items:center; justify-content:center;
-      font-size:.72rem; font-weight:800;
+      font-size:.72rem; font-weight:800; transition:transform .15s;
     }
+    .cart-badge.bounce { animation:badgeBounce .4s cubic-bezier(.2,.8,.3,1.4); }
+    @keyframes badgeBounce { 0%{transform:scale(1)} 40%{transform:scale(1.45)} 100%{transform:scale(1)} }
 
     /* HERO */
     .hero {
-      background:var(--cream); padding:3rem 1.5rem 2.75rem; text-align:center;
+      background:var(--cream); padding:2rem 1.5rem 1.75rem; text-align:center;
       position:relative; overflow:hidden;
     }
     .hero::before {
@@ -116,31 +151,36 @@
     }
     .hero-pill {
       display:inline-block; background:var(--orange); color:#fff;
-      font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-      padding:.28rem .75rem; border-radius:50px; margin-bottom:1rem;
+      font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+      padding:.22rem .65rem; border-radius:50px; margin-bottom:.6rem;
     }
     .hero h2 {
-      font-size:clamp(1.85rem,5.5vw,3.1rem); font-weight:800; color:var(--brown);
-      line-height:1.1; letter-spacing:-.02em; margin-bottom:.75rem;
+      font-size:clamp(1.55rem,5vw,3.1rem); font-weight:800; color:var(--brown);
+      line-height:1.1; letter-spacing:-.02em; margin-bottom:.5rem;
     }
     .hero h2 span { color:var(--orange); }
-    .hero-sub { font-size:.98rem; color:#5A3535; max-width:420px; margin:0 auto 1.4rem; }
+    .hero-sub { font-size:.92rem; color:#4A2828; max-width:420px; margin:0 auto .9rem; }
     .hero-delivery {
-      font-size:.78rem; color:var(--brown-mid); margin-bottom:1.2rem;
-      background:rgba(51,28,28,.07); display:inline-block;
-      padding:.3rem .85rem; border-radius:50px;
+      font-size:.76rem; color:#5A3535; margin-bottom:.85rem;
+      background:rgba(51,28,28,.09); display:inline-block;
+      padding:.28rem .8rem; border-radius:50px;
     }
     .hero-cta {
       display:inline-block; background:var(--brown); color:var(--cream);
-      text-decoration:none; padding:.72rem 1.65rem; border-radius:10px;
-      font-weight:700; font-size:.93rem; transition:background .15s, transform .1s;
+      text-decoration:none; padding:.65rem 1.5rem; border-radius:10px;
+      font-weight:700; font-size:.9rem; transition:background .15s, transform .1s;
     }
     .hero-cta:hover { background:#1E1010; transform:translateY(-1px); }
+    @media(min-width:640px){
+      .hero { padding:3rem 1.5rem 2.75rem; }
+      .hero h2 { font-size:clamp(1.85rem,5.5vw,3.1rem); margin-bottom:.75rem; }
+      .hero-pill { margin-bottom:1rem; }
+    }
 
   /* BARRA DE CATEGORÍAS */
 .cat-nav {
   position: sticky;
-  top: 77px;
+  top: 56px; /* fallback, se recalcula con JS */
   z-index: 99;
   background: var(--white);
   border-bottom: 1.5px solid var(--cream);
@@ -185,10 +225,7 @@
   color: #fff;
   font-weight: 700;
 }
-/* Offset de scroll para que las secciones no queden debajo de header + barra */
-.cat-section {
-  scroll-margin-top: 135px;
-}
+/* Offset de scroll — se calcula dinámicamente con JS (updateCatNavTop) */
     
     /* CATÁLOGO */
     .catalog { padding:2.5rem 1.25rem 3rem; max-width:1140px; margin:0 auto; }
@@ -227,10 +264,11 @@
     }
 
     .product-thumb {
-      width:100%; height:220px;
+      width:100%; height:170px;
       display:flex; align-items:center; justify-content:center;
       position:relative; overflow:hidden; flex-shrink:0;
     }
+    @media(min-width:640px){ .product-thumb{ height:220px; } }
     /* Gradiente sutil en la base de la imagen */
     .product-thumb::after {
       content:''; position:absolute; inset:0;
@@ -352,6 +390,16 @@
 
     /* FORMULARIO */
     .form-section { background:var(--cream); padding:3rem 1.25rem 3.5rem; }
+    .form-section.collapsed .form-wrap { display:none; }
+    .form-section.collapsed { padding:2rem 1.25rem; }
+    .form-expand-btn {
+      display:block; width:100%; max-width:580px; margin:0 auto;
+      background:var(--brown); color:var(--cream); border:none; border-radius:10px;
+      padding:.85rem 1.2rem; font-family:var(--font); font-size:.97rem; font-weight:700;
+      cursor:pointer; transition:background .15s; text-align:center;
+    }
+    .form-expand-btn:hover { background:#1E1010; }
+    .form-section:not(.collapsed) .form-expand-btn { display:none; }
     .form-wrap { max-width:580px; margin:0 auto; }
     .section-heading { font-size:1.45rem; font-weight:800; color:var(--brown); margin-bottom:.25rem; }
     .section-sub { font-size:.87rem; color:var(--brown-mid); margin-bottom:1.6rem; }
@@ -522,12 +570,12 @@
 }
 
     /* RESPONSIVE */
-    @media(max-width:420px){
+    @media(max-width:379px){
       .products-grid{ grid-template-columns:1fr; }
-      .hero h2{ font-size:1.72rem; }
-      .logo-name{ font-size:1.65rem; }
+      .logo-name{ font-size:1.5rem; }
     }
-    @media(min-width:540px){ .products-grid{ grid-template-columns:repeat(2,1fr); } }
+    @media(min-width:380px){ .products-grid{ grid-template-columns:repeat(2,1fr); gap:0.85rem; } }
+    @media(min-width:640px){ .products-grid{ grid-template-columns:repeat(2,1fr); gap:1.25rem; } }
     @media(min-width:820px){ .products-grid{ grid-template-columns:repeat(3,1fr); } }
     @media(min-width:1080px){ .products-grid{ grid-template-columns:repeat(4,1fr); } }
 
@@ -588,8 +636,8 @@
     .stock-indicator { display: block; }
     .stock-badge {
       display: inline-flex; align-items: center; gap: .2rem;
-      font-size: .62rem; font-weight: 700; letter-spacing: .02em;
-      padding: .15rem .5rem; border-radius: 50px; margin-bottom: .35rem;
+      font-size: .68rem; font-weight: 700; letter-spacing: .02em;
+      padding: .18rem .52rem; border-radius: 50px; margin-bottom: .35rem;
       width: fit-content;
     }
     .stock-out { background: #fce8e8; color: #c0392b; border: 1px solid #f5c6c6; }
@@ -607,8 +655,8 @@
     .chip {
       display: inline-flex; align-items: center;
       background: var(--cream); color: var(--brown-mid);
-      border-radius: 50px; font-size: .62rem; font-weight: 700;
-      padding: .18rem .52rem; white-space: nowrap; letter-spacing: .01em;
+      border-radius: 50px; font-size: .72rem; font-weight: 700;
+      padding: .22rem .6rem; white-space: nowrap; letter-spacing: .01em;
     }
     /* El último chip (preparación) tiene tono levemente distinto para destacar */
     .chip-prep {
@@ -621,7 +669,7 @@
 <!-- HEADER -->
 <header>
   <div class="logo-wrap">
-    <img src="img/logo-icono.png" alt="Maleu" class="logo-ico" />
+    <img src="img/logo-icono.png" alt="Maleu" class="logo-ico" width="38" height="38" decoding="async" />
     <div>
       <div class="logo-name">MALEU</div>
       <div class="logo-tag">Rico, listo, sin drama.</div>
@@ -638,7 +686,7 @@
   <span class="hero-pill">Estancias del Pilar · Delivery</span>
   <h2>Hoy no tenés que<br>pensar <span>qué cocinar.</span></h2>
   <p class="hero-sub">Elegís. Pedís por WhatsApp. Listo.</p>
-  <p class="hero-delivery">📅 Entregas: Mié · Vie · Sáb 19–21 hs · Dom 11–13 hs</p>
+  <p class="hero-delivery">📅 Entregas: Lun · Mié · Vie · Sáb 19–21 hs · Dom 11–13 hs</p>
   <a href="#catalogo" class="hero-cta">Armar mi pedido →</a>
 </section>
 
@@ -676,7 +724,8 @@
 </aside>
 
 <!-- FORMULARIO -->
-<section class="form-section">
+<section class="form-section collapsed" id="form-section">
+  <button class="form-expand-btn" onclick="expandForm()">Completar datos y pedir →</button>
   <form class="form-wrap" onsubmit="event.preventDefault(); enviarPedido();">
     <h2 class="section-heading">Completá tu pedido</h2>
     <p class="section-sub">Revisá el resumen y completá tus datos.</p>
@@ -890,7 +939,7 @@ const PROD_MAP = {}; PRODUCTOS.forEach(p => PROD_MAP[p.id] = p); // lookup O(1)
 
 function $id(id){ return document.getElementById(id); }
 function ars(n) { return '$' + n.toLocaleString('es-AR'); }
-function cartTotal(){ return Object.entries(cart).reduce((s,[id,q])=>{ const p=PRODUCTOS.find(p=>p.id===+id); return s+(p?p.precio*q:0); },0); }
+function cartTotal(){ return Object.entries(cart).reduce((s,[id,q])=>{ const p=PROD_MAP[+id]; return s+(p?p.precio*q:0); },0); }
 function cartCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
 
 /* RENDER */
@@ -911,8 +960,8 @@ function renderCatalog(){
             <article class="product-card" data-id="${p.id}">
               <div class="product-thumb${p.imgPack?' has-pack':''}" style="background:${p.bg}"${p.imgPack?' onclick="this.classList.toggle(\'flipped\')"':''}>
                 <span class="product-thumb-emoji">${p.emoji}</span>
-                <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" loading="lazy" style="object-position:${p.imgPos||'center'}" onerror="this.remove()">
-                ${p.imgPack ? `<img class="product-thumb-img product-thumb-pack" src="img/${p.imgPack}" alt="${p.nombre} — pack" loading="lazy" onerror="this.remove()">
+                <img class="product-thumb-img" src="img/${p.img}" alt="${p.nombre}" loading="lazy" decoding="async" width="400" height="300" style="object-position:${p.imgPos||'center'}" onerror="this.remove()">
+                ${p.imgPack ? `<img class="product-thumb-img product-thumb-pack" src="img/${p.imgPack}" alt="${p.nombre} — pack" loading="lazy" decoding="async" width="400" height="300" onerror="this.remove()">
                 <span class="thumb-toggle-hint">📦 ver pack</span>` : ''}
               </div>
               <div class="product-body">
@@ -960,47 +1009,35 @@ function renderCardFooter(id) {
       </div>`;
   }
 }
-/* CARRITO */
-function addToCart(id){
-  const avail = stockMap[+id];
-  if (avail !== undefined && (cart[id] || 0) >= avail) {
-    toast('⚠️ No hay más stock de este producto');
-    return;
+/* CARRITO — función unificada */
+function modifyCart(id, delta) {
+  const current = cart[id] || 0;
+  if (delta > 0) {
+    const avail = stockMap[+id];
+    if (avail !== undefined && current >= avail) {
+      toast('⚠️ No hay más stock de este producto');
+      return;
+    }
   }
-  cart[id] = (cart[id] || 0) + 1;
+  const newQty = current + delta;
+  if (newQty <= 0) delete cart[id];
+  else cart[id] = newQty;
   updateUI();
   renderCardFooter(id);
+  updateFormVisibility();
+}
+function addToCart(id) {
+  modifyCart(id, 1);
   const p = PROD_MAP[id];
   toast(`✓ ${p.nombre} agregado`);
+  // Badge bounce
+  const badge = $id('cart-badge');
+  badge.classList.remove('bounce');
+  void badge.offsetWidth;
+  badge.classList.add('bounce');
 }
-function changeQty(id, delta){
-  if (!cart[id]) return;
-  if (delta > 0) {
-    const avail = stockMap[+id];
-    if (avail !== undefined && cart[id] >= avail) {
-      toast('⚠️ No hay más stock de este producto');
-      return;
-    }
-  }
-  cart[id] += delta;
-  if (cart[id] <= 0) delete cart[id];
-  updateUI();
-  renderCardFooter(id);
-}
-function cardChangeQty(id, delta){
-  if (delta < 0 && !cart[id]) return;
-  if (delta > 0) {
-    const avail = stockMap[+id];
-    if (avail !== undefined && (cart[id] || 0) >= avail) {
-      toast('⚠️ No hay más stock de este producto');
-      return;
-    }
-  }
-  cart[id] = (cart[id] || 0) + delta;
-  if (cart[id] <= 0) delete cart[id];
-  updateUI();
-  renderCardFooter(id);
-}
+function changeQty(id, delta) { modifyCart(id, delta); }
+function cardChangeQty(id, delta) { modifyCart(id, delta); }
 function updateUI(){
   const count = cartCount(), total = cartTotal();
   const badge = $id('cart-badge');
@@ -1058,6 +1095,8 @@ function toggleCart(){
 }
 function goToForm(){
   toggleCart();
+  const section = $id('form-section');
+  if (section) section.classList.remove('collapsed');
   setTimeout(()=>document.querySelector('.form-section').scrollIntoView({behavior:'smooth'}),320);
 }
 
@@ -1221,7 +1260,7 @@ function enviarPedido(){
   }
   /* Guardar datos del cliente y último pedido en localStorage */
   try {
-    localStorage.setItem('maleu_cliente', JSON.stringify({ nombre, barrioPrivado, barrio, direccion, telefono }));
+    localStorage.setItem('maleu_cliente', JSON.stringify({ nombre, barrioPrivado, barrio, direccion, telefono, dia: dia, pago: pagoEl.value }));
     const cartSnapshot = Object.entries(cart).map(([id, qty]) => ({ id: +id, qty }));
     localStorage.setItem('maleu_ultimo_pedido', JSON.stringify(cartSnapshot));
   } catch(e) {}
@@ -1304,13 +1343,32 @@ function enviarPedido(){
     })
   }).catch(() => {});
 
-  /* Bloquear botón y dar feedback visual */
-  _enviando = true;
+  /* Confirmación de dos pasos */
   const waBtn = document.querySelector('.whatsapp-btn');
   const waBtnOrigHTML = waBtn ? waBtn.innerHTML : '';
+
+  if (!waBtn._confirmed) {
+    // Primer tap: mostrar confirmación
+    waBtn._confirmed = true;
+    waBtn.innerHTML = '✓ Confirmar y abrir WhatsApp →';
+    waBtn.style.background = '#1E8C45';
+    setTimeout(() => {
+      if (waBtn._confirmed) {
+        waBtn._confirmed = false;
+        waBtn.innerHTML = waBtnOrigHTML;
+        waBtn.style.background = '';
+      }
+    }, 4000);
+    return;
+  }
+
+  /* Segundo tap: enviar */
+  waBtn._confirmed = false;
+  _enviando = true;
   if (waBtn) {
     waBtn.disabled = true;
     waBtn.innerHTML = '<span>\u2713</span> \u00A1Listo! Abrimos WhatsApp\u2026';
+    waBtn.style.background = '';
   }
 
   window.location.href = 'https://wa.me/' + WA_NUMBER + '?text=' + urlText;
@@ -1319,12 +1377,13 @@ function enviarPedido(){
   setTimeout(() => {
     cart = {};
     updateUI();
-    Object.values(PRODUCTOS).forEach(p => renderCardFooter(p.id));
+    PRODUCTOS.forEach(p => renderCardFooter(p.id));
     $id('f-dia').value       = '';
     onDiaChange();
     document.querySelectorAll('input[name="pago"]').forEach(r => r.checked = false);
     if (waBtn) { waBtn.disabled = false; waBtn.innerHTML = waBtnOrigHTML; }
     _enviando = false;
+    updateFormVisibility();
   }, 1800);
 }
 /* TOAST */
@@ -1353,6 +1412,14 @@ function loadClientData() {
     if (saved.barrio)        $id('f-barrio').value         = saved.barrio;
     if (saved.direccion)     $id('f-direccion').value      = saved.direccion;
     if (saved.telefono)      $id('f-telefono').value       = saved.telefono;
+    if (saved.dia) {
+      $id('f-dia').value = saved.dia;
+      onDiaChange();
+    }
+    if (saved.pago) {
+      const radio = document.querySelector(`input[name="pago"][value="${saved.pago}"]`);
+      if (radio) radio.checked = true;
+    }
   } catch(e) {}
 }
 
@@ -1424,14 +1491,22 @@ async function fetchStock() {
     const rows = text.trim().split('\n');
     // CSV: ID, Nombre, Abreviatura, Stock Físico, Reservado, Stock Disponible, ...
     const abbrStock = {};
-    rows.slice(1).forEach(row => {
+    function parseCSVRow(row) {
       const cols = []; let cur = ''; let inQ = false;
-      for (const ch of row) {
-        if (ch === '"') { inQ = !inQ; continue; }
+      for (let i = 0; i < row.length; i++) {
+        const ch = row[i];
+        if (ch === '"') {
+          if (inQ && row[i + 1] === '"') { cur += '"'; i++; continue; }
+          inQ = !inQ; continue;
+        }
         if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
         cur += ch;
       }
       cols.push(cur.trim());
+      return cols;
+    }
+    rows.slice(1).forEach(row => {
+      const cols = parseCSVRow(row);
       const abbr = cols[2];                // col C = Abreviatura
       const disp = parseInt(cols[7]);      // col H = Stock Disponible
       if (abbr && !isNaN(disp)) abbrStock[abbr] = disp;
@@ -1472,11 +1547,42 @@ function updateStockDisplay() {
   });
 }
 
+/* FORM VISIBILITY — ocultar form hasta que haya items */
+function updateFormVisibility() {
+  const section = $id('form-section');
+  if (!section) return;
+  if (cartCount() > 0) {
+    section.classList.remove('collapsed');
+  }
+  // No re-colapsar si el usuario ya lo expandió manualmente
+}
+function expandForm() {
+  const section = $id('form-section');
+  if (section) section.classList.remove('collapsed');
+  setTimeout(() => document.querySelector('.form-wrap').scrollIntoView({ behavior:'smooth' }), 50);
+}
+
+/* DYNAMIC CAT-NAV TOP */
+function updateCatNavTop() {
+  const header = document.querySelector('header');
+  const nav = $id('cat-nav');
+  if (header && nav) {
+    nav.style.top = header.offsetHeight + 'px';
+    // Actualizar scroll-margin-top de secciones
+    const total = header.offsetHeight + nav.offsetHeight;
+    document.querySelectorAll('.cat-section').forEach(s => {
+      s.style.scrollMarginTop = total + 'px';
+    });
+  }
+}
+
 /* INIT */
 renderCatalog();
 renderCatNav();
 loadClientData();
-loadLastOrder();
+// loadLastOrder se llama dentro de fetchStock después de tener datos de stock
+updateCatNavTop();
+window.addEventListener('resize', updateCatNavTop);
 
 /* Ocultar botón flotante cuando el formulario es visible */
 const _formObs = new IntersectionObserver(([entry]) => {
@@ -1486,11 +1592,11 @@ const _formObs = new IntersectionObserver(([entry]) => {
 _formObs.observe(document.querySelector('.form-section'));
 $id('cart-badge').style.display = 'none';
 fetchStock();
-// Auto-refresh stock cada 30 seg (pausa cuando la pestaña no es visible)
-let _stockTimer = setInterval(fetchStock, 30000);
+// Auto-refresh stock cada 60 seg (pausa cuando la pestaña no es visible)
+let _stockTimer = setInterval(fetchStock, 60000);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { clearInterval(_stockTimer); _stockTimer = null; }
-  else { fetchStock(); _stockTimer = setInterval(fetchStock, 30000); }
+  else { fetchStock(); _stockTimer = setInterval(fetchStock, 60000); }
 });
 /* BARRA DE CATEGORÍAS */
 function renderCatNav() {
