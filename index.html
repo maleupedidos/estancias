@@ -1392,7 +1392,7 @@ function enviarPedido(){
 }
 /* TOAST */
 let _tt;
-function toast(msg){ const el=$id('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2700); }
+function toast(msg){ const el=$id('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),1200); }
 
 /* UTILS */
 function slugify(str) {
