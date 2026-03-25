@@ -948,7 +948,7 @@ const CATEGORIAS = [
 /* Horarios */
 const HORARIOS = { "Lunes":"19 a 21 hs", "Miércoles":"19 a 21 hs", "Viernes":"19 a 21 hs", "Sábado":"19 a 21 hs", "Domingo":"11 a 13 hs" };
 const WA_NUMBER = "5491155038905";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxgM94Ya29bOGeZFv4Y_si_oaX50rMz8vGoqyql9tVPAdw9f5RpIEN-A92hB1VP6kzeNQ/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxrCQwWHvSIC3ouF_3z379lxPKIncby2Jy8_xNH6VfMN7X6mkxUI1eg5UB_f9JvmBZ1fg/exec";
 // URL del CSV público de la hoja "Productos" en Google Sheets.
 // Instrucciones: Archivo → Compartir → Publicar en la web → Hoja "Productos" → Valores separados por comas
 const STOCK_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOq210U9LeSxvXbx_sdglHS0K9DZP8H_5pGXC-WwlMo8AE4UacIN0bpagQqAr79XeJNQ1Nm1eql271/pub?gid=792614962&single=true&output=csv';
@@ -1366,32 +1366,13 @@ function enviarPedido(){
     })
   }).catch(() => {});
 
-  /* Confirmación de dos pasos */
+  /* Bloquear botón y dar feedback visual */
+  _enviando = true;
   const waBtn = document.querySelector('.whatsapp-btn');
   const waBtnOrigHTML = waBtn ? waBtn.innerHTML : '';
-
-  if (!waBtn._confirmed) {
-    // Primer tap: mostrar confirmación
-    waBtn._confirmed = true;
-    waBtn.innerHTML = '✓ Confirmar y abrir WhatsApp →';
-    waBtn.style.background = '#1E8C45';
-    setTimeout(() => {
-      if (waBtn._confirmed) {
-        waBtn._confirmed = false;
-        waBtn.innerHTML = waBtnOrigHTML;
-        waBtn.style.background = '';
-      }
-    }, 4000);
-    return;
-  }
-
-  /* Segundo tap: enviar */
-  waBtn._confirmed = false;
-  _enviando = true;
   if (waBtn) {
     waBtn.disabled = true;
     waBtn.innerHTML = '<span>\u2713</span> \u00A1Listo! Abrimos WhatsApp\u2026';
-    waBtn.style.background = '';
   }
 
   window.location.href = 'https://wa.me/' + WA_NUMBER + '?text=' + urlText;
