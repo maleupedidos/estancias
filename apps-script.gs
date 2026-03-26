@@ -1051,10 +1051,126 @@ function onOpen() {
     .createMenu('Maleu')
     .addItem('Nueva compra a proveedor', 'abrirSidebarCompra')
     .addItem('Resumen para WhatsApp (pendientes)', 'generarResumenWA')
+    .addItem('🚗 Hoja de Ruta (búsqueda)', 'generarHojaDeRuta')
     .addSeparator()
     .addItem('Actualizar fórmulas Productos', 'setupProductosFormulas')
     .addItem('Reset stock semanal', 'resetStockSemanal')
     .addToUi();
+}
+
+/**
+ * Genera Hoja de Ruta para búsqueda de productos.
+ * Agrupa OC pendientes por proveedor, mostrando:
+ * - Total a comprar por producto
+ * - Desglose por cliente (quién pidió qué)
+ */
+function generarHojaDeRuta() {
+  const shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) { SpreadsheetApp.getUi().alert('No se encontró la hoja "Orden de Compra"'); return; }
+
+  const data = shOC.getDataRange().getValues();
+  if (data.length <= 1) { SpreadsheetApp.getUi().alert('No hay órdenes de compra'); return; }
+
+  // Agrupar pendientes por proveedor → producto → clientes
+  const porProv = {};
+  for (var r = 1; r < data.length; r++) {
+    var estado = String(data[r][14]).trim(); // O = Estado
+    if (estado !== 'Pendiente') continue;
+
+    var prov     = String(data[r][7]).trim();   // H = Proveedor
+    var producto = String(data[r][9]).trim();   // J = Producto
+    var abbr     = String(data[r][10]).trim();  // K = Abreviatura
+    var qty      = Number(data[r][11]) || 0;    // L = Cantidad
+    var cliente  = String(data[r][4]).trim();   // E = Cliente
+    var dir      = String(data[r][6]).trim();   // G = Dirección
+    var diaEnt   = String(data[r][18]).trim();  // S = Día Entrega Cliente
+    var canal    = String(data[r][2]).trim();   // C = Canal
+
+    if (!prov || qty === 0) continue;
+
+    if (!porProv[prov]) porProv[prov] = {};
+    var key = abbr || producto;
+    if (!porProv[prov][key]) porProv[prov][key] = { nombre: producto, totalQty: 0, clientes: [] };
+    porProv[prov][key].totalQty += qty;
+    porProv[prov][key].clientes.push({
+      nombre: cliente,
+      dir: dir,
+      qty: qty,
+      dia: diaEnt,
+      canal: canal
+    });
+  }
+
+  var proveedores = Object.keys(porProv);
+  if (proveedores.length === 0) {
+    SpreadsheetApp.getUi().alert('No hay órdenes pendientes para la ruta');
+    return;
+  }
+
+  // Generar HTML
+  var bloques = proveedores.map(function(prov) {
+    var productos = Object.values(porProv[prov]);
+    var totalItems = productos.reduce(function(s,p){ return s + p.totalQty; }, 0);
+
+    var productosHTML = productos.map(function(p) {
+      var clientesHTML = p.clientes.map(function(c) {
+        return '<div class="cliente">' +
+          '<span class="cli-name">👤 ' + c.nombre + '</span>' +
+          '<span class="cli-qty">×' + c.qty + '</span>' +
+          '<span class="cli-info">' + (c.dir ? c.dir : '') + (c.dia ? ' · ' + c.dia : '') + '</span>' +
+        '</div>';
+      }).join('');
+
+      return '<div class="producto">' +
+        '<div class="prod-header">' +
+          '<span class="prod-name">' + p.nombre + '</span>' +
+          '<span class="prod-total">×' + p.totalQty + '</span>' +
+        '</div>' +
+        clientesHTML +
+      '</div>';
+    }).join('');
+
+    return '<div class="prov-block">' +
+      '<div class="prov-header">' +
+        '<span class="prov-name">🏭 ' + prov + '</span>' +
+        '<span class="prov-count">' + totalItems + ' unid.</span>' +
+      '</div>' +
+      productosHTML +
+    '</div>';
+  }).join('');
+
+  var ahora = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var fechaHoy = String(argDate.getDate()).padStart(2,'0') + '/' + String(argDate.getMonth()+1).padStart(2,'0') + '/' + argDate.getFullYear();
+
+  var html = HtmlService.createHtmlOutput(
+    '<style>' +
+    'body{font-family:system-ui,sans-serif;font-size:13px;color:#331C1C;padding:16px;margin:0;}' +
+    'h2{font-size:16px;margin:0 0 4px;}' +
+    '.date{font-size:12px;color:#888;margin-bottom:16px;}' +
+    '.prov-block{background:#f8f6f0;border-radius:12px;padding:14px;margin-bottom:12px;}' +
+    '.prov-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #e8dfc4;}' +
+    '.prov-name{font-size:14px;font-weight:800;}' +
+    '.prov-count{font-size:12px;font-weight:700;background:#F07D47;color:#fff;padding:2px 8px;border-radius:20px;}' +
+    '.producto{margin-bottom:8px;padding:8px;background:#fff;border-radius:8px;border:1px solid #eee;}' +
+    '.prod-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}' +
+    '.prod-name{font-weight:700;font-size:13px;}' +
+    '.prod-total{font-weight:800;font-size:13px;color:#F07D47;}' +
+    '.cliente{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:3px 0 3px 12px;font-size:12px;border-top:1px solid #f5f5f5;}' +
+    '.cli-name{font-weight:600;min-width:120px;}' +
+    '.cli-qty{font-weight:700;color:#F07D47;min-width:30px;}' +
+    '.cli-info{color:#888;font-size:11px;}' +
+    '.print-btn{display:block;width:100%;padding:10px;margin-top:12px;background:#331C1C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:system-ui;}' +
+    '.print-btn:hover{background:#5C3333;}' +
+    '@media print{.print-btn{display:none;} .prov-block{break-inside:avoid;}}' +
+    '</style>' +
+    '<h2>🚗 Hoja de Ruta</h2>' +
+    '<div class="date">Generada: ' + fechaHoy + ' · ' + proveedores.length + ' proveedor' + (proveedores.length > 1 ? 'es' : '') + '</div>' +
+    bloques +
+    '<button class="print-btn" onclick="window.print()">🖨 Imprimir</button>'
+  ).setTitle('Hoja de Ruta').setWidth(480).setHeight(600);
+
+  SpreadsheetApp.getUi().showModalDialog(html, '🚗 Hoja de Ruta — Búsqueda');
 }
 
 /** Genera resumen de OC pendientes agrupado por proveedor, listo para copiar a WhatsApp */
