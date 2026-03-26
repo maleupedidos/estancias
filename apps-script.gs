@@ -540,6 +540,13 @@ function _onEditOC(e) {
   var yyyy    = argDate.getFullYear();
   var fechaHoy = dd + '/' + mm + '/' + yyyy;
 
+  // → Pendiente: limpiar Fecha Pedido (P=16) y Fecha Recibido (R=18)
+  if (nuevo === 'Pendiente') {
+    sh.getRange(row, 16).clearContent();
+    sh.getRange(row, 18).clearContent();
+    return;
+  }
+
   // → Pedido: llenar Fecha Pedido Proveedor (P=16)
   if (nuevo === 'Pedido' && anterior !== 'Pedido') {
     sh.getRange(row, 16).setValue(fechaHoy);
