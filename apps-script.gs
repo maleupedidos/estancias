@@ -902,10 +902,103 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Maleu')
     .addItem('Nueva compra a proveedor', 'abrirSidebarCompra')
+    .addItem('Resumen para WhatsApp (pendientes)', 'generarResumenWA')
     .addSeparator()
     .addItem('Actualizar fórmulas Productos', 'setupProductosFormulas')
     .addItem('Reset stock semanal', 'resetStockSemanal')
     .addToUi();
+}
+
+/** Genera resumen de OC pendientes agrupado por proveedor, listo para copiar a WhatsApp */
+function generarResumenWA() {
+  const shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) { SpreadsheetApp.getUi().alert('No se encontró la hoja "Orden de Compra"'); return; }
+
+  const data = shOC.getDataRange().getValues();
+  if (data.length <= 1) { SpreadsheetApp.getUi().alert('No hay órdenes de compra'); return; }
+
+  // Agrupar pendientes por proveedor
+  const porProveedor = {};
+  for (var r = 1; r < data.length; r++) {
+    var estado = String(data[r][13]).trim(); // N = Estado
+    if (estado !== 'Pendiente') continue;
+
+    var proveedor = String(data[r][7]).trim();  // H = Proveedor
+    var producto  = String(data[r][8]).trim();  // I = Producto
+    var abbr      = String(data[r][9]).trim();  // J = Abreviatura
+    var qty       = Number(data[r][10]) || 0;   // K = Cantidad
+    var costoUnit = Number(String(data[r][11]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    var canal     = String(data[r][2]).trim();  // C = Canal
+
+    if (!proveedor || qty === 0) continue;
+
+    if (!porProveedor[proveedor]) porProveedor[proveedor] = { items: {}, totalCosto: 0 };
+
+    // Agrupar mismo producto sumando cantidades
+    var key = abbr || producto;
+    if (!porProveedor[proveedor].items[key]) {
+      porProveedor[proveedor].items[key] = { nombre: producto, qty: 0, costoUnit: costoUnit };
+    }
+    porProveedor[proveedor].items[key].qty += qty;
+    porProveedor[proveedor].totalCosto += costoUnit * qty;
+  }
+
+  var proveedores = Object.keys(porProveedor);
+  if (proveedores.length === 0) {
+    SpreadsheetApp.getUi().alert('No hay órdenes pendientes');
+    return;
+  }
+
+  // Generar mensaje por proveedor
+  var mensajes = proveedores.map(function(prov) {
+    var data = porProveedor[prov];
+    var items = Object.values(data.items);
+    var lineas = items.map(function(item) {
+      return '  · ' + item.nombre + ' × ' + item.qty;
+    }).join('\n');
+
+    var totalStr = '$' + data.totalCosto.toLocaleString('es-AR');
+
+    return '━━━━━━━━━━━━━━━\n' +
+      '📦 *Pedido para ' + prov + '*\n' +
+      '━━━━━━━━━━━━━━━\n\n' +
+      lineas + '\n\n' +
+      '💰 *Total: ' + totalStr + '*\n\n' +
+      '📅 Búsqueda: viernes 27/03\n' +
+      '🧡 _Maleu_';
+  });
+
+  // Mostrar en un dialog para copiar
+  var html = HtmlService.createHtmlOutput(
+    '<style>' +
+    'body{font-family:system-ui,sans-serif;font-size:13px;color:#331C1C;padding:16px;}' +
+    '.prov-block{background:#f8f6f0;border-radius:10px;padding:14px;margin-bottom:14px;white-space:pre-wrap;font-family:monospace;font-size:12px;line-height:1.6;}' +
+    '.prov-title{font-size:14px;font-weight:800;margin-bottom:8px;font-family:system-ui;}' +
+    '.copy-btn{display:block;width:100%;padding:10px;margin-top:8px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:system-ui;}' +
+    '.copy-btn:hover{background:#1bb954;}' +
+    '.copied{background:#331C1C !important;}' +
+    'h2{font-size:16px;margin-bottom:14px;}' +
+    '</style>' +
+    '<h2>Resumen para WhatsApp (' + proveedores.length + ' proveedor' + (proveedores.length > 1 ? 'es' : '') + ')</h2>' +
+    mensajes.map(function(msg, i) {
+      var prov = proveedores[i];
+      var escaped = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return '<div class="prov-title">' + prov + '</div>' +
+        '<div class="prov-block" id="msg-' + i + '">' + escaped + '</div>' +
+        '<button class="copy-btn" onclick="copyMsg(' + i + ',this)">Copiar mensaje de ' + prov + '</button>';
+    }).join('<br>') +
+    '<script>' +
+    'function copyMsg(i,btn){' +
+    '  var text=document.getElementById("msg-"+i).textContent;' +
+    '  navigator.clipboard.writeText(text).then(function(){' +
+    '    btn.textContent="✓ Copiado!";btn.classList.add("copied");' +
+    '    setTimeout(function(){btn.textContent="Copiar de nuevo";btn.classList.remove("copied");},2000);' +
+    '  });' +
+    '}' +
+    '</script>'
+  ).setTitle('Resumen para WhatsApp').setWidth(420).setHeight(500);
+
+  SpreadsheetApp.getUi().showModalDialog(html, 'Pedidos a Proveedores');
 }
 
 function abrirSidebarCompra() {
