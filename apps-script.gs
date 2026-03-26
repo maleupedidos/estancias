@@ -134,7 +134,7 @@ const PAGE_ID_TO_ABBR = {
   8:  'SCo',   9:  'SJyQ',  10: 'SCa',
   11: 'ECaC',  12: 'EJyQ',  17: 'ECyQ', 18: 'EV',
   14: 'TG',    15: 'TLC',   16: 'TC',   13: 'F',
-  1:  'PMar',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
+  1:  'PMa',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
 };
 
 function _doPostHome(data) {
@@ -267,7 +267,7 @@ const CLUBES_PRODUCT_COLS = {
 
 // Mapeo ID producto (web clubes) → abreviatura en hoja Productos
 const CLUBES_ID_TO_ABBR = {
-  'pmu':'PMu', 'pma':'PMar', 'pjq':'PJyQ', 'pcc':'PCC', 'pjm':'PJyM',
+  'pmu':'PMu', 'pma':'PMa', 'pjq':'PJyQ', 'pcc':'PCC', 'pjm':'PJyM',
   'pp1':'PPM', 'pp2':'PPJyQ', 'pp3':'PPCyQ',
 };
 
@@ -502,7 +502,7 @@ const HOME_COL_TO_ABBR = {
   30: 'TLC',   // AD
   31: 'TC',    // AE
   32: 'F',     // AF
-  33: 'PMar',  // AG
+  33: 'PMa',  // AG
   34: 'PJyQ',  // AH
   35: 'PCC',   // AI
   36: 'PJyM',  // AJ
@@ -621,7 +621,7 @@ function generarOrdenDeCompra(canal, row) {
 
   // Obtener abreviaturas en orden de columna
   const colToAbbrMap = (canal === 'Clubes')
-    ? {22:'PMu', 23:'PMar', 24:'PJyQ', 25:'PCC', 26:'PJyM', 27:'PPM', 28:'PPJyQ', 29:'PPCyQ'}
+    ? {22:'PMu', 23:'PMa', 24:'PJyQ', 25:'PCC', 26:'PJyM', 27:'PPM', 28:'PPJyQ', 29:'PPCyQ'}
     : HOME_COL_TO_ABBR;
 
   const cliente    = String(rowData[colCliente] || '');
@@ -781,7 +781,7 @@ const ABBR_TO_HOME_COL = {
   'SCo':'V', 'SJyQ':'W', 'SCa':'X',
   'ECaC':'Y', 'EJyQ':'Z', 'ECyQ':'AA', 'EV':'AB',
   'TG':'AC', 'TLC':'AD', 'TC':'AE', 'F':'AF',
-  'PMar':'AG', 'PJyQ':'AH', 'PCC':'AI', 'PJyM':'AJ',
+  'PMa':'AG', 'PJyQ':'AH', 'PCC':'AI', 'PJyM':'AJ',
 };
 
 function setupProductosFormulas() {
@@ -921,7 +921,7 @@ function _setupHome() {
     'Estado de Pago','Total ($)','Efectivo','Transferencia',
     'Propina Efectivo','Propina Transferencia',
     'PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ',
-    'TG','TLC','TC','F','PMar','PJyQ','PCC','PJyM',
+    'TG','TLC','TC','F','PMa','PJyQ','PCC','PJyM',
     'Costo','Margen Bruto','Barrio','Sub Barrio','Domicilio - Lote','Teléfono',
     'Hora Entrega','Día Entrega','Fecha Entrega','Mes Entrega','Semana Entrega','Año Entrega'
   ];
