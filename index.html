@@ -1303,43 +1303,32 @@ function enviarPedido(){
   }).join('\n\n');
   const cantidadItems = Object.values(cart).reduce((a, b) => a + b, 0);
   const totalStr = ars(cartTotal());
-  // Emoji pre-codificados en UTF-8 puro para evitar bugs de encodeURIComponent con chars fuera del BMP
-  const _sep = '%E2%94%81'.repeat(15);  // ━ × 15
-  const _nl  = '%0A';
-  const EM = {
-    r: '%F0%9F%A7%BE',  // 🧾
-    p: '%F0%9F%93%A6',  // 📦
-    m: '%F0%9F%92%B0',  // 💰
-    u: '%F0%9F%91%A4',  // 👤
-    h: '%F0%9F%8F%98',  // 🏘
-    n: '%F0%9F%93%8D',  // 📍
-    t: '%F0%9F%93%9E',  // 📞
-    c: '%F0%9F%93%85',  // 📅
-    k: '%F0%9F%92%B3',  // 💳
-  };
-  const enc = s => encodeURIComponent(String(s));
+  const sep = '━━━━━━━━━━━━━━━';
   const plural = cantidadItems !== 1 ? 's' : '';
+  const barrioInfo = barrioPrivado === 'Estancias del Pilar' ? barrioPrivado + ' — ' + barrio : barrioPrivado;
 
-  const urlText = [
-    EM.r + '%20*NUEVO%20PEDIDO%20%E2%80%94%20MALEU*',
-    EM.p + '%20*' + cantidadItems + '%20producto' + plural + '*',
+  const msgText = [
+    '🧾 *NUEVO PEDIDO — MALEU*',
+    '📦 *' + cantidadItems + ' producto' + plural + '*',
     '',
-    enc(lineas),
+    lineas,
     '',
-    _sep,
-    '*TOTAL%3A%20' + enc(totalStr) + '*',
-    _sep,
+    sep,
+    '*TOTAL: ' + totalStr + '*',
+    sep,
     '',
-    EM.u + '%20*Nombre%3A*%20' + enc(nombre),
-    EM.h + '%20*Barrio%3A*%20' + enc(barrioPrivado) + (barrioPrivado === 'Estancias del Pilar' ? '%20%E2%80%94%20' + enc(barrio) : ''),
-    EM.n + '%20*Lote%3A*%20' + enc(direccion),
-    EM.t + '%20*Tel%3A*%20' + enc(telefono),
-    EM.c + '%20*Entrega%3A*%20' + enc(dia) + '%20%C2%B7%20' + enc(horario),
-    EM.k + '%20*Pago%3A*%20' + enc(pagoEl.value),
+    '👤 *Nombre:* ' + nombre,
+    '🏘 *Barrio:* ' + barrioInfo,
+    '📍 *Lote:* ' + direccion,
+    '📞 *Tel:* ' + telefono,
+    '📅 *Entrega:* ' + dia + ' · ' + horario,
+    '💳 *Pago:* ' + pagoEl.value,
     '',
-    _sep,
-    '%F0%9F%A7%A1%20_' + enc('¡Gracias por elegirnos!') + '_',
-  ].join(_nl);
+    sep,
+    '🧡 _¡Gracias por elegirnos!_',
+  ].join('\n');
+
+  const urlText = encodeURIComponent(msgText);
 
   /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
   const items = Object.entries(cart).map(([id, qty]) => {
