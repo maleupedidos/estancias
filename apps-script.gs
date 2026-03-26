@@ -1372,8 +1372,8 @@ function _getSidebarHTML() {
 </div>
 
 <div class="fecha-group">
-  <label for="fecha-busqueda">Fecha estimada de búsqueda</label>
-  <input type="date" id="fecha-busqueda">
+  <label for="fecha-busqueda">Fecha estimada de búsqueda (dd/mm/aaaa)</label>
+  <input type="text" id="fecha-busqueda" placeholder="27/03/2026">
 </div>
 
 <div class="summary" id="summary"></div>
@@ -1397,6 +1397,14 @@ google.script.run.withSuccessHandler(function(provs) {
     sel.appendChild(opt);
   });
 }).getProveedores();
+
+// Pre-cargar fecha de mañana
+var manana = new Date();
+manana.setDate(manana.getDate() + 1);
+var dd = String(manana.getDate()).padStart(2,'0');
+var mm = String(manana.getMonth()+1).padStart(2,'0');
+var yy = manana.getFullYear();
+document.getElementById('fecha-busqueda').value = dd+'/'+mm+'/'+yy;
 
 function onProvChange() {
   proveedorActual = document.getElementById('sel-prov').value;
