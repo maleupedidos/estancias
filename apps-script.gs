@@ -807,7 +807,7 @@ function setupProductosFormulas() {
     // Col E (Vendidos Semana) = SUMPRODUCT: Entregados por semana de ENTREGA (AR/AS)
     hProd.getRange(rowNum, 5).setFormula(
       '=SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Entregado")' +
-      '*(Home!$AS$2:$AS$10000=' + semanaActual + ')*(Home!$AT$2:$AT$10000=' + anioActual + ')' +
+      '*(Home!$AU$2:$AU$10000=' + semanaActual + ')*(Home!$AV$2:$AV$10000=' + anioActual + ')' +
       '*(Home!' + homeCol + '$2:' + homeCol + '$10000))'
     );
 
