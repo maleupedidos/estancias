@@ -612,7 +612,7 @@ function generarOrdenDeCompra(canal, row) {
   } else if (canal === 'Clubes') {
     prodStartCol = 21; prodEndCol = 28; // PMu(21) a PPCyQ(28) en 0-based
     colCliente = 7; colPedido = 1; colTelefono = 31; colDiaEntrega = 12;
-    direccion = String(rowData[8] || '') + ' — ' + String(rowData[9] || ''); // Club + Deporte
+    direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · '); // Club + Deporte + Grupo
   }
 
   const abbrToProvMap = _getAbbrToProveedor();
