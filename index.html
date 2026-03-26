@@ -12,7 +12,7 @@
 <meta property="og:url"         content="https://maleupedidos.github.io/estancias/" />
 <meta property="og:title"       content="Maleu — Rico, listo, sin drama." />
 <meta property="og:description" content="Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar. Pedís por WhatsApp, nosotros entregamos." />
-<meta property="og:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg" />
+<meta property="og:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-new.jpg" />
 <meta property="og:image:width"  content="960" />
 <meta property="og:image:height" content="1280" />
 <meta property="og:locale"      content="es_AR" />
@@ -21,7 +21,7 @@
 <meta name="twitter:card"        content="summary_large_image" />
 <meta name="twitter:title"       content="Maleu — Rico, listo, sin drama." />
 <meta name="twitter:description" content="Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar. Pedís por WhatsApp, nosotros entregamos." />
-<meta name="twitter:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg" />
+<meta name="twitter:image"       content="https://maleupedidos.github.io/estancias/img/pizza-margarita-new.jpg" />
 <meta name="theme-color" content="#3D1C0A" />
 <link rel="canonical" href="https://maleupedidos.github.io/estancias/" />
 <!-- Favicon -->
@@ -41,7 +41,7 @@
   "description": "Comida casera lista para llevar a la mesa. Pizzas, sorrentinos, empanadas y postres con delivery en Estancias del Pilar.",
   "url": "https://maleupedidos.github.io/estancias/",
   "logo": "https://maleupedidos.github.io/estancias/img/logo-icono.png",
-  "image": "https://maleupedidos.github.io/estancias/img/pizza-margarita-cocida.jpg",
+  "image": "https://maleupedidos.github.io/estancias/img/pizza-margarita-new.jpg",
   "telephone": "+5491155038905",
   "address": {
     "@type": "PostalAddress",
@@ -888,23 +888,23 @@
    ══════════════════════════════════════════════════ */
 const PRODUCTOS = [
   // ── PIZZAS PREMIUM (individuales) ───────────────────────────────────────
-  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.",                        precio:11000, img:"pizza-margarita-cocida.jpg",    imgPack:"pizza-margarita.jpg",    imgPos:"center 35%", emoji:"🍕", bg:"#FFF3E8", top:true,
+  { id:19, cat:"Pizzas Premium",    nombre:"Pizza Muzzarella",              desc:"Puro queso derretido sobre salsa de tomate. La clásica que nunca sobra.",          precio:11000, img:"pizza-muzzarella-new.jpg",      imgPos:"center 28%", emoji:"🍕", bg:"#f5f3f0",
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
-  { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.",                        precio:11000, img:"pizza-jamon-queso-cocida.jpg", imgPack:"pizza-jamon-queso-p.jpg", imgPos:"center 30%", emoji:"🍕", bg:"#FDF0F0",
+  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.",                        precio:11000, img:"pizza-margarita-new.jpg",       imgPos:"center 28%", emoji:"🍕", bg:"#f5f3f0", top:true,
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
-  { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.",                       precio:11000, img:"pizza-cebolla-cocida.jpg",      imgPack:"pizza-cebolla-p.jpg",    imgPos:"center 40%", emoji:"🍕", bg:"#FBF0E8",
+  { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.",                        precio:11000, img:"pizza-jamon-queso-new.jpg",    imgPos:"center 28%", emoji:"🍕", bg:"#f5f3f0",
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
-  { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.",                           precio:12000, img:"pizza-jamon-morron-cocida.jpg", imgPack:"pizza-jamon-morron.jpg", imgPos:"center 35%", emoji:"🍕", bg:"#F5F0FA",
+  { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.",                       precio:11000, img:"pizza-cebolla-new.jpg",         imgPos:"center 28%", emoji:"🍕", bg:"#f5f3f0",
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
-  { id:19, cat:"Pizzas Premium",    nombre:"Pizza Muzzarella",              desc:"Puro queso derretido sobre salsa de tomate. La clásica que nunca sobra.",          precio:11000, img:"pizza-cebolla-cocida.jpg",                                        imgPos:"center 40%", emoji:"🍕", bg:"#FFF8E6",
+  { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.",                           precio:12000, img:"pizza-jamon-morron-new.jpg",    imgPos:"center 28%", emoji:"🍕", bg:"#f5f3f0",
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
 
   // ── PIZZAS CLÁSICAS (pack x2) ───────────────────────────────────────────
-  { id:5,  cat:"Pizzas Clásicas",   nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.",                   precio:16000, img:"pack-muzarella-cocida.jpg",    imgPos:"center 40%", imgPack:"pack-muzarella.jpg",    emoji:"🍕", bg:"#FFF8E6", top:true,
+  { id:5,  cat:"Pizzas Clásicas",   nombre:"Pack Muzarella x2",             desc:"Dos pizzas de muzzarella. Cena resuelta para toda la semana.",                   precio:16000, img:"pack-muzarella-new.jpg",        imgPos:"center 25%", emoji:"🍕", bg:"#f5f3f0", top:true,
     chips:["Para 3–4 personas", "2 pizzas grandes", "Al horno en 12 min"] },
-  { id:6,  cat:"Pizzas Clásicas",   nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.",             precio:16000, img:"pack-jamon-queso-cocida.jpg",  imgPos:"center 45%", imgPack:"pack-jamon-queso.jpg",  emoji:"🍕", bg:"#F0F7EE",
+  { id:6,  cat:"Pizzas Clásicas",   nombre:"Pack Jamón y Queso x2",         desc:"Dos pizzas de jamón y queso. Una para hoy, una para cuando querás.",             precio:16000, img:"pack-jamon-queso-new.jpg",     imgPos:"center 25%", emoji:"🍕", bg:"#f5f3f0",
     chips:["Para 3–4 personas", "2 pizzas grandes", "Al horno en 12 min"] },
-  { id:7,  cat:"Pizzas Clásicas",   nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.",                   precio:16000, img:"pack-cebolla-queso-cocida.jpg", imgPos:"center 50%", imgPack:"pack-cebolla-queso.jpg", emoji:"🍕", bg:"#EEF3F8",
+  { id:7,  cat:"Pizzas Clásicas",   nombre:"Pack Cebolla y Queso x2",       desc:"Dos pizzas con cebolla caramelizada. Guardá una para mañana.",                   precio:16000, img:"pack-cebolla-queso-new.jpg",   imgPos:"center 25%", emoji:"🍕", bg:"#f5f3f0",
     chips:["Para 3–4 personas", "2 pizzas grandes", "Al horno en 12 min"] },
 
   // ── SORRENTINOS ─────────────────────────────────────────────────────────
