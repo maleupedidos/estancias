@@ -1068,9 +1068,11 @@ function getProductosPorProveedor(proveedor) {
 }
 
 /** Genera filas en Orden de Compra para compra de Depósito */
-function confirmarCompraDeposito(proveedor, items, fechaBusqueda) {
+function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
   const shOC = SS.getSheetByName('Orden de Compra');
   if (!shOC) throw new Error('Hoja "Orden de Compra" no encontrada');
+
+  var esMarcos = vendedor === 'Marcos Bottcher';
 
   // Validar que haya items con cantidad > 0
   const itemsValidos = items.filter(function(item) { return item.qty > 0; });
@@ -1102,11 +1104,11 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda) {
     newRows.push([
       'OC-' + String(maxOC).padStart(3, '0'),  // A  N° Orden
       fechaStr + ' ' + horaStr,                  // B  Fecha Generada (timestamp completo)
-      'Depósito',                                // C  Canal
-      '',                                        // D  N° Pedido Origen (vacío — es reposición)
-      'Tadeo — Stock',                           // E  Cliente
+      esMarcos ? 'Red' : 'Depósito',              // C  Canal
+      '',                                        // D  N° Pedido Origen
+      vendedor || 'Tadeo — Stock',               // E  Cliente
       '',                                        // F  Teléfono
-      'Depósito Maleu',                          // G  Dirección
+      esMarcos ? 'Tortugas, Garín' : 'Depósito Maleu', // G  Dirección
       proveedor,                                 // H  Proveedor
       item.nombre,                               // I  Producto
       item.abbr,                                 // J  Abreviatura
@@ -1201,7 +1203,13 @@ function _getSidebarHTML() {
 <h2>Compra a Proveedor</h2>
 <p class="subtitle">Reposición de stock para Depósito</p>
 
-<label for="sel-prov">Proveedor</label>
+<label for="sel-vendedor">¿Para quién es la compra?</label>
+<select id="sel-vendedor">
+  <option value="Tadeo — Stock">Tadeo — Stock (Depósito)</option>
+  <option value="Marcos Bottcher">Marcos Bottcher (Red)</option>
+</select>
+
+<label for="sel-prov" style="margin-top:14px">Proveedor</label>
 <select id="sel-prov" onchange="onProvChange()">
   <option value="">Seleccioná un proveedor</option>
 </select>
@@ -1346,7 +1354,7 @@ function confirmar() {
       btn.disabled = false;
       btn.textContent = 'Confirmar compra →';
     })
-    .confirmarCompraDeposito(proveedorActual, items, fecha);
+    .confirmarCompraDeposito(proveedorActual, items, fecha, document.getElementById('sel-vendedor').value);
 }
 </script>
 </body>
