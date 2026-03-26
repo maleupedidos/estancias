@@ -888,13 +888,15 @@
    ══════════════════════════════════════════════════ */
 const PRODUCTOS = [
   // ── PIZZAS PREMIUM (individuales) ───────────────────────────────────────
-  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.",                        precio:11000, img:"pizza-margarita-cocida.jpg",    imgPack:"pizza-margarita.jpg",    emoji:"🍕", bg:"#FFF3E8", top:true,
+  { id:1,  cat:"Pizzas Premium",    nombre:"Pizza Margarita",              desc:"Tomate fresco, mozzarella y albahaca. La que nunca falla.",                        precio:11000, img:"pizza-margarita-cocida.jpg",    imgPack:"pizza-margarita.jpg",    imgPos:"center 35%", emoji:"🍕", bg:"#FFF3E8", top:true,
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
-  { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.",                        precio:11000, img:"pizza-jamon-queso-cocida.jpg", imgPack:"pizza-jamon-queso-p.jpg", emoji:"🍕", bg:"#FDF0F0",
+  { id:2,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Queso",           desc:"Mucho jamón, mucho queso. Simple, efectiva y sin dramas.",                        precio:11000, img:"pizza-jamon-queso-cocida.jpg", imgPack:"pizza-jamon-queso-p.jpg", imgPos:"center 30%", emoji:"🍕", bg:"#FDF0F0",
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
-  { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.",                       precio:11000, img:"pizza-cebolla-cocida.jpg",      imgPack:"pizza-cebolla-p.jpg",    emoji:"🍕", bg:"#FBF0E8",
+  { id:3,  cat:"Pizzas Premium",    nombre:"Pizza Cebolla Caramelizada",    desc:"Cebolla bien dulce con queso cremoso. Para los que saben.",                       precio:11000, img:"pizza-cebolla-cocida.jpg",      imgPack:"pizza-cebolla-p.jpg",    imgPos:"center 40%", emoji:"🍕", bg:"#FBF0E8",
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
-  { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.",                           precio:12000, img:"pizza-jamon-morron-cocida.jpg", imgPack:"pizza-jamon-morron.jpg", emoji:"🍕", bg:"#F5F0FA",
+  { id:4,  cat:"Pizzas Premium",    nombre:"Pizza Jamón y Morrón",          desc:"Con jamón, morrón rojo y orégano. Completa y sabrosa.",                           precio:12000, img:"pizza-jamon-morron-cocida.jpg", imgPack:"pizza-jamon-morron.jpg", imgPos:"center 35%", emoji:"🍕", bg:"#F5F0FA",
+    chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
+  { id:19, cat:"Pizzas Premium",    nombre:"Pizza Muzzarella",              desc:"Puro queso derretido sobre salsa de tomate. La clásica que nunca sobra.",          precio:11000, img:"pizza-cebolla-cocida.jpg",                                        imgPos:"center 40%", emoji:"🍕", bg:"#FFF8E6",
     chips:["Para 1–2 personas", "1 pizza grande", "Al horno en 12 min"] },
 
   // ── PIZZAS CLÁSICAS (pack x2) ───────────────────────────────────────────
@@ -1475,7 +1477,7 @@ const PROD_ABBR = {
   8:'SCo', 9:'SJyQ', 10:'SCa',
   11:'ECaC', 12:'EJyQ', 17:'ECyQ', 18:'EV',
   14:'TG', 15:'TLC', 16:'TC', 13:'F',
-  1:'PMa', 2:'PJyQ', 3:'PCC', 4:'PJyM',
+  1:'PMa', 2:'PJyQ', 3:'PCC', 4:'PJyM', 19:'PMu',
 };
 async function fetchStock() {
   if (!STOCK_CSV_URL) return;
