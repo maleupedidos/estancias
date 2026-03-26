@@ -664,25 +664,26 @@ function generarOrdenDeCompra(canal, row) {
       telefono,                                   // F  Teléfono
       direccion,                                  // G  Dirección Entrega
       abbrToProvMap[abbr] || '',                  // H  Proveedor
-      abbrToNameMap[abbr] || abbr,                // I  Producto
-      abbr,                                       // J  Abreviatura
-      qty,                                        // K  Cantidad
-      costoUnit,                                  // L  Costo Unitario
-      costoTotal,                                 // M  Costo Total
-      'Pendiente',                                // N  Estado
-      '',                                         // O  Fecha Pedido Proveedor
-      '',                                         // P  Fecha Búsqueda
-      '',                                         // Q  Fecha Recibido
-      diaEntrega,                                 // R  Día Entrega Cliente
-      'No',                                       // S  Pagado
+      'Orden de Compra',                          // I  Origen
+      abbrToNameMap[abbr] || abbr,                // J  Producto
+      abbr,                                       // K  Abreviatura
+      qty,                                        // L  Cantidad
+      costoUnit,                                  // M  Costo Unitario
+      costoTotal,                                 // N  Costo Total
+      'Pendiente',                                // O  Estado
+      '',                                         // P  Fecha Pedido Proveedor
+      '',                                         // Q  Fecha Búsqueda
+      '',                                         // R  Fecha Recibido
+      diaEntrega,                                 // S  Día Entrega Cliente
+      'No',                                       // T  Pagado
     ]);
   });
 
   if (newRows.length > 0) {
-    shOC.getRange(shOC.getLastRow() + 1, 1, newRows.length, 19).setValues(newRows);
+    shOC.getRange(shOC.getLastRow() + 1, 1, newRows.length, 20).setValues(newRows);
     // Formato moneda en costo
     const startRow = shOC.getLastRow() - newRows.length + 1;
-    shOC.getRange(startRow, 12, newRows.length, 2).setNumberFormat('$#,##0');
+    shOC.getRange(startRow, 13, newRows.length, 2).setNumberFormat('$#,##0');
   }
 }
 
@@ -920,14 +921,17 @@ function generarResumenWA() {
   // Agrupar pendientes por proveedor
   const porProveedor = {};
   for (var r = 1; r < data.length; r++) {
-    var estado = String(data[r][13]).trim(); // N = Estado
+    var estado = String(data[r][14]).trim(); // O = Estado
     if (estado !== 'Pendiente') continue;
 
+    var origen = String(data[r][8]).trim();    // I = Origen
+    if (origen !== 'Orden de Compra') continue; // Solo las que hay que comprar
+
     var proveedor = String(data[r][7]).trim();  // H = Proveedor
-    var producto  = String(data[r][8]).trim();  // I = Producto
-    var abbr      = String(data[r][9]).trim();  // J = Abreviatura
-    var qty       = Number(data[r][10]) || 0;   // K = Cantidad
-    var costoUnit = Number(String(data[r][11]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    var producto  = String(data[r][9]).trim();  // J = Producto
+    var abbr      = String(data[r][10]).trim(); // K = Abreviatura
+    var qty       = Number(data[r][11]) || 0;   // L = Cantidad
+    var costoUnit = Number(String(data[r][12]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
     var canal     = String(data[r][2]).trim();  // C = Canal
 
     if (!proveedor || qty === 0) continue;
@@ -1110,26 +1114,27 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
       '',                                        // F  Teléfono
       esMarcos ? 'Tortugas, Garín' : 'Depósito Maleu', // G  Dirección
       proveedor,                                 // H  Proveedor
-      item.nombre,                               // I  Producto
-      item.abbr,                                 // J  Abreviatura
-      item.qty,                                  // K  Cantidad
-      item.costo || 0,                           // L  Costo Unitario
-      costoTotal,                                // M  Costo Total
-      'Pendiente',                               // N  Estado
-      '',                                        // O  Fecha Pedido Proveedor
-      fechaBusqueda || '',                        // P  Fecha Búsqueda
-      '',                                        // Q  Fecha Recibido
-      '',                                        // R  Día Entrega Cliente (N/A para depósito)
-      'No',                                      // S  Pagado
+      item.origen || 'Orden de Compra',          // I  Origen
+      item.nombre,                               // J  Producto
+      item.abbr,                                 // K  Abreviatura
+      item.qty,                                  // L  Cantidad
+      item.costo || 0,                           // M  Costo Unitario
+      costoTotal,                                // N  Costo Total
+      'Pendiente',                               // O  Estado
+      '',                                        // P  Fecha Pedido Proveedor
+      fechaBusqueda || '',                        // Q  Fecha Búsqueda
+      '',                                        // R  Fecha Recibido
+      '',                                        // S  Día Entrega Cliente
+      'No',                                      // T  Pagado
     ]);
   });
 
   // Escribir filas
   const startRow = shOC.getLastRow() + 1;
-  shOC.getRange(startRow, 1, newRows.length, 19).setValues(newRows);
+  shOC.getRange(startRow, 1, newRows.length, 20).setValues(newRows);
 
-  // Formato moneda en cols L y M
-  shOC.getRange(startRow, 12, newRows.length, 2).setNumberFormat('$#,##0');
+  // Formato moneda en cols M y N
+  shOC.getRange(startRow, 13, newRows.length, 2).setNumberFormat('$#,##0');
 
   // Retornar resumen para confirmación
   const totalCosto = newRows.reduce(function(s, r) { return s + r[12]; }, 0);
@@ -1171,7 +1176,8 @@ function _getSidebarHTML() {
   .stock-ok  { background:#edf7ee; color:#2e7d32; }
   .stock-low { background:#fff3e0; color:#e67e22; }
   .stock-out { background:#fce8e8; color:#c0392b; }
-  .prod-qty { width:60px; text-align:center; padding:8px 4px; }
+  .prod-qty { width:55px; text-align:center; padding:8px 4px; }
+  .prod-origen { width:55px; padding:6px 2px; font-size:10px; border:1px solid #D4C8A0; border-radius:6px; text-align:center; background:#fff; color:#331C1C; }
   .empty-msg { font-size:12px; color:#7A4A4A; font-style:italic; padding:20px 0; text-align:center; }
   .summary {
     background:#F2E8C7; border-radius:10px; padding:12px; margin-top:16px; display:none;
@@ -1274,6 +1280,10 @@ function onProvChange() {
         '</span> ' + stockHtml + '</div>' +
         '<input type="number" class="prod-qty" min="0" value="0" ' +
         'data-index="' + i + '" onchange="updateSummary()" oninput="updateSummary()">' +
+        '<select class="prod-origen" data-index="' + i + '" onchange="updateSummary()">' +
+        '<option value="Orden de Compra">OC</option>' +
+        '<option value="Depósito">Dep</option>' +
+        '</select>' +
         '</div>';
     }).join('') + '</div>';
     updateSummary();
@@ -1282,16 +1292,19 @@ function onProvChange() {
 
 function getItems() {
   const inputs = document.querySelectorAll('.prod-qty');
+  const origenes = document.querySelectorAll('.prod-origen');
   const items = [];
   inputs.forEach(function(input) {
     const idx = parseInt(input.dataset.index);
     const qty = parseInt(input.value) || 0;
+    const origenSel = origenes[idx] ? origenes[idx].value : 'Orden de Compra';
     if (qty > 0 && productos[idx]) {
       items.push({
         abbr: productos[idx].abbr,
         nombre: productos[idx].nombre,
         costo: productos[idx].costo,
-        qty: qty
+        qty: qty,
+        origen: origenSel
       });
     }
   });
@@ -1313,7 +1326,8 @@ function updateSummary() {
   const lines = items.map(function(item) {
     const sub = item.costo * item.qty;
     total += sub;
-    return '<div class="summary-line"><span>' + item.nombre + ' x' + item.qty +
+    var origenTag = item.origen === 'Depósito' ? ' <small style="color:#e67e22">(Dep)</small>' : '';
+    return '<div class="summary-line"><span>' + item.nombre + ' x' + item.qty + origenTag +
       '</span><span>$' + sub.toLocaleString('es-AR') + '</span></div>';
   }).join('');
 
