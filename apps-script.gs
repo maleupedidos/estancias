@@ -942,12 +942,14 @@ function getProductosPorProveedor(proveedor) {
 
   const provData = hProv.getDataRange().getValues();
   const costoMap = {};
+  const stockMap = {};
   if (hProd) {
     const prodData = hProd.getDataRange().getValues();
     for (let r = 1; r < prodData.length; r++) {
       const abbr = String(prodData[r][2]).trim();
       const costo = Number(String(prodData[r][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
-      if (abbr) costoMap[abbr] = costo;
+      const stock = Number(prodData[r][5]) || 0; // col F = Stock Físico
+      if (abbr) { costoMap[abbr] = costo; stockMap[abbr] = stock; }
     }
   }
 
@@ -965,7 +967,8 @@ function getProductosPorProveedor(proveedor) {
     items.push({
       abbr: abbr,
       nombre: lastProd + ' — ' + gusto,
-      costo: costoMap[abbr] || 0
+      costo: costoMap[abbr] || 0,
+      stock: stockMap[abbr] !== undefined ? stockMap[abbr] : null
     });
   }
   return items;
@@ -1069,6 +1072,10 @@ function _getSidebarHTML() {
   }
   .prod-name { flex:1; font-size:12px; font-weight:600; line-height:1.3; }
   .prod-costo { font-size:11px; color:#7A4A4A; }
+  .prod-stock { font-size:10px; font-weight:700; padding:2px 6px; border-radius:50px; display:inline-block; margin-top:2px; }
+  .stock-ok  { background:#edf7ee; color:#2e7d32; }
+  .stock-low { background:#fff3e0; color:#e67e22; }
+  .stock-out { background:#fce8e8; color:#c0392b; }
   .prod-qty { width:60px; text-align:center; padding:8px 4px; }
   .empty-msg { font-size:12px; color:#7A4A4A; font-style:italic; padding:20px 0; text-align:center; }
   .summary {
@@ -1154,10 +1161,16 @@ function onProvChange() {
       return;
     }
     container.innerHTML = '<div class="products-list">' + items.map(function(item, i) {
+      var stockHtml = '';
+      if (item.stock !== null) {
+        if (item.stock === 0) stockHtml = '<span class="prod-stock stock-out">Sin stock</span>';
+        else if (item.stock <= 5) stockHtml = '<span class="prod-stock stock-low">Stock: ' + item.stock + '</span>';
+        else stockHtml = '<span class="prod-stock stock-ok">Stock: ' + item.stock + '</span>';
+      }
       return '<div class="prod-row">' +
         '<div class="prod-name">' + item.nombre + '<br><span class="prod-costo">' +
         (item.costo > 0 ? '$' + item.costo.toLocaleString('es-AR') + ' c/u' : 'Sin costo cargado') +
-        '</span></div>' +
+        '</span> ' + stockHtml + '</div>' +
         '<input type="number" class="prod-qty" min="0" value="0" ' +
         'data-index="' + i + '" onchange="updateSummary()" oninput="updateSummary()">' +
         '</div>';
