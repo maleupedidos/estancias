@@ -520,20 +520,80 @@ function onEditHandler(e) {
   if (sheetName === 'Pedidos') return _onEditPedidos(e);
 }
 
-// ── Clubes: auto-generar Orden de Compra cuando Origen cambia ──
+// ── Clubes: OC automática + stock cuando cambia Origen o Estado ──
+// Clubes: col L(12)=Origen, col N(14)=Estado de Entrega
+// Productos: cols V(22)–AC(29) → PMu,PMa,PJyQ,PCC,PJyM,PPM,PPJyQ,PPCyQ
+
+const CLUBES_COL_TO_ABBR = {
+  22: 'PMu',   // V
+  23: 'PMa',   // W
+  24: 'PJyQ',  // X
+  25: 'PCC',   // Y
+  26: 'PJyM',  // Z
+  27: 'PPM',   // AA
+  28: 'PPJyQ', // AB
+  29: 'PPCyQ', // AC
+};
+
 function _onEditClubes(e) {
   const col = e.range.getColumn();
   const row = e.range.getRow();
   if (row <= 1) return;
 
-  // Col L (12) = Origen en Clubes
+  const sh = e.range.getSheet();
+
+  // Col L (12) = Origen → generar OC
   if (col === 12) {
     const nuevoOrigen = String(e.value || '');
     if (nuevoOrigen === 'Orden de Compra') {
       generarOrdenDeCompra('Clubes', row);
-      SS.toast('Orden de Compra generada para ' + e.range.getSheet().getRange(row, 2).getValue(), 'OC', 5);
+      SS.toast('Orden de Compra generada para ' + sh.getRange(row, 2).getValue(), 'OC', 5);
+    }
+    return;
+  }
+
+  // Col N (14) = Estado de Entrega → manejar stock
+  if (col === 14) {
+    const origen = String(sh.getRange(row, 12).getValue()); // L = Origen
+    if (origen !== 'Depósito') return;
+
+    const nuevo    = String(e.value || '');
+    const anterior = String(e.oldValue || '');
+
+    const hProductos = SS.getSheetByName('Productos');
+    if (!hProductos) return;
+
+    // → Entregado: descontar Stock Físico
+    if (nuevo === 'Entregado' && anterior !== 'Entregado') {
+      _clubesStockFisico(sh, row, hProductos, -1);
+    }
+    // ← Sale de Entregado: devolver Stock Físico
+    if (anterior === 'Entregado' && nuevo !== 'Entregado') {
+      _clubesStockFisico(sh, row, hProductos, +1);
     }
   }
+}
+
+// Ajusta Stock Físico (col F=6) de Productos desde Clubes. signo: -1=restar, +1=sumar
+function _clubesStockFisico(shClubes, row, hProductos, signo) {
+  const cantidades = shClubes.getRange(row, 22, 1, 8).getValues()[0]; // cols V–AC (8 productos)
+  const prodData   = hProductos.getDataRange().getValues();
+
+  Object.keys(CLUBES_COL_TO_ABBR).forEach(function(colStr) {
+    const colIdx = Number(colStr);
+    const abbr   = CLUBES_COL_TO_ABBR[colIdx];
+    const qty    = Number(cantidades[colIdx - 22]) || 0;
+    if (qty === 0) return;
+
+    for (var r = 1; r < prodData.length; r++) {
+      if (String(prodData[r][2]).trim() === abbr) {
+        var celdaFis = hProductos.getRange(r + 1, 6); // F = Stock Físico
+        var fisico   = Number(celdaFis.getValue()) || 0;
+        celdaFis.setValue(Math.max(0, fisico + (qty * signo)));
+        break;
+      }
+    }
+  });
 }
 
 // ════════════════════════════════════════════════════════════
