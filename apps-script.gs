@@ -895,6 +895,359 @@ function _onEditPedidos(e) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  MENÚ CUSTOM — Maleu → Gestión de Stock
+// ════════════════════════════════════════════════════════════
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Maleu')
+    .addItem('Nueva compra a proveedor', 'abrirSidebarCompra')
+    .addSeparator()
+    .addItem('Actualizar fórmulas Productos', 'setupProductosFormulas')
+    .addItem('Reset stock semanal', 'resetStockSemanal')
+    .addToUi();
+}
+
+function abrirSidebarCompra() {
+  const html = HtmlService.createHtmlOutput(_getSidebarHTML())
+    .setTitle('Compra a Proveedor')
+    .setWidth(380);
+  SpreadsheetApp.getUi().showSidebar(html);
+}
+
+// ── Datos dinámicos para la sidebar ──────────────────────────
+
+/** Devuelve proveedores únicos desde hoja Proveedores */
+function getProveedores() {
+  const hProv = SS.getSheetByName('Proveedores');
+  if (!hProv) return [];
+  const data = hProv.getDataRange().getValues();
+  const provs = [];
+  const seen = {};
+  for (let r = 1; r < data.length; r++) {
+    const prov = String(data[r][2]).trim();
+    if (prov && !seen[prov]) {
+      seen[prov] = true;
+      provs.push(prov);
+    }
+  }
+  return provs;
+}
+
+/** Devuelve productos de un proveedor con costo desde Productos */
+function getProductosPorProveedor(proveedor) {
+  const hProv = SS.getSheetByName('Proveedores');
+  const hProd = SS.getSheetByName('Productos');
+  if (!hProv) return [];
+
+  const provData = hProv.getDataRange().getValues();
+  const costoMap = {};
+  if (hProd) {
+    const prodData = hProd.getDataRange().getValues();
+    for (let r = 1; r < prodData.length; r++) {
+      const abbr = String(prodData[r][2]).trim();
+      const costo = Number(String(prodData[r][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+      if (abbr) costoMap[abbr] = costo;
+    }
+  }
+
+  const items = [];
+  let lastProv = '', lastProd = '';
+  for (let r = 1; r < provData.length; r++) {
+    if (provData[r][2] && String(provData[r][2]).trim()) lastProv = String(provData[r][2]).trim();
+    if (provData[r][1] && String(provData[r][1]).trim()) lastProd = String(provData[r][1]).trim();
+    if (lastProv !== proveedor) continue;
+
+    const abbr  = String(provData[r][4]).trim();
+    const gusto = String(provData[r][3]).trim();
+    if (!abbr) continue;
+
+    items.push({
+      abbr: abbr,
+      nombre: lastProd + ' — ' + gusto,
+      costo: costoMap[abbr] || 0
+    });
+  }
+  return items;
+}
+
+/** Genera filas en Orden de Compra para compra de Depósito */
+function confirmarCompraDeposito(proveedor, items, fechaBusqueda) {
+  const shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) throw new Error('Hoja "Orden de Compra" no encontrada');
+
+  // Validar que haya items con cantidad > 0
+  const itemsValidos = items.filter(function(item) { return item.qty > 0; });
+  if (itemsValidos.length === 0) throw new Error('No hay productos con cantidad > 0');
+
+  // N° Orden autoincremental
+  const ocData = shOC.getDataRange().getValues();
+  let maxOC = 0;
+  for (let r = 1; r < ocData.length; r++) {
+    const match = String(ocData[r][0]).match(/^OC-(\d+)$/);
+    if (match) { const n = parseInt(match[1]); if (n > maxOC) maxOC = n; }
+  }
+
+  // Timestamp Argentina
+  const ahora   = new Date();
+  const argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const dd   = String(argDate.getDate()).padStart(2, '0');
+  const mm   = String(argDate.getMonth() + 1).padStart(2, '0');
+  const yyyy = argDate.getFullYear();
+  const hh   = String(argDate.getHours()).padStart(2, '0');
+  const mi   = String(argDate.getMinutes()).padStart(2, '0');
+  const fechaStr = dd + '/' + mm + '/' + yyyy;
+  const horaStr  = hh + ':' + mi;
+
+  const newRows = [];
+  itemsValidos.forEach(function(item) {
+    maxOC++;
+    const costoTotal = (item.costo || 0) * item.qty;
+    newRows.push([
+      'OC-' + String(maxOC).padStart(3, '0'),  // A  N° Orden
+      fechaStr + ' ' + horaStr,                  // B  Fecha Generada (timestamp completo)
+      'Depósito',                                // C  Canal
+      '',                                        // D  N° Pedido Origen (vacío — es reposición)
+      'Tadeo — Stock',                           // E  Cliente
+      '',                                        // F  Teléfono
+      'Depósito Maleu',                          // G  Dirección
+      proveedor,                                 // H  Proveedor
+      item.nombre,                               // I  Producto
+      item.abbr,                                 // J  Abreviatura
+      item.qty,                                  // K  Cantidad
+      item.costo || 0,                           // L  Costo Unitario
+      costoTotal,                                // M  Costo Total
+      'Pendiente',                               // N  Estado
+      '',                                        // O  Fecha Pedido Proveedor
+      fechaBusqueda || '',                        // P  Fecha Búsqueda
+      '',                                        // Q  Fecha Recibido
+      '',                                        // R  Día Entrega Cliente (N/A para depósito)
+      'No',                                      // S  Pagado
+    ]);
+  });
+
+  // Escribir filas
+  const startRow = shOC.getLastRow() + 1;
+  shOC.getRange(startRow, 1, newRows.length, 19).setValues(newRows);
+
+  // Formato moneda en cols L y M
+  shOC.getRange(startRow, 12, newRows.length, 2).setNumberFormat('$#,##0');
+
+  // Retornar resumen para confirmación
+  const totalCosto = newRows.reduce(function(s, r) { return s + r[12]; }, 0);
+  return {
+    ok: true,
+    filas: newRows.length,
+    totalCosto: totalCosto,
+    primerOC: newRows[0][0],
+    ultimoOC: newRows[newRows.length - 1][0]
+  };
+}
+
+// ── Sidebar HTML ─────────────────────────────────────────────
+
+function _getSidebarHTML() {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; font-size:13px; color:#331C1C; padding:16px; }
+  h2 { font-size:16px; font-weight:800; margin-bottom:4px; }
+  .subtitle { font-size:12px; color:#7A4A4A; margin-bottom:18px; }
+  label { display:block; font-size:12px; font-weight:700; margin-bottom:4px; margin-top:14px; }
+  select, input[type="date"], input[type="number"] {
+    width:100%; padding:10px; border:1.5px solid #D4C8A0; border-radius:8px;
+    font-family:inherit; font-size:13px; color:#331C1C; background:#fff;
+    outline:none; appearance:none;
+  }
+  select:focus, input:focus { border-color:#F07D47; box-shadow:0 0 0 3px rgba(240,125,71,.12); }
+  .products-list { margin-top:12px; }
+  .prod-row {
+    display:flex; align-items:center; gap:8px; padding:8px 0;
+    border-bottom:1px solid #F2E8C7;
+  }
+  .prod-name { flex:1; font-size:12px; font-weight:600; line-height:1.3; }
+  .prod-costo { font-size:11px; color:#7A4A4A; }
+  .prod-qty { width:60px; text-align:center; padding:8px 4px; }
+  .empty-msg { font-size:12px; color:#7A4A4A; font-style:italic; padding:20px 0; text-align:center; }
+  .summary {
+    background:#F2E8C7; border-radius:10px; padding:12px; margin-top:16px; display:none;
+  }
+  .summary.visible { display:block; }
+  .summary h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#F07D47; margin-bottom:8px; }
+  .summary-line { display:flex; justify-content:space-between; font-size:12px; padding:2px 0; }
+  .summary-total { font-weight:800; border-top:1.5px solid #D4C8A0; margin-top:6px; padding-top:8px; font-size:13px; }
+  .summary-total span:last-child { color:#F07D47; }
+  .btn-confirm {
+    display:block; width:100%; margin-top:16px; padding:14px;
+    background:#331C1C; color:#F2E8C7; border:none; border-radius:10px;
+    font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-confirm:hover { background:#1E1010; }
+  .btn-confirm:disabled { background:#ccc; color:#888; cursor:not-allowed; }
+  .result {
+    margin-top:14px; padding:12px; border-radius:10px; font-size:12px;
+    font-weight:600; display:none;
+  }
+  .result.ok { display:block; background:#e8f5e8; color:#2d6a2d; }
+  .result.err { display:block; background:#fce8e8; color:#c0392b; }
+  .fecha-group { margin-top:14px; }
+</style>
+</head>
+<body>
+
+<h2>Compra a Proveedor</h2>
+<p class="subtitle">Reposición de stock para Depósito</p>
+
+<label for="sel-prov">Proveedor</label>
+<select id="sel-prov" onchange="onProvChange()">
+  <option value="">Seleccioná un proveedor</option>
+</select>
+
+<div id="products-container">
+  <div class="empty-msg">Elegí un proveedor para ver sus productos</div>
+</div>
+
+<div class="fecha-group">
+  <label for="fecha-busqueda">Fecha estimada de búsqueda</label>
+  <input type="date" id="fecha-busqueda">
+</div>
+
+<div class="summary" id="summary"></div>
+
+<button class="btn-confirm" id="btn-confirm" onclick="confirmar()" disabled>
+  Confirmar compra →
+</button>
+
+<div class="result" id="result"></div>
+
+<script>
+let productos = [];
+let proveedorActual = '';
+
+// Cargar proveedores al abrir
+google.script.run.withSuccessHandler(function(provs) {
+  const sel = document.getElementById('sel-prov');
+  provs.forEach(function(p) {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    sel.appendChild(opt);
+  });
+}).getProveedores();
+
+function onProvChange() {
+  proveedorActual = document.getElementById('sel-prov').value;
+  const container = document.getElementById('products-container');
+  if (!proveedorActual) {
+    container.innerHTML = '<div class="empty-msg">Elegí un proveedor para ver sus productos</div>';
+    productos = [];
+    updateSummary();
+    return;
+  }
+  container.innerHTML = '<div class="empty-msg">Cargando...</div>';
+  google.script.run.withSuccessHandler(function(items) {
+    productos = items;
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-msg">Sin productos para este proveedor</div>';
+      return;
+    }
+    container.innerHTML = '<div class="products-list">' + items.map(function(item, i) {
+      return '<div class="prod-row">' +
+        '<div class="prod-name">' + item.nombre + '<br><span class="prod-costo">' +
+        (item.costo > 0 ? '$' + item.costo.toLocaleString('es-AR') + ' c/u' : 'Sin costo cargado') +
+        '</span></div>' +
+        '<input type="number" class="prod-qty" min="0" value="0" ' +
+        'data-index="' + i + '" onchange="updateSummary()" oninput="updateSummary()">' +
+        '</div>';
+    }).join('') + '</div>';
+    updateSummary();
+  }).getProductosPorProveedor(proveedorActual);
+}
+
+function getItems() {
+  const inputs = document.querySelectorAll('.prod-qty');
+  const items = [];
+  inputs.forEach(function(input) {
+    const idx = parseInt(input.dataset.index);
+    const qty = parseInt(input.value) || 0;
+    if (qty > 0 && productos[idx]) {
+      items.push({
+        abbr: productos[idx].abbr,
+        nombre: productos[idx].nombre,
+        costo: productos[idx].costo,
+        qty: qty
+      });
+    }
+  });
+  return items;
+}
+
+function updateSummary() {
+  const items = getItems();
+  const sumDiv = document.getElementById('summary');
+  const btn = document.getElementById('btn-confirm');
+
+  if (items.length === 0) {
+    sumDiv.classList.remove('visible');
+    btn.disabled = true;
+    return;
+  }
+
+  let total = 0;
+  const lines = items.map(function(item) {
+    const sub = item.costo * item.qty;
+    total += sub;
+    return '<div class="summary-line"><span>' + item.nombre + ' x' + item.qty +
+      '</span><span>$' + sub.toLocaleString('es-AR') + '</span></div>';
+  }).join('');
+
+  sumDiv.innerHTML = '<h4>Resumen de compra — ' + proveedorActual + '</h4>' +
+    lines +
+    '<div class="summary-line summary-total"><span>Total a pagar</span><span>$' +
+    total.toLocaleString('es-AR') + '</span></div>';
+  sumDiv.classList.add('visible');
+  btn.disabled = false;
+}
+
+function confirmar() {
+  const items = getItems();
+  if (items.length === 0) return;
+
+  const fecha = document.getElementById('fecha-busqueda').value || '';
+  const btn = document.getElementById('btn-confirm');
+  const result = document.getElementById('result');
+
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+  result.className = 'result';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      result.className = 'result ok';
+      result.textContent = 'Compra registrada: ' + resp.filas + ' productos (' +
+        resp.primerOC + ' a ' + resp.ultimoOC + ') — Total: $' +
+        resp.totalCosto.toLocaleString('es-AR');
+      btn.textContent = 'Confirmar compra →';
+      // Resetear cantidades
+      document.querySelectorAll('.prod-qty').forEach(function(i) { i.value = 0; });
+      updateSummary();
+    })
+    .withFailureHandler(function(err) {
+      result.className = 'result err';
+      result.textContent = 'Error: ' + err.message;
+      btn.disabled = false;
+      btn.textContent = 'Confirmar compra →';
+    })
+    .confirmarCompraDeposito(proveedorActual, items, fecha);
+}
+</script>
+</body>
+</html>`;
+}
+
+// ════════════════════════════════════════════════════════════
 //  setupSheets — ejecutar UNA sola vez para formatear todo
 // ════════════════════════════════════════════════════════════
 function setupSheets() {
