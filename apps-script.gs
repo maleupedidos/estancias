@@ -515,9 +515,89 @@ function onEditHandler(e) {
   const sheet = e.range.getSheet();
   const sheetName = sheet.getName();
 
-  if (sheetName === 'Home')    return _onEditHome(e);
-  if (sheetName === 'Clubes')  return _onEditClubes(e);
-  if (sheetName === 'Pedidos') return _onEditPedidos(e);
+  if (sheetName === 'Home')            return _onEditHome(e);
+  if (sheetName === 'Clubes')          return _onEditClubes(e);
+  if (sheetName === 'Orden de Compra') return _onEditOC(e);
+  if (sheetName === 'Pedidos')         return _onEditPedidos(e);
+}
+
+// ── Orden de Compra: auto-fill fechas + stock al cambiar Estado (col O=15) ──
+function _onEditOC(e) {
+  const col = e.range.getColumn();
+  const row = e.range.getRow();
+  if (row <= 1 || col !== 15) return; // solo col O (15) = Estado
+
+  const sh       = e.range.getSheet();
+  const nuevo    = String(e.value || '');
+  const anterior = String(e.oldValue || '');
+  const origen   = String(sh.getRange(row, 9).getValue()); // I = Origen
+
+  // Timestamp Argentina
+  var ahora   = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var dd      = String(argDate.getDate()).padStart(2, '0');
+  var mm      = String(argDate.getMonth() + 1).padStart(2, '0');
+  var yyyy    = argDate.getFullYear();
+  var fechaHoy = dd + '/' + mm + '/' + yyyy;
+
+  // → Pedido: llenar Fecha Pedido Proveedor (P=16)
+  if (nuevo === 'Pedido' && anterior !== 'Pedido') {
+    sh.getRange(row, 16).setValue(fechaHoy);
+  }
+
+  // → Recibido: llenar Fecha Recibido (R=18) + sumar stock si Origen=Orden de Compra
+  if (nuevo === 'Recibido' && anterior !== 'Recibido') {
+    sh.getRange(row, 18).setValue(fechaHoy);
+
+    if (origen === 'Orden de Compra') {
+      var abbr = String(sh.getRange(row, 11).getValue()).trim(); // K = Abreviatura
+      var qty  = Number(sh.getRange(row, 12).getValue()) || 0;  // L = Cantidad
+      if (abbr && qty > 0) {
+        var hProd = SS.getSheetByName('Productos');
+        if (hProd) {
+          var prodData = hProd.getDataRange().getValues();
+          for (var r = 1; r < prodData.length; r++) {
+            if (String(prodData[r][2]).trim() === abbr) {
+              var celdaFis = hProd.getRange(r + 1, 6); // F = Stock Físico
+              var fisico   = Number(celdaFis.getValue()) || 0;
+              celdaFis.setValue(fisico + qty);
+              SS.toast('Stock +' + qty + ' ' + abbr + ' → ' + (fisico + qty), 'Stock actualizado', 4);
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ← Sale de Recibido (corrección): restar stock si se había sumado
+  if (anterior === 'Recibido' && nuevo !== 'Recibido') {
+    if (origen === 'Orden de Compra') {
+      var abbr2 = String(sh.getRange(row, 11).getValue()).trim();
+      var qty2  = Number(sh.getRange(row, 12).getValue()) || 0;
+      if (abbr2 && qty2 > 0) {
+        var hProd2 = SS.getSheetByName('Productos');
+        if (hProd2) {
+          var prodData2 = hProd2.getDataRange().getValues();
+          for (var r2 = 1; r2 < prodData2.length; r2++) {
+            if (String(prodData2[r2][2]).trim() === abbr2) {
+              var celdaFis2 = hProd2.getRange(r2 + 1, 6);
+              var fisico2   = Number(celdaFis2.getValue()) || 0;
+              celdaFis2.setValue(Math.max(0, fisico2 - qty2));
+              break;
+            }
+          }
+        }
+      }
+    }
+    sh.getRange(row, 18).clearContent(); // Limpiar Fecha Recibido
+  }
+
+  // → Entregado: llenar Día Entrega (S=19) con fecha de hoy si está vacío
+  if (nuevo === 'Entregado' && anterior !== 'Entregado') {
+    var diaEntrega = sh.getRange(row, 19).getValue();
+    if (!diaEntrega) sh.getRange(row, 19).setValue(fechaHoy);
+  }
 }
 
 // ── Clubes: OC automática + stock cuando cambia Origen o Estado ──
