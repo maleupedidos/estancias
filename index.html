@@ -580,6 +580,26 @@
 .pago-error.visible {
   display: flex;
 }
+.alias-box {
+  margin-top:.65rem; background:rgba(37,211,102,.08); border:1.5px solid rgba(37,211,102,.25);
+  border-radius:11px; padding:.75rem 1rem; animation:errorIn .2s ease;
+}
+.alias-label { font-size:.68rem; font-weight:700; color:var(--brown-mid); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.35rem; }
+.alias-row { display:flex; align-items:center; gap:.5rem; }
+.alias-value {
+  flex:1; font-family:'Courier New',monospace; font-size:1.15rem; font-weight:800;
+  color:var(--brown); letter-spacing:.04em; padding:.5rem .75rem;
+  background:#fff; border-radius:8px; border:1.5px solid var(--cream-dark);
+}
+.alias-copy-btn {
+  background:var(--orange); color:#fff; border:none; border-radius:8px;
+  padding:.55rem .9rem; font-family:var(--font); font-size:.82rem; font-weight:700;
+  cursor:pointer; transition:background .15s, transform .1s; white-space:nowrap;
+}
+.alias-copy-btn:hover { background:#D96B38; }
+.alias-copy-btn:active { transform:scale(.95); }
+.alias-copy-btn.copied { background:#25D366; }
+.alias-hint { font-size:.7rem; color:var(--brown-mid); margin-top:.4rem; line-height:1.35; }
 
     /* RESPONSIVE */
     @media(max-width:359px){
@@ -833,6 +853,14 @@
     </div>
   </div>
   <span class="pago-error" id="err-pago" role="alert">⚠ Elegí un método de pago</span>
+  <div class="alias-box" id="alias-box" style="display:none">
+    <div class="alias-label">Alias Mercado Pago</div>
+    <div class="alias-row">
+      <span class="alias-value" id="alias-value">maleump</span>
+      <button type="button" class="alias-copy-btn" id="alias-copy-btn" onclick="copiarAlias()">Copiar</button>
+    </div>
+    <div class="alias-hint">Copiá el alias y pegalo en tu app del banco para transferir</div>
+  </div>
 </fieldset>
       </div>
     </div>
@@ -1385,6 +1413,44 @@ function enviarPedido(){
 /* TOAST */
 let _tt;
 function toast(msg){ const el=$id('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),1200); }
+
+/* Alias MP — mostrar/ocultar según método de pago */
+document.querySelectorAll('input[name="pago"]').forEach(function(radio) {
+  radio.addEventListener('change', function() {
+    const aliasBox = $id('alias-box');
+    if (this.value === 'Transferencia') {
+      aliasBox.style.display = 'block';
+    } else {
+      aliasBox.style.display = 'none';
+    }
+  });
+});
+
+function copiarAlias() {
+  const alias = 'maleump';
+  const btn = $id('alias-copy-btn');
+  navigator.clipboard.writeText(alias).then(function() {
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    toast('Alias copiado: maleump');
+    setTimeout(function() {
+      btn.textContent = 'Copiar';
+      btn.classList.remove('copied');
+    }, 3000);
+  }).catch(function() {
+    // Fallback para navegadores que no soportan clipboard API
+    var temp = document.createElement('textarea');
+    temp.value = alias;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    toast('Alias copiado: maleump');
+    setTimeout(function() { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 3000);
+  });
+}
 
 /* UTILS */
 function slugify(str) {
