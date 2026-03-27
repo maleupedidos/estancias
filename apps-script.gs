@@ -552,11 +552,12 @@ function _onEditOC(e) {
     sh.getRange(row, 16).setValue(fechaHoy);
   }
 
-  // → Recibido: llenar Fecha Recibido (R=18) + sumar stock si Origen=Orden de Compra
+  // → Recibido: llenar Fecha Recibido (R=18) + sumar stock SOLO si Canal=Depósito
   if (nuevo === 'Recibido' && anterior !== 'Recibido') {
     sh.getRange(row, 18).setValue(fechaHoy);
 
-    if (origen === 'Orden de Compra') {
+    var canal = String(sh.getRange(row, 3).getValue()).trim(); // C = Canal
+    if (canal === 'Depósito' && origen === 'Orden de Compra') {
       var abbr = String(sh.getRange(row, 11).getValue()).trim(); // K = Abreviatura
       var qty  = Number(sh.getRange(row, 12).getValue()) || 0;  // L = Cantidad
       if (abbr && qty > 0) {
@@ -565,7 +566,7 @@ function _onEditOC(e) {
           var prodData = hProd.getDataRange().getValues();
           for (var r = 1; r < prodData.length; r++) {
             if (String(prodData[r][2]).trim() === abbr) {
-              var celdaFis = hProd.getRange(r + 1, 6); // F = Stock Físico
+              var celdaFis = hProd.getRange(r + 1, 6);
               var fisico   = Number(celdaFis.getValue()) || 0;
               celdaFis.setValue(fisico + qty);
               SS.toast('Stock +' + qty + ' ' + abbr + ' → ' + (fisico + qty), 'Stock actualizado', 4);
@@ -577,9 +578,10 @@ function _onEditOC(e) {
     }
   }
 
-  // ← Sale de Recibido (corrección): restar stock si se había sumado
+  // ← Sale de Recibido (corrección): restar stock SOLO si Canal=Depósito
   if (anterior === 'Recibido' && nuevo !== 'Recibido') {
-    if (origen === 'Orden de Compra') {
+    var canal2 = String(sh.getRange(row, 3).getValue()).trim();
+    if (canal2 === 'Depósito' && origen === 'Orden de Compra') {
       var abbr2 = String(sh.getRange(row, 11).getValue()).trim();
       var qty2  = Number(sh.getRange(row, 12).getValue()) || 0;
       if (abbr2 && qty2 > 0) {
@@ -597,13 +599,7 @@ function _onEditOC(e) {
         }
       }
     }
-    sh.getRange(row, 18).clearContent(); // Limpiar Fecha Recibido
-  }
-
-  // → Entregado: llenar Día Entrega (S=19) con fecha de hoy si está vacío
-  if (nuevo === 'Entregado' && anterior !== 'Entregado') {
-    var diaEntrega = sh.getRange(row, 19).getValue();
-    if (!diaEntrega) sh.getRange(row, 19).setValue(fechaHoy);
+    sh.getRange(row, 18).clearContent();
   }
 }
 
@@ -1051,126 +1047,215 @@ function onOpen() {
     .createMenu('Maleu')
     .addItem('Nueva compra a proveedor', 'abrirSidebarCompra')
     .addItem('Resumen para WhatsApp (pendientes)', 'generarResumenWA')
-    .addItem('🚗 Hoja de Ruta (búsqueda)', 'generarHojaDeRuta')
+    .addItem('Hoja de Ruta (búsqueda)', 'generarHojaDeRuta')
+    .addItem('Marcar todas las OC como Recibidas', 'marcarOCRecibidas')
     .addSeparator()
     .addItem('Actualizar fórmulas Productos', 'setupProductosFormulas')
     .addItem('Reset stock semanal', 'resetStockSemanal')
     .addToUi();
 }
 
-/**
- * Genera Hoja de Ruta para búsqueda de productos.
- * Agrupa OC pendientes por proveedor, mostrando:
- * - Total a comprar por producto
- * - Desglose por cliente (quién pidió qué)
- */
-function generarHojaDeRuta() {
-  const shOC = SS.getSheetByName('Orden de Compra');
-  if (!shOC) { SpreadsheetApp.getUi().alert('No se encontró la hoja "Orden de Compra"'); return; }
+/** Marca TODAS las OC en estado "Pedido" como "Recibido" de un solo click.
+ *  Solo suma stock en Productos si Canal = "Depósito".
+ *  Las de otros canales (Home/Clubes/Red) se marcan Recibido pero NO tocan stock. */
+function marcarOCRecibidas() {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  var hProd = SS.getSheetByName('Productos');
+  if (!shOC || !hProd) return;
 
-  const data = shOC.getDataRange().getValues();
-  if (data.length <= 1) { SpreadsheetApp.getUi().alert('No hay órdenes de compra'); return; }
+  var ocData = shOC.getDataRange().getValues();
 
-  // Agrupar pendientes por proveedor → producto → clientes
-  const porProv = {};
-  for (var r = 1; r < data.length; r++) {
-    var estado = String(data[r][14]).trim(); // O = Estado
-    if (estado !== 'Pendiente') continue;
-
-    var prov     = String(data[r][7]).trim();   // H = Proveedor
-    var producto = String(data[r][9]).trim();   // J = Producto
-    var abbr     = String(data[r][10]).trim();  // K = Abreviatura
-    var qty      = Number(data[r][11]) || 0;    // L = Cantidad
-    var cliente  = String(data[r][4]).trim();   // E = Cliente
-    var dir      = String(data[r][6]).trim();   // G = Dirección
-    var diaEnt   = String(data[r][18]).trim();  // S = Día Entrega Cliente
-    var canal    = String(data[r][2]).trim();   // C = Canal
-
-    if (!prov || qty === 0) continue;
-
-    if (!porProv[prov]) porProv[prov] = {};
-    var key = abbr || producto;
-    if (!porProv[prov][key]) porProv[prov][key] = { nombre: producto, totalQty: 0, clientes: [] };
-    porProv[prov][key].totalQty += qty;
-    porProv[prov][key].clientes.push({
-      nombre: cliente,
-      dir: dir,
-      qty: qty,
-      dia: diaEnt,
-      canal: canal
-    });
+  // Contar cuántas hay en "Pedido"
+  var filasPedido = [];
+  for (var r = 1; r < ocData.length; r++) {
+    if (String(ocData[r][14]).trim() === 'Pedido') filasPedido.push(r);
   }
 
-  var proveedores = Object.keys(porProv);
-  if (proveedores.length === 0) {
-    SpreadsheetApp.getUi().alert('No hay órdenes pendientes para la ruta');
+  if (filasPedido.length === 0) {
+    SpreadsheetApp.getUi().alert('No hay órdenes en estado "Pedido"');
     return;
   }
 
-  // Generar HTML
-  var bloques = proveedores.map(function(prov) {
-    var productos = Object.values(porProv[prov]);
-    var totalItems = productos.reduce(function(s,p){ return s + p.totalQty; }, 0);
+  // Confirmar
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert(
+    'Marcar como Recibidas',
+    filasPedido.length + ' órdenes en estado "Pedido" se van a marcar como "Recibido".\n\n' +
+    'Las de Canal "Depósito" van a sumar stock en Productos.\n' +
+    'Las de otros canales (Home/Clubes/Red) solo cambian de estado.\n\n' +
+    '¿Confirmar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (resp !== ui.Button.YES) return;
 
-    var productosHTML = productos.map(function(p) {
-      var clientesHTML = p.clientes.map(function(c) {
-        return '<div class="cliente">' +
-          '<span class="cli-name">👤 ' + c.nombre + '</span>' +
-          '<span class="cli-qty">×' + c.qty + '</span>' +
-          '<span class="cli-info">' + (c.dir ? c.dir : '') + (c.dia ? ' · ' + c.dia : '') + '</span>' +
-        '</div>';
-      }).join('');
-
-      return '<div class="producto">' +
-        '<div class="prod-header">' +
-          '<span class="prod-name">' + p.nombre + '</span>' +
-          '<span class="prod-total">×' + p.totalQty + '</span>' +
-        '</div>' +
-        clientesHTML +
-      '</div>';
-    }).join('');
-
-    return '<div class="prov-block">' +
-      '<div class="prov-header">' +
-        '<span class="prov-name">🏭 ' + prov + '</span>' +
-        '<span class="prov-count">' + totalItems + ' unid.</span>' +
-      '</div>' +
-      productosHTML +
-    '</div>';
-  }).join('');
-
+  // Timestamp
   var ahora = new Date();
   var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  var fechaHoy = String(argDate.getDate()).padStart(2,'0') + '/' + String(argDate.getMonth()+1).padStart(2,'0') + '/' + argDate.getFullYear();
+  var dd = String(argDate.getDate()).padStart(2, '0');
+  var mm = String(argDate.getMonth() + 1).padStart(2, '0');
+  var yyyy = argDate.getFullYear();
+  var fechaHoy = dd + '/' + mm + '/' + yyyy;
 
-  var html = HtmlService.createHtmlOutput(
-    '<style>' +
-    'body{font-family:system-ui,sans-serif;font-size:13px;color:#331C1C;padding:16px;margin:0;}' +
-    'h2{font-size:16px;margin:0 0 4px;}' +
-    '.date{font-size:12px;color:#888;margin-bottom:16px;}' +
-    '.prov-block{background:#f8f6f0;border-radius:12px;padding:14px;margin-bottom:12px;}' +
-    '.prov-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #e8dfc4;}' +
-    '.prov-name{font-size:14px;font-weight:800;}' +
-    '.prov-count{font-size:12px;font-weight:700;background:#F07D47;color:#fff;padding:2px 8px;border-radius:20px;}' +
-    '.producto{margin-bottom:8px;padding:8px;background:#fff;border-radius:8px;border:1px solid #eee;}' +
-    '.prod-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}' +
-    '.prod-name{font-weight:700;font-size:13px;}' +
-    '.prod-total{font-weight:800;font-size:13px;color:#F07D47;}' +
-    '.cliente{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:3px 0 3px 12px;font-size:12px;border-top:1px solid #f5f5f5;}' +
-    '.cli-name{font-weight:600;min-width:120px;}' +
-    '.cli-qty{font-weight:700;color:#F07D47;min-width:30px;}' +
-    '.cli-info{color:#888;font-size:11px;}' +
-    '.print-btn{display:block;width:100%;padding:10px;margin-top:12px;background:#331C1C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:system-ui;}' +
-    '.print-btn:hover{background:#5C3333;}' +
-    '@media print{.print-btn{display:none;} .prov-block{break-inside:avoid;}}' +
-    '</style>' +
-    '<h2>🚗 Hoja de Ruta</h2>' +
-    '<div class="date">Generada: ' + fechaHoy + ' · ' + proveedores.length + ' proveedor' + (proveedores.length > 1 ? 'es' : '') + '</div>' +
-    bloques +
-    '<button class="print-btn" onclick="window.print()">🖨 Imprimir</button>'
-  ).setTitle('Hoja de Ruta').setWidth(480).setHeight(600);
+  var prodData = hProd.getDataRange().getValues();
+  var stockSumado = {};
+  var marcadas = 0;
 
-  SpreadsheetApp.getUi().showModalDialog(html, '🚗 Hoja de Ruta — Búsqueda');
+  filasPedido.forEach(function(r) {
+    var row = r + 1; // 1-based
+    var canal  = String(ocData[r][2]).trim();   // C = Canal
+    var origen = String(ocData[r][8]).trim();   // I = Origen
+    var abbr   = String(ocData[r][10]).trim();  // K = Abreviatura
+    var qty    = Number(ocData[r][11]) || 0;    // L = Cantidad
+
+    // Marcar como Recibido + fecha
+    shOC.getRange(row, 15).setValue('Recibido');  // O = Estado
+    shOC.getRange(row, 18).setValue(fechaHoy);    // R = Fecha Recibido
+
+    // Solo sumar stock si Canal = Depósito Y Origen = Orden de Compra
+    if (canal === 'Depósito' && origen === 'Orden de Compra' && abbr && qty > 0) {
+      if (!stockSumado[abbr]) stockSumado[abbr] = 0;
+      stockSumado[abbr] += qty;
+    }
+    marcadas++;
+  });
+
+  // Sumar stock en Productos
+  var prodActualizados = 0;
+  Object.keys(stockSumado).forEach(function(abbr) {
+    for (var p = 1; p < prodData.length; p++) {
+      if (String(prodData[p][2]).trim() === abbr) {
+        var celda = hProd.getRange(p + 1, 6); // F = Stock Físico
+        var actual = Number(celda.getValue()) || 0;
+        celda.setValue(actual + stockSumado[abbr]);
+        prodActualizados++;
+        break;
+      }
+    }
+  });
+
+  var msg = marcadas + ' órdenes marcadas como Recibido';
+  if (prodActualizados > 0) msg += '\n' + prodActualizados + ' productos actualizados en stock (Depósito)';
+  SS.toast(msg, 'Listo', 5);
+}
+
+/** Genera Hoja de Ruta: Sección 1 = Búsqueda (por proveedor), Sección 2 = Entregas (por cliente con checkbox) */
+function generarHojaDeRuta() {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) { SpreadsheetApp.getUi().alert('No se encontró la hoja "Orden de Compra"'); return; }
+
+  var data = shOC.getDataRange().getValues();
+  if (data.length <= 1) { SpreadsheetApp.getUi().alert('No hay órdenes de compra'); return; }
+
+  // ── Recopilar datos ──
+  var porProv = {};
+  var porCliente = {};
+  var totalGeneral = 0;
+
+  for (var r = 1; r < data.length; r++) {
+    var estado = String(data[r][14]).trim();
+    if (estado !== 'Pendiente' && estado !== 'Pedido') continue;
+    var origen = String(data[r][8]).trim();
+    if (origen === 'Depósito') continue;
+
+    var prov     = String(data[r][7]).trim();
+    var producto = String(data[r][9]).trim();
+    var qty      = Number(data[r][11]) || 0;
+    var costoU   = Number(String(data[r][12]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    var costoT   = costoU * qty;
+    var cliente  = String(data[r][4]).trim();
+    var canal    = String(data[r][2]).trim();
+    var dir      = String(data[r][6]).trim();
+
+    if (!prov || qty === 0) continue;
+
+    // Agrupar por proveedor
+    if (!porProv[prov]) porProv[prov] = { totalCosto: 0, productos: {} };
+    if (!porProv[prov].productos[producto]) porProv[prov].productos[producto] = 0;
+    porProv[prov].productos[producto] += qty;
+    porProv[prov].totalCosto += costoT;
+    totalGeneral += costoT;
+
+    // Agrupar por cliente
+    var ck = cliente;
+    if (!porCliente[ck]) porCliente[ck] = { canal: canal, dir: dir, items: [], total: 0 };
+    porCliente[ck].items.push({ producto: producto, qty: qty, prov: prov });
+    porCliente[ck].total += costoT;
+  }
+
+  var provs = Object.keys(porProv);
+  var clientes = Object.keys(porCliente);
+  if (provs.length === 0) { SpreadsheetApp.getUi().alert('No hay órdenes pendientes para buscar'); return; }
+
+  // ── Construir HTML ──
+  var html = '<style>' +
+    'body{font-family:system-ui,sans-serif;font-size:13px;color:#331C1C;padding:20px;max-width:750px;margin:0 auto;}' +
+    'h2{font-size:20px;font-weight:800;margin-bottom:2px;}' +
+    '.sub{font-size:12px;color:#7A4A4A;margin-bottom:20px;}' +
+    '.section-title{font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#F07D47;margin:24px 0 12px;padding-bottom:6px;border-bottom:2px solid #F07D47;}' +
+    '.prov{background:#f8f6f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;}' +
+    '.prov-t{font-size:14px;font-weight:800;display:flex;justify-content:space-between;margin-bottom:8px;}' +
+    '.prov-cost{color:#F07D47;}' +
+    '.pl-r{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e8dfc4;font-size:13px;}' +
+    '.pl-r:last-child{border-bottom:none;}' +
+    '.pl-n{font-weight:600;}.pl-q{font-weight:800;color:#F07D47;}' +
+    '.cliente{background:#fff;border:1.5px solid #e8dfc4;border-radius:12px;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid;}' +
+    '.cliente-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}' +
+    '.cliente-name{font-size:14px;font-weight:800;}' +
+    '.cliente-canal{font-size:10px;font-weight:700;background:#F07D47;color:#fff;padding:2px 8px;border-radius:50px;}' +
+    '.cliente-dir{font-size:11px;color:#7A4A4A;margin-bottom:8px;}' +
+    '.item-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f2e8c7;font-size:13px;}' +
+    '.item-row:last-child{border-bottom:none;}' +
+    '.checkbox{width:18px;height:18px;border:2px solid #331C1C;border-radius:4px;flex-shrink:0;}' +
+    '.item-name{flex:1;font-weight:600;}' +
+    '.item-qty{font-weight:800;color:#F07D47;min-width:30px;text-align:right;}' +
+    '.item-prov{font-size:10px;color:#7A4A4A;}' +
+    '.tb{background:#331C1C;color:#F2E8C7;border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;font-size:15px;font-weight:800;margin-top:20px;}' +
+    '.tb span:last-child{color:#F07D47;}' +
+    '.pb{display:block;width:100%;margin-top:12px;padding:12px;background:#F07D47;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}' +
+    '@media print{.pb{display:none;} body{padding:10px;font-size:12px;} .cliente{border:1px solid #ccc;} .checkbox{border:1.5px solid #000;}}' +
+    '</style>';
+
+  html += '<h2>Hoja de Ruta — Maleu</h2>';
+  html += '<p class="sub">' + new Date().toLocaleDateString('es-AR', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + '</p>';
+
+  // ── SECCIÓN 1: BÚSQUEDA POR PROVEEDOR ──
+  html += '<div class="section-title">1. Búsqueda por proveedor</div>';
+
+  provs.forEach(function(prov) {
+    var d = porProv[prov];
+    html += '<div class="prov"><div class="prov-t"><span>' + prov + '</span><span class="prov-cost">$' + d.totalCosto.toLocaleString('es-AR') + '</span></div>';
+    Object.keys(d.productos).forEach(function(prod) {
+      html += '<div class="pl-r"><span class="pl-n">' + prod + '</span><span class="pl-q">x' + d.productos[prod] + '</span></div>';
+    });
+    html += '</div>';
+  });
+
+  html += '<div class="tb"><span>Total a pagar proveedores</span><span>$' + totalGeneral.toLocaleString('es-AR') + '</span></div>';
+
+  // ── SECCIÓN 2: ENTREGAS POR CLIENTE ──
+  html += '<div class="section-title">2. Entregas por cliente (' + clientes.length + ')</div>';
+
+  clientes.forEach(function(nombre) {
+    var c = porCliente[nombre];
+    html += '<div class="cliente">';
+    html += '<div class="cliente-head"><span class="cliente-name">' + nombre + '</span><span class="cliente-canal">' + c.canal + '</span></div>';
+    if (c.dir) html += '<div class="cliente-dir">' + c.dir + '</div>';
+    c.items.forEach(function(item) {
+      html += '<div class="item-row">' +
+        '<div class="checkbox"></div>' +
+        '<span class="item-name">' + item.producto + '</span>' +
+        '<span class="item-qty">x' + item.qty + '</span>' +
+        '</div>';
+    });
+    html += '</div>';
+  });
+
+  html += '<button class="pb" onclick="window.print()">Imprimir Hoja de Ruta</button>';
+
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(750).setHeight(600),
+    'Hoja de Ruta — Maleu'
+  );
 }
 
 /** Genera resumen de OC pendientes agrupado por proveedor, listo para copiar a WhatsApp */
