@@ -635,24 +635,25 @@ function _onEditClubes(e) {
     return;
   }
 
-  // Col N (14) = Estado de Entrega → manejar stock
+  // Col N (14) = Estado de Entrega → stock solo si Depósito
   if (col === 14) {
     const origen = String(sh.getRange(row, 12).getValue()); // L = Origen
-    if (origen !== 'Depósito') return;
-
     const nuevo    = String(e.value || '');
     const anterior = String(e.oldValue || '');
 
-    const hProductos = SS.getSheetByName('Productos');
-    if (!hProductos) return;
-
-    // → Entregado: descontar Stock Físico
+    // → Entregado: descontar Stock Físico solo si Depósito
     if (nuevo === 'Entregado' && anterior !== 'Entregado') {
-      _clubesStockFisico(sh, row, hProductos, -1);
+      if (origen === 'Depósito') {
+        const hProductos = SS.getSheetByName('Productos');
+        if (hProductos) _clubesStockFisico(sh, row, hProductos, -1);
+      }
     }
-    // ← Sale de Entregado: devolver Stock Físico
+    // ← Sale de Entregado: devolver Stock Físico solo si Depósito
     if (anterior === 'Entregado' && nuevo !== 'Entregado') {
-      _clubesStockFisico(sh, row, hProductos, +1);
+      if (origen === 'Depósito') {
+        const hProductos = SS.getSheetByName('Productos');
+        if (hProductos) _clubesStockFisico(sh, row, hProductos, +1);
+      }
     }
   }
 }
@@ -852,24 +853,25 @@ function _onEditHome(e) {
 
   const sh     = e.range.getSheet();
   const origen = String(sh.getRange(row, 9).getValue()); // col I (9) = Origen
-  if (origen !== 'Depósito') return;
-
   const nuevo    = String(e.value || '');
   const anterior = String(e.oldValue || '');
 
-  const hProductos = SS.getSheetByName('Productos');
-  if (!hProductos) return;
-
-  // → Entregado: descontar Stock Físico + registrar fecha/hora de entrega
+  // → Entregado: registrar fecha SIEMPRE + descontar stock solo si Depósito
   if (nuevo === 'Entregado' && anterior !== 'Entregado') {
-    _homeStockFisico(sh, row, hProductos, -1);
     _registrarFechaEntrega(sh, row);
+    if (origen === 'Depósito') {
+      const hProductos = SS.getSheetByName('Productos');
+      if (hProductos) _homeStockFisico(sh, row, hProductos, -1);
+    }
   }
 
-  // ← Sale de Entregado (corrección manual): devolver Stock Físico + borrar fecha entrega
+  // ← Sale de Entregado: limpiar fecha SIEMPRE + devolver stock solo si Depósito
   if (anterior === 'Entregado' && nuevo !== 'Entregado') {
-    _homeStockFisico(sh, row, hProductos, +1);
     sh.getRange(row, 43, 1, 6).clearContent(); // limpiar AQ-AV
+    if (origen === 'Depósito') {
+      const hProductos = SS.getSheetByName('Productos');
+      if (hProductos) _homeStockFisico(sh, row, hProductos, +1);
+    }
   }
 }
 
