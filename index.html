@@ -1364,6 +1364,18 @@ function enviarPedido(){
     const p = PROD_MAP[+id];
     return p ? { id: p.id, nombre: p.nombre, qty, precio: p.precio } : null;
   }).filter(Boolean);
+  /* Bloquear botón y dar feedback visual */
+  _enviando = true;
+  const waBtn = document.querySelector('.whatsapp-btn');
+  const waBtnOrigHTML = waBtn ? waBtn.innerHTML : '';
+  if (waBtn) {
+    waBtn.disabled = true;
+    waBtn.innerHTML = '<span>\u2713</span> Registrando pedido\u2026';
+  }
+
+  const waUrl = 'https://wa.me/' + WA_NUMBER + '?text=' + urlText;
+
+  // Primero registrar en Sheets, DESPUÉS abrir WhatsApp
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
     mode: 'no-cors',
@@ -1383,18 +1395,13 @@ function enviarPedido(){
       items,
       total:         cartTotal()
     })
-  }).catch(() => {});
-
-  /* Bloquear botón y dar feedback visual */
-  _enviando = true;
-  const waBtn = document.querySelector('.whatsapp-btn');
-  const waBtnOrigHTML = waBtn ? waBtn.innerHTML : '';
-  if (waBtn) {
-    waBtn.disabled = true;
-    waBtn.innerHTML = '<span>\u2713</span> \u00A1Listo! Abrimos WhatsApp\u2026';
-  }
-
-  window.location.href = 'https://wa.me/' + WA_NUMBER + '?text=' + urlText;
+  }).then(function() {
+    if (waBtn) waBtn.innerHTML = '<span>\u2713</span> \u00A1Listo! Abrimos WhatsApp\u2026';
+    window.location.href = waUrl;
+  }).catch(function() {
+    // Si falla el registro, abrir WhatsApp igual (no bloquear al cliente)
+    window.location.href = waUrl;
+  });
 
   /* Limpiar estado tras envío */
   setTimeout(() => {
