@@ -1337,9 +1337,9 @@ function enviarPedido(){
   const plural = cantidadItems !== 1 ? 's' : '';
   const barrioInfo = barrioPrivado === 'Estancias del Pilar' ? barrioPrivado + ' — ' + barrio : barrioPrivado;
 
-  const msgText = [
-    '🧾 *NUEVO PEDIDO — MALEU*',
-    '📦 *' + cantidadItems + ' producto' + plural + '*',
+  const msgLines = [
+    '\uD83E\uDDFE *NUEVO PEDIDO \u2014 MALEU*',
+    '\uD83D\uDCE6 *' + cantidadItems + ' producto' + plural + '*',
     '',
     lineas,
     '',
@@ -1347,18 +1347,17 @@ function enviarPedido(){
     '*TOTAL: ' + totalStr + '*',
     sep,
     '',
-    '👤 *Nombre:* ' + nombre,
-    '🏘 *Barrio:* ' + barrioInfo,
-    '📍 *Lote:* ' + direccion,
-    '📞 *Tel:* ' + telefono,
-    '📅 *Entrega:* ' + dia + ' · ' + horario,
-    '💳 *Pago:* ' + pagoEl.value,
+    '\uD83D\uDC64 *Nombre:* ' + nombre,
+    '\uD83C\uDFD8 *Barrio:* ' + barrioInfo,
+    '\uD83D\uDCCD *Lote:* ' + direccion,
+    '\uD83D\uDCDE *Tel:* ' + telefono,
+    '\uD83D\uDCC5 *Entrega:* ' + dia + ' \u00B7 ' + horario,
+    '\uD83D\uDCB3 *Pago:* ' + pagoEl.value,
     '',
     sep,
-    '🧡 _¡Gracias por elegirnos!_',
-  ].join('\n');
-
-  const urlText = encodeURIComponent(msgText);
+    '\uD83E\uDDE1 _\u00A1Gracias por elegirnos!_',
+  ];
+  const urlText = msgLines.map(function(line) { return encodeURIComponent(line); }).join('%0A');
 
   /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
   const items = Object.entries(cart).map(([id, qty]) => {
