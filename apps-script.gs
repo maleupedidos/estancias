@@ -122,10 +122,11 @@ const HOME_PRODUCT_COLS = {
   15: 30,  // TLC   — Torta Lemon Crumble
   16: 31,  // TC    — Torta Coco
   13: 32,  // F     — Franui Leche
-  1:  33,  // PMar  — Pizza Margarita
-  2:  34,  // PJyQ  — Pizza Jamón y Queso
-  3:  35,  // PCC   — Pizza Cebolla Caramelizada
-  4:  36,  // PJyM  — Pizza Jamón y Morrón
+  19: 33,  // PMu   — Pizza Muzzarella
+  1:  34,  // PMa   — Pizza Margarita
+  2:  35,  // PJyQ  — Pizza Jamón y Queso
+  3:  36,  // PCC   — Pizza Cebolla Caramelizada
+  4:  37,  // PJyM  — Pizza Jamón y Morrón
 };
 
 // Mapeo id de producto (página web) → abreviatura en hoja Productos (col C)
@@ -134,7 +135,7 @@ const PAGE_ID_TO_ABBR = {
   8:  'SCo',   9:  'SJyQ',  10: 'SCa',
   11: 'ECaC',  12: 'EJyQ',  17: 'ECyQ', 18: 'EV',
   14: 'TG',    15: 'TLC',   16: 'TC',   13: 'F',
-  1:  'PMa',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
+  19: 'PMu',  1:  'PMa',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
 };
 
 function _doPostHome(data) {
@@ -205,7 +206,7 @@ function _doPostHome(data) {
   const subBarrio     = String(data.subBarrio     || '');
 
   // ── Construir fila de 48 columnas (A a AV) ────────────────
-  const row = new Array(48).fill('');
+  const row = new Array(49).fill('');
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
   row[0]  = horaStr;                            // A  Hora Pedido
@@ -232,13 +233,13 @@ function _doPostHome(data) {
     row[HOME_PRODUCT_COLS[id] - 1] = qtys[Number(id)] || 0;
   });
 
-  row[36] = costoTotal;                         // AK  Costo
-  row[37] = total - costoTotal;                 // AL  Margen Bruto (Cobrado - Costo)
-  row[38] = barrioPrivado;                      // AM  Barrio
-  row[39] = subBarrio;                          // AN  Sub Barrio
-  row[40] = String(data.lote || '');            // AO  Domicilio - Lote
-  row[41] = String(data.telefono || '');        // AP  Teléfono
-  // AQ-AV (indices 42-47) = Fecha/Hora/Día/Semana/Año Entrega → se llenan al marcar K="Entregado"
+  row[37] = costoTotal;                         // AL  Costo
+  row[38] = total - costoTotal;                 // AM  Margen Bruto (Cobrado - Costo)
+  row[39] = barrioPrivado;                      // AN  Barrio
+  row[40] = subBarrio;                          // AO  Sub Barrio
+  row[41] = String(data.lote || '');            // AP  Domicilio - Lote
+  row[42] = String(data.telefono || '');        // AQ  Teléfono
+  // AR-AW (indices 43-48) = Fecha/Hora/Día/Semana/Año Entrega → se llenan al marcar K="Entregado"
 
   sh.appendRow(row);
 }
@@ -502,10 +503,11 @@ const HOME_COL_TO_ABBR = {
   30: 'TLC',   // AD
   31: 'TC',    // AE
   32: 'F',     // AF
-  33: 'PMa',  // AG
-  34: 'PJyQ',  // AH
-  35: 'PCC',   // AI
-  36: 'PJyM',  // AJ
+  33: 'PMu',   // AG
+  34: 'PMa',   // AH
+  35: 'PJyQ',  // AI
+  36: 'PCC',   // AJ
+  37: 'PJyM',  // AK
 };
 
 // IMPORTANTE: esta función debe configurarse SOLO como trigger instalable.
@@ -867,7 +869,7 @@ function _onEditHome(e) {
 
   // ← Sale de Entregado: limpiar fecha SIEMPRE + devolver stock solo si Depósito
   if (anterior === 'Entregado' && nuevo !== 'Entregado') {
-    sh.getRange(row, 43, 1, 6).clearContent(); // limpiar AQ-AV
+    sh.getRange(row, 44, 1, 6).clearContent(); // limpiar AQ-AV
     if (origen === 'Depósito') {
       const hProductos = SS.getSheetByName('Productos');
       if (hProductos) _homeStockFisico(sh, row, hProductos, +1);
@@ -887,7 +889,7 @@ function _registrarFechaEntrega(sh, row) {
   var hh      = String(argDate.getHours()).padStart(2, '0');
   var mi      = String(argDate.getMinutes()).padStart(2, '0');
 
-  sh.getRange(row, 43, 1, 6).setValues([[
+  sh.getRange(row, 44, 1, 6).setValues([[
     hh + ':' + mi,                     // AQ  Hora Entrega
     DIAS[argDate.getDay()],            // AR  Día Entrega
     dd + '/' + mm + '/' + yyyy,        // AS  Fecha Entrega
@@ -899,7 +901,7 @@ function _registrarFechaEntrega(sh, row) {
 
 // Ajusta Stock Físico (col F=6) de Productos. signo: -1 = restar, +1 = sumar
 function _homeStockFisico(shHome, row, hProductos, signo) {
-  const cantidades = shHome.getRange(row, 19, 1, 18).getValues()[0]; // cols S–AJ
+  const cantidades = shHome.getRange(row, 19, 1, 19).getValues()[0]; // cols S–AK
   const prodData   = hProductos.getDataRange().getValues();
 
   Object.keys(HOME_COL_TO_ABBR).forEach(function(colStr) {
@@ -927,7 +929,7 @@ const ABBR_TO_HOME_COL = {
   'SCo':'V', 'SJyQ':'W', 'SCa':'X',
   'ECaC':'Y', 'EJyQ':'Z', 'ECyQ':'AA', 'EV':'AB',
   'TG':'AC', 'TLC':'AD', 'TC':'AE', 'F':'AF',
-  'PMa':'AG', 'PJyQ':'AH', 'PCC':'AI', 'PJyM':'AJ',
+  'PMu':'AG', 'PMa':'AH', 'PJyQ':'AI', 'PCC':'AJ', 'PJyM':'AK',
 };
 
 function setupProductosFormulas() {
@@ -952,7 +954,7 @@ function setupProductosFormulas() {
     // Col E (Vendidos Semana) = SUMPRODUCT: Entregados por semana de ENTREGA (AR/AS)
     hProd.getRange(rowNum, 5).setFormula(
       '=SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Entregado")' +
-      '*(Home!$AU$2:$AU$10000=' + semanaActual + ')*(Home!$AV$2:$AV$10000=' + anioActual + ')' +
+      '*(Home!$AV$2:$AV$10000=' + semanaActual + ')*(Home!$AW$2:$AW$10000=' + anioActual + ')' +
       '*(Home!' + homeCol + '$2:' + homeCol + '$10000))'
     );
 
