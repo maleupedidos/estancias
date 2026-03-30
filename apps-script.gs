@@ -233,7 +233,7 @@ function _doPostHome(data) {
     row[HOME_PRODUCT_COLS[id] - 1] = qtys[Number(id)] || 0;
   });
 
-  row[18] = total;                               // S   Facturado (= Total + Propinas, propinas default 0)
+  // S (col 19) = Facturado → se pone fórmula DESPUÉS del appendRow
   row[38] = costoTotal;                         // AM  Costo
   row[39] = total - costoTotal;                 // AN  Margen Bruto (Cobrado - Costo)
   row[40] = barrioPrivado;                      // AO  Barrio
@@ -243,6 +243,9 @@ function _doPostHome(data) {
   // AS-AX (indices 44-49) = Fecha/Hora/Día/Semana/Año Entrega → se llenan al marcar K="Entregado"
 
   sh.appendRow(row);
+  // Fórmula Facturado en S = Total + Propinas (se actualiza sola al cargar propina)
+  var newRow = sh.getLastRow();
+  sh.getRange(newRow, 19).setFormula('=N' + newRow + '+Q' + newRow + '+R' + newRow);
 }
 
 // ════════════════════════════════════════════════════════════
