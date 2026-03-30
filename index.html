@@ -1395,13 +1395,13 @@ function enviarPedido(){
       items,
       total:         cartTotal()
     })
-  }).then(function() {
+  }).catch(function() {});
+
+  // Abrir WhatsApp después de 600ms (da tiempo al fetch de salir sin bloquear al usuario)
+  setTimeout(function() {
     if (waBtn) waBtn.innerHTML = '<span>\u2713</span> \u00A1Listo! Abrimos WhatsApp\u2026';
     window.location.href = waUrl;
-  }).catch(function() {
-    // Si falla el registro, abrir WhatsApp igual (no bloquear al cliente)
-    window.location.href = waUrl;
-  });
+  }, 600);
 
   /* Limpiar estado tras envío */
   setTimeout(() => {
