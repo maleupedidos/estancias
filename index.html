@@ -1370,12 +1370,13 @@ function enviarPedido(){
   const waBtnOrigHTML = waBtn ? waBtn.innerHTML : '';
   if (waBtn) {
     waBtn.disabled = true;
-    waBtn.innerHTML = '<span>\u2713</span> Registrando pedido\u2026';
+    waBtn.style.background = '#331C1C';
+    waBtn.innerHTML = '<span class="whatsapp-btn-left"><span style="font-size:1.2rem">⏳</span> Registrando pedido... abrimos WhatsApp en segundos</span>';
   }
 
   const waUrl = 'https://wa.me/' + WA_NUMBER + '?text=' + urlText;
 
-  // Primero registrar en Sheets, DESPUÉS abrir WhatsApp
+  // Registrar en Sheets y abrir WhatsApp
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
     mode: 'no-cors',
