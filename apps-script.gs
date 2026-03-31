@@ -1,5 +1,5 @@
 /**
- * MALEU — Apps Script v3
+ * MALEU — Apps Script v5
  * ─────────────────────────────────────────────────────────────
  * DEPLOY:
  *   Implementar → Nueva implementación → Aplicación web
@@ -17,6 +17,308 @@ const SS      = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById
 const BROWN   = '#3D1C0A';
 const ORANGE  = '#F97035';
 const CREAM   = '#E8DFC4';
+
+// ════════════════════════════════════════════════════════════
+//  CONFIG — Contadores globales persistentes (hoja oculta)
+//  Fila 1=headers, Fila 2=H-, Fila 3=C-, Fila 4=OC-
+//  Col A=Parámetro, Col B=Valor
+// ════════════════════════════════════════════════════════════
+
+/** Lee el siguiente número para un contador y lo incrementa atómicamente.
+ *  @param {string} prefix - 'H-', 'C-' o 'OC-'
+ *  @returns {string} El nuevo ID formateado (ej: 'H-128', 'OC-090')
+ */
+function _nextId(prefix) {
+  const sh = SS.getSheetByName('Config');
+  if (!sh) throw new Error('Hoja Config no encontrada. Ejecutá setupConfig().');
+
+  // Mapeo prefix → fila en Config
+  const rowMap = { 'H-': 2, 'C-': 3, 'OC-': 4 };
+  const row = rowMap[prefix];
+  if (!row) throw new Error('Prefix desconocido: ' + prefix);
+
+  const celda = sh.getRange(row, 2); // Col B = valor actual
+  const actual = Number(celda.getValue()) || 0;
+  const nuevo = actual + 1;
+  celda.setValue(nuevo);
+
+  const pad = prefix === 'OC-' ? 3 : 3;
+  return prefix + String(nuevo).padStart(pad, '0');
+}
+
+/** Setup de la hoja Config (ejecutar UNA vez) */
+function setupConfig() {
+  let sh = SS.getSheetByName('Config');
+  if (!sh) sh = SS.insertSheet('Config');
+
+  // Estructura
+  sh.getRange(1, 1, 1, 2).setValues([['Parámetro', 'Valor']])
+    .setBackground(BROWN).setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center');
+
+  // Contadores — inicializar con los máximos actuales de cada hoja
+  const contadores = [
+    ['Último H-', _scanMax('Home', 'B', /^H-(\d+)$/)],
+    ['Último C-', _scanMax('Clubes', 'B', /^C-(\d+)$/)],
+    ['Último OC-', _scanMax('Orden de Compra', 'A', /^OC-(\d+)$/)],
+  ];
+  sh.getRange(2, 1, contadores.length, 2).setValues(contadores);
+
+  // Parámetros del negocio
+  sh.getRange(6, 1, 1, 2).setValues([['Parámetro Negocio', 'Valor']])
+    .setBackground('#E8DFC4').setFontColor(BROWN)
+    .setFontWeight('bold').setFontSize(10);
+  const params = [
+    ['Envío fuera de Home ($)', 3000],
+    ['Stock Crítico (umbral)', 3],
+  ];
+  sh.getRange(7, 1, params.length, 2).setValues(params);
+
+  // Formato
+  sh.setColumnWidth(1, 200);
+  sh.setColumnWidth(2, 120);
+  sh.getRange('B2:B4').setHorizontalAlignment('center').setFontWeight('bold').setFontSize(12);
+  sh.setFrozenRows(1);
+
+  // Ocultar la hoja
+  sh.hideSheet();
+  sh.setTabColor('#666666');
+
+  SS.toast('Config creada. Contadores: H-' + contadores[0][1] + ', C-' + contadores[1][1] + ', OC-' + contadores[2][1], 'Setup Config', 6);
+}
+
+/** Escanea una columna buscando el máximo de un patrón regex */
+function _scanMax(sheetName, col, regex) {
+  const sh = SS.getSheetByName(sheetName);
+  if (!sh) return 0;
+  const data = sh.getRange(col + '2:' + col + sh.getLastRow()).getValues();
+  let max = 0;
+  data.forEach(function(row) {
+    const match = String(row[0]).match(regex);
+    if (match) { const n = parseInt(match[1], 10); if (n > max) max = n; }
+  });
+  return max;
+}
+
+// ════════════════════════════════════════════════════════════
+//  KARDEX — Log inmutable de movimientos de stock
+//  Cada cambio de stock deja una huella digital
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Registra un movimiento de stock en la hoja Kardex.
+ * @param {string} abbr - Abreviatura del producto (ej: 'PMu')
+ * @param {string} tipo - '+REC', '-SAL', '+DEV', '-AJU'
+ * @param {number} qty - Cantidad movida (siempre positiva)
+ * @param {number} stockAnterior - Stock antes del movimiento
+ * @param {number} stockNuevo - Stock después del movimiento
+ * @param {string} canal - 'Home', 'Clubes', 'OC', 'Depósito', 'Manual'
+ * @param {string} referencia - ID del pedido/OC (ej: 'H-026', 'OC-037')
+ */
+function _logKardex(abbr, tipo, qty, stockAnterior, stockNuevo, canal, referencia) {
+  const sh = SS.getSheetByName('Kardex');
+  if (!sh) return; // Si no existe, silencio
+
+  // Obtener nombre del producto desde Productos
+  var nombreProd = abbr;
+  var hProd = SS.getSheetByName('Productos');
+  if (hProd) {
+    var prodData = hProd.getDataRange().getValues();
+    for (var r = 1; r < prodData.length; r++) {
+      if (String(prodData[r][2]).trim() === abbr) {
+        nombreProd = String(prodData[r][1]).trim();
+        break;
+      }
+    }
+  }
+
+  // Timestamp Argentina
+  var ahora   = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var dd = String(argDate.getDate()).padStart(2, '0');
+  var mm = String(argDate.getMonth() + 1).padStart(2, '0');
+  var yyyy = argDate.getFullYear();
+  var hh = String(argDate.getHours()).padStart(2, '0');
+  var mi = String(argDate.getMinutes()).padStart(2, '0');
+
+  sh.appendRow([
+    dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi,  // A  Fecha/Hora
+    nombreProd,                                           // B  Producto
+    abbr,                                                 // C  Abreviatura
+    tipo,                                                 // D  Tipo
+    qty,                                                  // E  Cantidad
+    stockAnterior,                                        // F  Stock Anterior
+    stockNuevo,                                           // G  Stock Nuevo
+    canal,                                                // H  Canal
+    referencia || '',                                     // I  Referencia
+  ]);
+}
+
+/** Setup de la hoja Kardex (ejecutar UNA vez) */
+function setupKardex() {
+  let sh = SS.getSheetByName('Kardex');
+  if (!sh) sh = SS.insertSheet('Kardex');
+
+  const headers = [
+    'Fecha/Hora',    // A
+    'Producto',      // B
+    'Abreviatura',   // C
+    'Tipo',          // D
+    'Cantidad',      // E
+    'Stock Anterior',// F
+    'Stock Nuevo',   // G
+    'Canal',         // H
+    'Referencia',    // I
+  ];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground(BROWN).setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  sh.setFrozenRows(1);
+  sh.setRowHeight(1, 40);
+
+  // Anchos
+  [140, 200, 80, 65, 75, 100, 100, 90, 100].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+
+  // Centrar
+  sh.getRange('C2:I5000').setHorizontalAlignment('center');
+
+  // Conditional formatting — Tipo
+  const dRange = sh.getRange('D2:D5000');
+  const rules = [];
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextStartsWith('+')
+    .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
+    .setRanges([dRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextStartsWith('-')
+    .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true)
+    .setRanges([dRange]).build());
+  sh.setConditionalFormatRules(rules);
+
+  // Banding
+  try { sh.getRange('A2:I5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
+  catch(ex) {}
+
+  sh.setTabColor('#7B1FA2'); // violeta — distinguir de operativas
+}
+
+// ════════════════════════════════════════════════════════════
+//  ARCHIVO HISTÓRICO — reemplazo del limpiado manual
+//  Mueve pedidos cerrados a hojas de archivo
+// ════════════════════════════════════════════════════════════
+
+/** Archiva pedidos Entregados/Cancelados de Home y Clubes.
+ *  Solo mueve filas cerradas, las pendientes/reservadas permanecen. */
+function archivarSemana() {
+  var ui = SpreadsheetApp.getUi();
+
+  // ── Contar filas archivables ──
+  var shHome   = SS.getSheetByName('Home');
+  var shClubes = SS.getSheetByName('Clubes');
+  var archHome   = 0, archClubes = 0;
+
+  if (shHome && shHome.getLastRow() > 1) {
+    var homeData = shHome.getRange(2, 1, shHome.getLastRow() - 1, shHome.getLastColumn()).getValues();
+    homeData.forEach(function(row) {
+      var estado = String(row[10]).trim(); // K = Estado de Entrega (0-based 10)
+      if (estado === 'Entregado' || estado === 'Cancelado') archHome++;
+    });
+  }
+
+  if (shClubes && shClubes.getLastRow() > 1) {
+    var clubesData = shClubes.getRange(2, 1, shClubes.getLastRow() - 1, shClubes.getLastColumn()).getValues();
+    clubesData.forEach(function(row) {
+      var estado = String(row[13]).trim(); // N = Estado de Entrega (0-based 13)
+      if (estado === 'Entregado' || estado === 'Cancelado') archClubes++;
+    });
+  }
+
+  if (archHome === 0 && archClubes === 0) {
+    ui.alert('No hay pedidos para archivar', 'No se encontraron pedidos en estado "Entregado" o "Cancelado".', ui.ButtonSet.OK);
+    return;
+  }
+
+  // ── Confirmar ──
+  var resp = ui.alert(
+    'Archivar semana',
+    'Se van a mover:\n\n' +
+    '  Home: ' + archHome + ' pedido(s)\n' +
+    '  Clubes: ' + archClubes + ' pedido(s)\n\n' +
+    'Las filas se copian a "Archivo Home" / "Archivo Clubes" y se eliminan de las hojas operativas.\n' +
+    'Los pedidos Pendientes y Reservados NO se tocan.\n\n' +
+    '¿Confirmar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (resp !== ui.Button.YES) return;
+
+  var totalMovidas = 0;
+
+  // ── Archivar Home ──
+  if (shHome && archHome > 0) {
+    totalMovidas += _archivarHoja(shHome, 'Archivo Home', 10); // col K (0-based 10) = Estado
+  }
+
+  // ── Archivar Clubes ──
+  if (shClubes && archClubes > 0) {
+    totalMovidas += _archivarHoja(shClubes, 'Archivo Clubes', 13); // col N (0-based 13) = Estado
+  }
+
+  SS.toast(totalMovidas + ' pedidos archivados correctamente.', 'Archivo completado', 6);
+}
+
+/**
+ * Mueve filas Entregado/Cancelado de una hoja operativa a su archivo.
+ * @param {Sheet} shOrigen - Hoja operativa (Home o Clubes)
+ * @param {string} archivoName - Nombre de la hoja de archivo
+ * @param {number} colEstado - Índice 0-based de la columna Estado de Entrega
+ * @returns {number} Cantidad de filas movidas
+ */
+function _archivarHoja(shOrigen, archivoName, colEstado) {
+  // Crear hoja archivo si no existe (mismos headers que la operativa)
+  var shArchivo = SS.getSheetByName(archivoName);
+  if (!shArchivo) {
+    shArchivo = SS.insertSheet(archivoName);
+    // Copiar headers
+    var headers = shOrigen.getRange(1, 1, 1, shOrigen.getLastColumn()).getValues();
+    shArchivo.getRange(1, 1, 1, headers[0].length).setValues(headers)
+      .setBackground(BROWN).setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(10)
+      .setHorizontalAlignment('center');
+    shArchivo.setFrozenRows(1);
+    shArchivo.setTabColor('#666666');
+  }
+
+  var lastRow = shOrigen.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  var data = shOrigen.getRange(2, 1, lastRow - 1, shOrigen.getLastColumn()).getValues();
+  var filasArchivar = [];
+  var filasEliminar = []; // índices de fila 1-based para borrar
+
+  for (var i = 0; i < data.length; i++) {
+    var estado = String(data[i][colEstado]).trim();
+    if (estado === 'Entregado' || estado === 'Cancelado') {
+      filasArchivar.push(data[i]);
+      filasEliminar.push(i + 2); // +2 porque fila 1 = header, i es 0-based
+    }
+  }
+
+  if (filasArchivar.length === 0) return 0;
+
+  // Copiar al archivo
+  var destRow = shArchivo.getLastRow() + 1;
+  shArchivo.getRange(destRow, 1, filasArchivar.length, filasArchivar[0].length).setValues(filasArchivar);
+
+  // Eliminar de la hoja operativa (de abajo hacia arriba para no romper índices)
+  filasEliminar.reverse().forEach(function(rowNum) {
+    shOrigen.deleteRow(rowNum);
+  });
+
+  return filasArchivar.length;
+}
 
 // ════════════════════════════════════════════════════════════
 //  doGet — lectura de datos (compras)
@@ -93,7 +395,8 @@ function doPost(e) {
 function _doPostPedido(data) {
     const canal = String(data.canal || 'Home');
     if (canal === 'Clubes') _doPostClubes(data);
-    else _doPostHome(data);
+    else if (canal === 'Delivery') _doPostHome(data, 'Delivery', 'D');
+    else _doPostHome(data, 'Home', 'H');
 
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
@@ -138,24 +441,14 @@ const PAGE_ID_TO_ABBR = {
   19: 'PMu',  1:  'PMa',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
 };
 
-function _doPostHome(data) {
-  const sh = SS.getSheetByName('Home');
-  if (!sh) return; // Si la hoja no existe, silencio — no romper el flujo
+function _doPostHome(data, sheetName, prefix) {
+  sheetName = sheetName || 'Home';
+  prefix = prefix || 'H';
+  const sh = SS.getSheetByName(sheetName);
+  if (!sh) return;
 
-  // ── N° de pedido autoincremental H-XXX (ahora en col B) ──
-  const lastRow = sh.getLastRow();
-  let maxNum = 0;
-  if (lastRow > 1) {
-    const colB = sh.getRange(2, 2, lastRow - 1, 1).getValues(); // col B = N° Pedido
-    colB.forEach(function(row) {
-      const match = String(row[0]).match(/^H-(\d+)$/);
-      if (match) {
-        const n = parseInt(match[1], 10);
-        if (n > maxNum) maxNum = n;
-      }
-    });
-  }
-  const orderNum = 'H-' + String(maxNum + 1).padStart(3, '0');
+  // ── N° de pedido desde contador global (Config) ──
+  const orderNum = _nextId(prefix + '-');
 
   // ── Fecha y hora en zona horaria Argentina ────────────────
   const ahora   = new Date();
@@ -280,17 +573,8 @@ function _doPostClubes(data) {
   const sh = SS.getSheetByName('Clubes');
   if (!sh) return;
 
-  // N° de pedido autoincremental C-XXX
-  const lastRow = sh.getLastRow();
-  let maxNum = 0;
-  if (lastRow > 1) {
-    const colB = sh.getRange(2, 2, lastRow - 1, 1).getValues();
-    colB.forEach(function(row) {
-      const match = String(row[0]).match(/^C-(\d+)$/);
-      if (match) { const n = parseInt(match[1], 10); if (n > maxNum) maxNum = n; }
-    });
-  }
-  const orderNum = 'C-' + String(maxNum + 1).padStart(3, '0');
+  // ── N° de pedido desde contador global (Config) ──
+  const orderNum = _nextId('C-');
 
   // Fecha y hora Argentina
   const ahora   = new Date();
@@ -527,16 +811,17 @@ function onEditHandler(e) {
   if (sheetName === 'Pedidos')         return _onEditPedidos(e);
 }
 
-// ── Orden de Compra: auto-fill fechas + stock al cambiar Estado (col O=15) ──
+// ── Orden de Compra: auto-fill fechas + stock al cambiar Estado (col U=21) ──
+// Columnas v2: E=Canal, L=Abreviatura, M=Cantidad, T=Origen, U=Estado, V=FechaPedido, W=FechaRecibido
 function _onEditOC(e) {
   const col = e.range.getColumn();
   const row = e.range.getRow();
-  if (row <= 1 || col !== 15) return; // solo col O (15) = Estado
+  if (row <= 1 || col !== 21) return; // solo col U (21) = Estado OC
 
   const sh       = e.range.getSheet();
   const nuevo    = String(e.value || '');
   const anterior = String(e.oldValue || '');
-  const origen   = String(sh.getRange(row, 9).getValue()); // I = Origen
+  const origen   = String(sh.getRange(row, 20).getValue()); // T = Origen
 
   // Timestamp Argentina
   var ahora   = new Date();
@@ -546,26 +831,27 @@ function _onEditOC(e) {
   var yyyy    = argDate.getFullYear();
   var fechaHoy = dd + '/' + mm + '/' + yyyy;
 
-  // → Pendiente: limpiar Fecha Pedido (P=16) y Fecha Recibido (R=18)
+  // → Pendiente: limpiar Fecha Pedido (V=22) y Fecha Recibido (W=23)
   if (nuevo === 'Pendiente') {
-    sh.getRange(row, 16).clearContent();
-    sh.getRange(row, 18).clearContent();
+    sh.getRange(row, 22).clearContent();
+    sh.getRange(row, 23).clearContent();
     return;
   }
 
-  // → Pedido: llenar Fecha Pedido Proveedor (P=16)
+  // → Pedido: llenar Fecha Pedido Proveedor (V=22)
   if (nuevo === 'Pedido' && anterior !== 'Pedido') {
-    sh.getRange(row, 16).setValue(fechaHoy);
+    sh.getRange(row, 22).setValue(fechaHoy);
   }
 
-  // → Recibido: llenar Fecha Recibido (R=18) + sumar stock SOLO si Canal=Depósito
+  // → Recibido: llenar Fecha Recibido (W=23) + sumar stock SOLO si Canal=Depósito
   if (nuevo === 'Recibido' && anterior !== 'Recibido') {
-    sh.getRange(row, 18).setValue(fechaHoy);
+    sh.getRange(row, 23).setValue(fechaHoy);
 
-    var canal = String(sh.getRange(row, 3).getValue()).trim(); // C = Canal
+    var canal = String(sh.getRange(row, 5).getValue()).trim(); // E = Canal
     if (canal === 'Depósito' && origen === 'Orden de Compra') {
-      var abbr = String(sh.getRange(row, 11).getValue()).trim(); // K = Abreviatura
-      var qty  = Number(sh.getRange(row, 12).getValue()) || 0;  // L = Cantidad
+      var abbr = String(sh.getRange(row, 12).getValue()).trim(); // L = Abreviatura
+      var qty  = Number(sh.getRange(row, 13).getValue()) || 0;  // M = Cantidad
+      var refOC = String(sh.getRange(row, 1).getValue() || ''); // A = N° Orden
       if (abbr && qty > 0) {
         var hProd = SS.getSheetByName('Productos');
         if (hProd) {
@@ -575,6 +861,7 @@ function _onEditOC(e) {
               var celdaFis = hProd.getRange(r + 1, 6);
               var fisico   = Number(celdaFis.getValue()) || 0;
               celdaFis.setValue(fisico + qty);
+              _logKardex(abbr, '+REC', qty, fisico, fisico + qty, 'OC', refOC);
               SS.toast('Stock +' + qty + ' ' + abbr + ' → ' + (fisico + qty), 'Stock actualizado', 4);
               break;
             }
@@ -586,10 +873,11 @@ function _onEditOC(e) {
 
   // ← Sale de Recibido (corrección): restar stock SOLO si Canal=Depósito
   if (anterior === 'Recibido' && nuevo !== 'Recibido') {
-    var canal2 = String(sh.getRange(row, 3).getValue()).trim();
+    var canal2 = String(sh.getRange(row, 5).getValue()).trim(); // E = Canal
     if (canal2 === 'Depósito' && origen === 'Orden de Compra') {
-      var abbr2 = String(sh.getRange(row, 11).getValue()).trim();
-      var qty2  = Number(sh.getRange(row, 12).getValue()) || 0;
+      var abbr2 = String(sh.getRange(row, 12).getValue()).trim(); // L
+      var qty2  = Number(sh.getRange(row, 13).getValue()) || 0;   // M
+      var refOC2 = String(sh.getRange(row, 1).getValue() || '');   // A = N° Orden
       if (abbr2 && qty2 > 0) {
         var hProd2 = SS.getSheetByName('Productos');
         if (hProd2) {
@@ -598,14 +886,16 @@ function _onEditOC(e) {
             if (String(prodData2[r2][2]).trim() === abbr2) {
               var celdaFis2 = hProd2.getRange(r2 + 1, 6);
               var fisico2   = Number(celdaFis2.getValue()) || 0;
-              celdaFis2.setValue(Math.max(0, fisico2 - qty2));
+              var nuevoStock2 = Math.max(0, fisico2 - qty2);
+              celdaFis2.setValue(nuevoStock2);
+              _logKardex(abbr2, '-AJU', qty2, fisico2, nuevoStock2, 'OC', refOC2);
               break;
             }
           }
         }
       }
     }
-    sh.getRange(row, 18).clearContent();
+    sh.getRange(row, 23).clearContent(); // W = Fecha Recibido
   }
 }
 
@@ -631,12 +921,30 @@ function _onEditClubes(e) {
 
   const sh = e.range.getSheet();
 
-  // Col L (12) = Origen → generar OC
+  // Col L (12) = Origen → generar OC con lock
   if (col === 12) {
     const nuevoOrigen = String(e.value || '');
     if (nuevoOrigen === 'Orden de Compra') {
-      generarOrdenDeCompra('Clubes', row);
-      SS.toast('Orden de Compra generada para ' + sh.getRange(row, 2).getValue(), 'OC', 5);
+      var lock = LockService.getScriptLock();
+      if (lock.tryLock(100)) {
+        try {
+          var pedidoNum = String(sh.getRange(row, 2).getValue());
+          var shOC = SS.getSheetByName('Orden de Compra');
+          if (shOC && shOC.getLastRow() > 1) {
+            var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+            for (var i = 0; i < existentes.length; i++) {
+              if (String(existentes[i][0]).trim() === pedidoNum) {
+                SS.toast('OC ya existe para ' + pedidoNum, 'Duplicado evitado', 4);
+                return;
+              }
+            }
+          }
+          generarOrdenDeCompra('Clubes', row);
+          SS.toast('Orden de Compra generada para ' + pedidoNum, 'OC', 5);
+        } finally {
+          lock.releaseLock();
+        }
+      }
     }
     return;
   }
@@ -664,10 +972,11 @@ function _onEditClubes(e) {
   }
 }
 
-// Ajusta Stock Físico (col F=6) de Productos desde Clubes. signo: -1=restar, +1=sumar
+// Ajusta Stock Físico (col F=6) de Productos desde Clubes + log Kardex. signo: -1=restar, +1=sumar
 function _clubesStockFisico(shClubes, row, hProductos, signo) {
   const cantidades = shClubes.getRange(row, 22, 1, 8).getValues()[0]; // cols V–AC (8 productos)
   const prodData   = hProductos.getDataRange().getValues();
+  const refPedido  = String(shClubes.getRange(row, 2).getValue() || ''); // B = N° Pedido
 
   Object.keys(CLUBES_COL_TO_ABBR).forEach(function(colStr) {
     const colIdx = Number(colStr);
@@ -679,7 +988,9 @@ function _clubesStockFisico(shClubes, row, hProductos, signo) {
       if (String(prodData[r][2]).trim() === abbr) {
         var celdaFis = hProductos.getRange(r + 1, 6); // F = Stock Físico
         var fisico   = Number(celdaFis.getValue()) || 0;
-        celdaFis.setValue(Math.max(0, fisico + (qty * signo)));
+        var nuevoStock = Math.max(0, fisico + (qty * signo));
+        celdaFis.setValue(nuevoStock);
+        _logKardex(abbr, signo < 0 ? '-SAL' : '+DEV', qty, fisico, nuevoStock, 'Clubes', refPedido);
         break;
       }
     }
@@ -735,6 +1046,20 @@ function _getAbbrToCosto() {
   return map;
 }
 
+// Mapeo abreviatura → precio de venta unitario (desde hoja Productos)
+function _getAbbrToPrecio() {
+  const hProd = SS.getSheetByName('Productos');
+  if (!hProd) return {};
+  const data = hProd.getDataRange().getValues();
+  const map = {};
+  for (let r = 1; r < data.length; r++) {
+    const abbr = String(data[r][2]).trim(); // col C = Abreviatura
+    const precio = String(data[r][8]).replace(/[$.]/g, '').replace(/,/g, '').trim(); // col I = Precio
+    if (abbr) map[abbr] = parseFloat(precio) || 0;
+  }
+  return map;
+}
+
 /**
  * Genera filas en Orden de Compra para un pedido dado.
  * @param {string} canal - 'Home', 'Delivery' o 'Clubes'
@@ -748,28 +1073,22 @@ function generarOrdenDeCompra(canal, row) {
   const rowData = shOrigen.getRange(row, 1, 1, shOrigen.getLastColumn()).getValues()[0];
 
   // Determinar columnas de productos según canal
-  let prodStartCol, prodEndCol, colCliente, colPedido, colTelefono, colDiaEntrega;
+  let colCliente, colPedido, colTelefono;
   let direccion = '';
 
-  if (canal === 'Home') {
-    prodStartCol = 18; prodEndCol = 35; // S(18) a AJ(35) en 0-based
-    colCliente = 7; colPedido = 1; colTelefono = 41; colDiaEntrega = 9;
-    direccion = [rowData[38], rowData[39], 'Lote ' + rowData[40]].filter(Boolean).join(' · ');
-  } else if (canal === 'Delivery') {
-    prodStartCol = 18; prodEndCol = 35;
-    colCliente = 7; colPedido = 1; colTelefono = 41; colDiaEntrega = 9;
-    direccion = [rowData[38], rowData[39], 'Lote ' + rowData[40]].filter(Boolean).join(' · ');
+  if (canal === 'Home' || canal === 'Delivery') {
+    colCliente = 7; colPedido = 1; colTelefono = 43; // AR = Teléfono
+    direccion = [rowData[40], rowData[41], 'Lote ' + rowData[42]].filter(Boolean).join(' · '); // AO=Barrio, AP=SubBarrio, AQ=Lote
   } else if (canal === 'Clubes') {
-    prodStartCol = 21; prodEndCol = 28; // PMu(21) a PPCyQ(28) en 0-based
-    colCliente = 7; colPedido = 1; colTelefono = 31; colDiaEntrega = 12;
-    direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · '); // Club + Deporte + Grupo
+    colCliente = 7; colPedido = 1; colTelefono = 31;
+    direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · ');
   }
 
-  const abbrToProvMap = _getAbbrToProveedor();
-  const abbrToNameMap = _getAbbrToProductName();
-  const abbrToCostoMap = _getAbbrToCosto();
+  const abbrToProvMap   = _getAbbrToProveedor();
+  const abbrToNameMap   = _getAbbrToProductName();
+  const abbrToCostoMap  = _getAbbrToCosto();
+  const abbrToPrecioMap = _getAbbrToPrecio();
 
-  // Obtener abreviaturas en orden de columna
   const colToAbbrMap = (canal === 'Clubes')
     ? {22:'PMu', 23:'PMa', 24:'PJyQ', 25:'PCC', 26:'PJyM', 27:'PPM', 28:'PPJyQ', 29:'PPCyQ'}
     : HOME_COL_TO_ABBR;
@@ -777,63 +1096,89 @@ function generarOrdenDeCompra(canal, row) {
   const cliente    = String(rowData[colCliente] || '');
   const numPedido  = String(rowData[colPedido] || '');
   const telefono   = String(rowData[colTelefono] || '');
-  const diaEntrega = String(rowData[colDiaEntrega] || '');
 
-  // N° de Orden autoincremental
-  const ocData = shOC.getDataRange().getValues();
-  let maxOC = 0;
-  for (let r = 1; r < ocData.length; r++) {
-    const match = String(ocData[r][0]).match(/^OC-(\d+)$/);
-    if (match) { const n = parseInt(match[1]); if (n > maxOC) maxOC = n; }
-  }
-
+  // Fecha, hora, semana y mes en zona Argentina
   const ahora   = new Date();
   const argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const dd      = String(argDate.getDate()).padStart(2, '0');
   const mm      = String(argDate.getMonth() + 1).padStart(2, '0');
   const yyyy    = argDate.getFullYear();
-  const fechaStr = dd + '/' + mm + '/' + yyyy;
+  const hh      = String(argDate.getHours()).padStart(2, '0');
+  const mi      = String(argDate.getMinutes()).padStart(2, '0');
+  const fechaStr  = dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
+  const semana    = _isoWeek(argDate);
+  const mesNombre = MESES[argDate.getMonth()];
 
+  // ── Construir filas (25 columnas A-Y) ──
   const newRows = [];
   Object.keys(colToAbbrMap).forEach(function(colStr) {
     const colIdx = Number(colStr);
     const abbr   = colToAbbrMap[colIdx];
-    const qty    = Number(rowData[colIdx - 1]) || 0; // 0-based
+    const qty    = Number(rowData[colIdx - 1]) || 0;
     if (qty === 0) return;
 
-    maxOC++;
-    const costoUnit  = abbrToCostoMap[abbr] || 0;
-    const costoTotal = costoUnit * qty;
+    const ocId         = _nextId('OC-');
+    const costoUnit    = abbrToCostoMap[abbr] || 0;
+    const costoTotal   = costoUnit * qty;
+    const precioVenta  = abbrToPrecioMap[abbr] || 0;
 
     newRows.push([
-      'OC-' + String(maxOC).padStart(3, '0'),  // A  N° Orden
-      fechaStr,                                   // B  Fecha Generada
-      canal,                                      // C  Canal
-      numPedido,                                  // D  N° Pedido Origen
-      cliente,                                    // E  Cliente
-      telefono,                                   // F  Teléfono
-      direccion,                                  // G  Dirección Entrega
-      abbrToProvMap[abbr] || '',                  // H  Proveedor
-      'Orden de Compra',                          // I  Origen
-      abbrToNameMap[abbr] || abbr,                // J  Producto
-      abbr,                                       // K  Abreviatura
-      qty,                                        // L  Cantidad
-      costoUnit,                                  // M  Costo Unitario
-      costoTotal,                                 // N  Costo Total
-      'Pendiente',                                // O  Estado
-      '',                                         // P  Fecha Pedido Proveedor
-      '',                                         // Q  Fecha Búsqueda
-      '',                                         // R  Fecha Recibido
-      diaEntrega,                                 // S  Día Entrega Cliente
-      'No',                                       // T  Pagado
+      ocId,                                      // A  N° Orden
+      fechaStr,                                  // B  Fecha Creación
+      semana,                                    // C  Semana
+      mesNombre,                                 // D  Mes
+      canal,                                     // E  Canal
+      numPedido,                                 // F  N° Pedido Origen
+      cliente,                                   // G  Cliente
+      telefono,                                  // H  Teléfono
+      direccion,                                 // I  Dirección
+      abbrToProvMap[abbr] || '',                 // J  Proveedor
+      abbrToNameMap[abbr] || abbr,               // K  Producto
+      abbr,                                      // L  Abreviatura
+      qty,                                       // M  Cantidad
+      costoUnit,                                 // N  Costo Unitario
+      costoTotal,                                // O  Costo Total
+      precioVenta,                               // P  Precio Venta Unit.
+      0,                                         // Q  Ingreso Total (fórmula)
+      0,                                         // R  Margen Bruto $ (fórmula)
+      0,                                         // S  Margen % (fórmula)
+      'Orden de Compra',                         // T  Origen
+      'Pendiente',                               // U  Estado OC
+      '',                                        // V  Fecha Pedido Prov
+      '',                                        // W  Fecha Recibido
+      'No',                                      // X  Pagado Proveedor
+      'No',                                      // Y  Cobrado Cliente
     ]);
   });
 
   if (newRows.length > 0) {
-    shOC.getRange(shOC.getLastRow() + 1, 1, newRows.length, 20).setValues(newRows);
-    // Formato moneda en costo
-    const startRow = shOC.getLastRow() - newRows.length + 1;
-    shOC.getRange(startRow, 13, newRows.length, 2).setNumberFormat('$#,##0');
+    // Debug: log para diagnosticar el problema de escritura
+    var lastRow = shOC.getLastRow();
+    var startRow = lastRow + 1;
+    Logger.log('OC DEBUG: lastRow=' + lastRow + ', startRow=' + startRow + ', newRows=' + newRows.length + ', cols=' + newRows[0].length);
+    SS.toast('Escribiendo ' + newRows.length + ' filas en fila ' + startRow + ' (25 cols)', 'OC Debug', 8);
+
+    // Forzar escritura fila por fila con appendRow como fallback robusto
+    newRows.forEach(function(row) {
+      shOC.appendRow(row);
+    });
+
+    // Fórmulas financieras después de appendRow (locale español: punto y coma)
+    var actualLastRow = shOC.getLastRow();
+    var formulaStart = actualLastRow - newRows.length + 1;
+    for (var i = 0; i < newRows.length; i++) {
+      var r = formulaStart + i;
+      shOC.getRange(r, 17).setFormula('=P' + r + '*M' + r);          // Q = Ingreso
+      shOC.getRange(r, 18).setFormula('=Q' + r + '-O' + r);          // R = Margen $
+      shOC.getRange(r, 19).setFormula('=R' + r + '/Q' + r);          // S = Margen %
+    }
+
+    // Formato moneda y porcentaje
+    shOC.getRange(formulaStart, 13, newRows.length, 1).setNumberFormat('0');       // M Cantidad (sin $)
+    shOC.getRange(formulaStart, 14, newRows.length, 2).setNumberFormat('$#,##0');  // N-O Costo
+    shOC.getRange(formulaStart, 16, newRows.length, 3).setNumberFormat('$#,##0');  // P-R Precio/Ingreso/Margen$
+    shOC.getRange(formulaStart, 19, newRows.length, 1).setNumberFormat('0.0%');    // S Margen%
   }
 }
 
@@ -845,12 +1190,33 @@ function _onEditHome(e) {
   const row = e.range.getRow();
   if (row <= 1) return;
 
-  // Si cambió Origen (col I=9) a "Orden de Compra" → generar OC
+  // Si cambió Origen (col I=9) a "Orden de Compra" → generar OC con lock
   if (col === 9) {
     const nuevoOrigen = String(e.value || '');
     if (nuevoOrigen === 'Orden de Compra') {
-      generarOrdenDeCompra('Home', row);
-      SS.toast('Orden de Compra generada para ' + e.range.getSheet().getRange(row, 2).getValue(), 'OC', 5);
+      var lock = LockService.getScriptLock();
+      if (lock.tryLock(100)) {
+        try {
+          // Verificar si ya existen OC para este pedido DENTRO del lock
+          var pedidoNum = String(e.range.getSheet().getRange(row, 2).getValue());
+          var shOC = SS.getSheetByName('Orden de Compra');
+          if (shOC && shOC.getLastRow() > 1) {
+            var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+            for (var i = 0; i < existentes.length; i++) {
+              if (String(existentes[i][0]).trim() === pedidoNum) {
+                SS.toast('OC ya existe para ' + pedidoNum, 'Duplicado evitado', 4);
+                return;
+              }
+            }
+          }
+          generarOrdenDeCompra('Home', row);
+          SS.toast('Orden de Compra generada para ' + pedidoNum, 'OC', 5);
+        } finally {
+          lock.releaseLock();
+        }
+      } else {
+        SS.toast('Otra ejecución ya está generando esta OC', 'Lock', 3);
+      }
     }
     return;
   }
@@ -903,10 +1269,11 @@ function _registrarFechaEntrega(sh, row) {
   ]]);
 }
 
-// Ajusta Stock Físico (col F=6) de Productos. signo: -1 = restar, +1 = sumar
+// Ajusta Stock Físico (col F=6) de Productos + log Kardex. signo: -1 = restar, +1 = sumar
 function _homeStockFisico(shHome, row, hProductos, signo) {
   const cantidades = shHome.getRange(row, 20, 1, 19).getValues()[0]; // cols T–AL
   const prodData   = hProductos.getDataRange().getValues();
+  const refPedido  = String(shHome.getRange(row, 2).getValue() || ''); // B = N° Pedido
 
   Object.keys(HOME_COL_TO_ABBR).forEach(function(colStr) {
     const colIdx = Number(colStr);
@@ -918,7 +1285,9 @@ function _homeStockFisico(shHome, row, hProductos, signo) {
       if (String(prodData[r][2]).trim() === abbr) {
         const celdaFis = hProductos.getRange(r + 1, 6); // F = Stock Físico
         const fisico   = Number(celdaFis.getValue()) || 0;
-        celdaFis.setValue(Math.max(0, fisico + (qty * signo)));
+        const nuevoStock = Math.max(0, fisico + (qty * signo));
+        celdaFis.setValue(nuevoStock);
+        _logKardex(abbr, signo < 0 ? '-SAL' : '+DEV', qty, fisico, nuevoStock, 'Home', refPedido);
         break;
       }
     }
@@ -998,6 +1367,37 @@ function resetStockSemanal() {
   SS.toast('Stock Inicial y formulas actualizados para la nueva semana', 'Reset semanal', 5);
 }
 
+/** NUCLEAR: elimina TODOS los triggers y crea uno solo limpio */
+function resetTriggers() {
+  // Paso 1: borrar absolutamente todos los triggers
+  var all = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < all.length; i++) {
+    ScriptApp.deleteTrigger(all[i]);
+  }
+
+  // Paso 2: crear UN solo trigger onEdit
+  ScriptApp.newTrigger('onEditHandler')
+    .forSpreadsheet(SS)
+    .onEdit()
+    .create();
+
+  SpreadsheetApp.getUi().alert('Triggers reseteados: ' + all.length + ' eliminados, 1 nuevo creado (onEditHandler).');
+}
+
+/** Muestra/oculta la hoja Config para edición manual */
+function mostrarConfig() {
+  const sh = SS.getSheetByName('Config');
+  if (!sh) { setupConfig(); return; }
+  if (sh.isSheetHidden()) {
+    sh.showSheet();
+    SS.setActiveSheet(sh);
+    SS.toast('Config visible. Cuando termines, podés ocultarla desde el menú de la hoja.', 'Config', 5);
+  } else {
+    sh.hideSheet();
+    SS.toast('Config ocultada.', 'Config', 3);
+  }
+}
+
 // ── Pedidos (legacy): sync stock cuando cambia Estado ────────
 function _onEditPedidos(e) {
   if (e.range.getColumn() !== 12) return; // col 12 = Estado
@@ -1058,8 +1458,12 @@ function onOpen() {
     .addItem('Hoja de Ruta (búsqueda)', 'generarHojaDeRuta')
     .addItem('Marcar todas las OC como Recibidas', 'marcarOCRecibidas')
     .addSeparator()
+    .addItem('Archivar semana (Home + Clubes)', 'archivarSemana')
+    .addSeparator()
     .addItem('Actualizar fórmulas Productos', 'setupProductosFormulas')
     .addItem('Reset stock semanal', 'resetStockSemanal')
+    .addSeparator()
+    .addItem('Ver/Editar Config', 'mostrarConfig')
     .addToUi();
 }
 
@@ -1073,10 +1477,10 @@ function marcarOCRecibidas() {
 
   var ocData = shOC.getDataRange().getValues();
 
-  // Contar cuántas hay en "Pedido"
+  // Contar cuántas hay en "Pedido" (col U=21, 0-based=20)
   var filasPedido = [];
   for (var r = 1; r < ocData.length; r++) {
-    if (String(ocData[r][14]).trim() === 'Pedido') filasPedido.push(r);
+    if (String(ocData[r][20]).trim() === 'Pedido') filasPedido.push(r);
   }
 
   if (filasPedido.length === 0) {
@@ -1110,14 +1514,14 @@ function marcarOCRecibidas() {
 
   filasPedido.forEach(function(r) {
     var row = r + 1; // 1-based
-    var canal  = String(ocData[r][2]).trim();   // C = Canal
-    var origen = String(ocData[r][8]).trim();   // I = Origen
-    var abbr   = String(ocData[r][10]).trim();  // K = Abreviatura
-    var qty    = Number(ocData[r][11]) || 0;    // L = Cantidad
+    var canal  = String(ocData[r][4]).trim();   // E = Canal
+    var origen = String(ocData[r][19]).trim();  // T = Origen
+    var abbr   = String(ocData[r][11]).trim();  // L = Abreviatura
+    var qty    = Number(ocData[r][12]) || 0;    // M = Cantidad
 
     // Marcar como Recibido + fecha
-    shOC.getRange(row, 15).setValue('Recibido');  // O = Estado
-    shOC.getRange(row, 18).setValue(fechaHoy);    // R = Fecha Recibido
+    shOC.getRange(row, 21).setValue('Recibido');  // U = Estado OC
+    shOC.getRange(row, 23).setValue(fechaHoy);    // W = Fecha Recibido
 
     // Solo sumar stock si Canal = Depósito Y Origen = Orden de Compra
     if (canal === 'Depósito' && origen === 'Orden de Compra' && abbr && qty > 0) {
@@ -1127,14 +1531,16 @@ function marcarOCRecibidas() {
     marcadas++;
   });
 
-  // Sumar stock en Productos
+  // Sumar stock en Productos + log Kardex
   var prodActualizados = 0;
   Object.keys(stockSumado).forEach(function(abbr) {
     for (var p = 1; p < prodData.length; p++) {
       if (String(prodData[p][2]).trim() === abbr) {
         var celda = hProd.getRange(p + 1, 6); // F = Stock Físico
         var actual = Number(celda.getValue()) || 0;
-        celda.setValue(actual + stockSumado[abbr]);
+        var nuevoStock = actual + stockSumado[abbr];
+        celda.setValue(nuevoStock);
+        _logKardex(abbr, '+REC', stockSumado[abbr], actual, nuevoStock, 'OC', 'Bulk Recibido');
         prodActualizados++;
         break;
       }
@@ -1160,19 +1566,19 @@ function generarHojaDeRuta() {
   var totalGeneral = 0;
 
   for (var r = 1; r < data.length; r++) {
-    var estado = String(data[r][14]).trim();
+    var estado = String(data[r][20]).trim();  // U = Estado OC (0-based 20)
     if (estado !== 'Pendiente' && estado !== 'Pedido') continue;
-    var origen = String(data[r][8]).trim();
+    var origen = String(data[r][19]).trim();  // T = Origen (0-based 19)
     if (origen === 'Depósito') continue;
 
-    var prov     = String(data[r][7]).trim();
-    var producto = String(data[r][9]).trim();
-    var qty      = Number(data[r][11]) || 0;
-    var costoU   = Number(String(data[r][12]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    var prov     = String(data[r][9]).trim();   // J = Proveedor
+    var producto = String(data[r][10]).trim();  // K = Producto
+    var qty      = Number(data[r][12]) || 0;    // M = Cantidad
+    var costoU   = Number(String(data[r][13]).replace(/[$.]/g,'').replace(/,/g,'')) || 0; // N = Costo Unit
     var costoT   = costoU * qty;
-    var cliente  = String(data[r][4]).trim();
-    var canal    = String(data[r][2]).trim();
-    var dir      = String(data[r][6]).trim();
+    var cliente  = String(data[r][6]).trim();   // G = Cliente
+    var canal    = String(data[r][4]).trim();   // E = Canal
+    var dir      = String(data[r][8]).trim();   // I = Dirección
 
     if (!prov || qty === 0) continue;
 
@@ -1277,18 +1683,18 @@ function generarResumenWA() {
   // Agrupar pendientes por proveedor
   const porProveedor = {};
   for (var r = 1; r < data.length; r++) {
-    var estado = String(data[r][14]).trim(); // O = Estado
+    var estado = String(data[r][20]).trim(); // U = Estado OC (0-based 20)
     if (estado !== 'Pendiente') continue;
 
-    var origen = String(data[r][8]).trim();    // I = Origen
+    var origen = String(data[r][19]).trim();   // T = Origen (0-based 19)
     if (origen !== 'Orden de Compra') continue; // Solo las que hay que comprar
 
-    var proveedor = String(data[r][7]).trim();  // H = Proveedor
-    var producto  = String(data[r][9]).trim();  // J = Producto
-    var abbr      = String(data[r][10]).trim(); // K = Abreviatura
-    var qty       = Number(data[r][11]) || 0;   // L = Cantidad
-    var costoUnit = Number(String(data[r][12]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
-    var canal     = String(data[r][2]).trim();  // C = Canal
+    var proveedor = String(data[r][9]).trim();  // J = Proveedor
+    var producto  = String(data[r][10]).trim(); // K = Producto
+    var abbr      = String(data[r][11]).trim(); // L = Abreviatura
+    var qty       = Number(data[r][12]) || 0;   // M = Cantidad
+    var costoUnit = Number(String(data[r][13]).replace(/[$.]/g,'').replace(/,/g,'')) || 0; // N = Costo Unit
+    var canal     = String(data[r][4]).trim();  // E = Canal
 
     if (!proveedor || qty === 0) continue;
 
@@ -1427,7 +1833,7 @@ function getProductosPorProveedor(proveedor) {
   return items;
 }
 
-/** Genera filas en Orden de Compra para compra de Depósito */
+/** Genera filas en Orden de Compra para compra de Depósito / Red (sidebar) */
 function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
   const shOC = SS.getSheetByName('Orden de Compra');
   if (!shOC) throw new Error('Hoja "Orden de Compra" no encontrada');
@@ -1438,62 +1844,73 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
   const itemsValidos = items.filter(function(item) { return item.qty > 0; });
   if (itemsValidos.length === 0) throw new Error('No hay productos con cantidad > 0');
 
-  // N° Orden autoincremental
-  const ocData = shOC.getDataRange().getValues();
-  let maxOC = 0;
-  for (let r = 1; r < ocData.length; r++) {
-    const match = String(ocData[r][0]).match(/^OC-(\d+)$/);
-    if (match) { const n = parseInt(match[1]); if (n > maxOC) maxOC = n; }
-  }
-
   // Timestamp Argentina
   const ahora   = new Date();
   const argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const dd   = String(argDate.getDate()).padStart(2, '0');
   const mm   = String(argDate.getMonth() + 1).padStart(2, '0');
   const yyyy = argDate.getFullYear();
   const hh   = String(argDate.getHours()).padStart(2, '0');
   const mi   = String(argDate.getMinutes()).padStart(2, '0');
-  const fechaStr = dd + '/' + mm + '/' + yyyy;
-  const horaStr  = hh + ':' + mi;
+  const fechaStr  = dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
+  const semana    = _isoWeek(argDate);
+  const mesNombre = MESES[argDate.getMonth()];
 
+  // ── Construir filas (25 columnas A-Y) ──
   const newRows = [];
   itemsValidos.forEach(function(item) {
-    maxOC++;
+    const ocId = _nextId('OC-');
     const costoTotal = (item.costo || 0) * item.qty;
     newRows.push([
-      'OC-' + String(maxOC).padStart(3, '0'),  // A  N° Orden
-      fechaStr + ' ' + horaStr,                  // B  Fecha Generada (timestamp completo)
-      esMarcos ? 'Red' : 'Depósito',              // C  Canal
-      '',                                        // D  N° Pedido Origen
-      vendedor || 'Tadeo — Stock',               // E  Cliente
-      '',                                        // F  Teléfono
-      esMarcos ? 'Tortugas, Garín' : 'Depósito Maleu', // G  Dirección
-      proveedor,                                 // H  Proveedor
-      item.origen || 'Orden de Compra',          // I  Origen
-      item.nombre,                               // J  Producto
-      item.abbr,                                 // K  Abreviatura
-      item.qty,                                  // L  Cantidad
-      item.costo || 0,                           // M  Costo Unitario
-      costoTotal,                                // N  Costo Total
-      'Pendiente',                               // O  Estado
-      '',                                        // P  Fecha Pedido Proveedor
-      fechaBusqueda || '',                        // Q  Fecha Búsqueda
-      '',                                        // R  Fecha Recibido
-      '',                                        // S  Día Entrega Cliente
-      'No',                                      // T  Pagado
+      ocId,                                       // A  N° Orden
+      fechaStr,                                   // B  Fecha Creación
+      semana,                                     // C  Semana
+      mesNombre,                                  // D  Mes
+      esMarcos ? 'Red' : 'Depósito',             // E  Canal
+      '',                                         // F  N° Pedido Origen (no aplica)
+      vendedor || 'Tadeo — Stock',                // G  Cliente
+      '',                                         // H  Teléfono
+      esMarcos ? 'Tortugas, Garín' : 'Depósito Maleu', // I  Dirección
+      proveedor,                                  // J  Proveedor
+      item.nombre,                                // K  Producto
+      item.abbr,                                  // L  Abreviatura
+      item.qty,                                   // M  Cantidad
+      item.costo || 0,                            // N  Costo Unitario
+      costoTotal,                                 // O  Costo Total
+      0,                                          // P  Precio Venta (0 = reposición)
+      0,                                          // Q  Ingreso Total (fórmula)
+      0,                                          // R  Margen Bruto $ (fórmula)
+      0,                                          // S  Margen % (fórmula)
+      item.origen || 'Orden de Compra',           // T  Origen
+      'Pendiente',                                // U  Estado OC
+      fechaBusqueda || '',                         // V  Fecha Pedido Prov
+      '',                                         // W  Fecha Recibido
+      'No',                                       // X  Pagado Proveedor
+      '',                                         // Y  Cobrado Cliente (vacío = no aplica)
     ]);
   });
 
   // Escribir filas
   const startRow = shOC.getLastRow() + 1;
-  shOC.getRange(startRow, 1, newRows.length, 20).setValues(newRows);
+  shOC.getRange(startRow, 1, newRows.length, 25).setValues(newRows);
 
-  // Formato moneda en cols M y N
-  shOC.getRange(startRow, 13, newRows.length, 2).setNumberFormat('$#,##0');
+  // Fórmulas financieras (setFormula individual, compatible con locale español)
+  for (let i = 0; i < newRows.length; i++) {
+    const r = startRow + i;
+    shOC.getRange(r, 17).setFormula('=P' + r + '*M' + r);    // Q = Ingreso
+    shOC.getRange(r, 18).setFormula('=Q' + r + '-O' + r);    // R = Margen $
+    shOC.getRange(r, 19).setFormula('=R' + r + '/Q' + r);    // S = Margen %
+  }
+
+  // Formato moneda y porcentaje
+  shOC.getRange(startRow, 13, newRows.length, 1).setNumberFormat('0');       // M Cantidad
+  shOC.getRange(startRow, 14, newRows.length, 2).setNumberFormat('$#,##0');  // N-O
+  shOC.getRange(startRow, 16, newRows.length, 3).setNumberFormat('$#,##0');  // P-R
+  shOC.getRange(startRow, 19, newRows.length, 1).setNumberFormat('0.0%');    // S
 
   // Retornar resumen para confirmación
-  const totalCosto = newRows.reduce(function(s, r) { return s + r[12]; }, 0);
+  const totalCosto = newRows.reduce(function(s, r) { return s + (r[14] || 0); }, 0);
   return {
     ok: true,
     filas: newRows.length,
@@ -1743,6 +2160,7 @@ function confirmar() {
 //  setupSheets — ejecutar UNA sola vez para formatear todo
 // ════════════════════════════════════════════════════════════
 function setupSheets() {
+  setupConfig();
   _setupPedidos();
   _setupProductos();
   _setupDetalle();
@@ -1751,7 +2169,8 @@ function setupSheets() {
   _setupEgresos();
   _setupHome();
   _setupOrdenDeCompra();
-  SS.toast('✅  Sheets de Maleu configurados correctamente', 'Setup completo', 5);
+  setupKardex();
+  SS.toast('Sheets de Maleu configurados correctamente', 'Setup completo', 5);
 }
 
 // ── Hoja: Home — diseño, dropdowns y colores ────────────────
@@ -1911,68 +2330,183 @@ function _setupHome() {
   sh.setTabColor(ORANGE);
 }
 
-// ── Hoja: Orden de Compra — vista automática desde Home ─────
+// ── Hoja: Orden de Compra — estructura profesional v2 (25 cols A-Y) ─────
 function _setupOrdenDeCompra() {
   let sh = SS.getSheetByName('Orden de Compra');
   if (!sh) sh = SS.insertSheet('Orden de Compra');
 
-  // Limpiar contenido previo
-  sh.clear();
-
-  // ── Título ──────────────────────────────────────────────────
-  sh.setRowHeight(1, 48);
-  sh.getRange('A1:H1').merge()
-    .setValue('📋  ÓRDENES DE COMPRA — Vista automática desde Home')
+  // ── Encabezados (25 columnas A-Y) ──────────────────────────
+  const headers = [
+    'N° Orden',             // A
+    'Fecha Creación',       // B
+    'Semana',               // C
+    'Mes',                  // D
+    'Canal',                // E
+    'N° Pedido Origen',     // F
+    'Cliente',              // G
+    'Teléfono',             // H
+    'Dirección',            // I
+    'Proveedor',            // J
+    'Producto',             // K
+    'Abreviatura',          // L
+    'Cantidad',             // M
+    'Costo Unitario',       // N
+    'Costo Total',          // O
+    'Precio Venta Unit.',   // P
+    'Ingreso Total',        // Q
+    'Margen Bruto ($)',     // R
+    'Margen (%)',           // S
+    'Origen',               // T
+    'Estado OC',            // U
+    'Fecha Pedido Prov',    // V
+    'Fecha Recibido',       // W
+    'Pagado Proveedor',     // X
+    'Cobrado Cliente',      // Y
+  ];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground(BROWN).setFontColor('#FFFFFF')
-    .setFontSize(14).setFontWeight('bold')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-
-  // ── QUERY automática ────────────────────────────────────────
-  // Trae las columnas más útiles de Home donde Origen = "Orden de Compra"
-  // A=Hora, B=N°Pedido, D=Fecha, H=Cliente, K=EstadoEntrega, L=FormaPago,
-  // M=EstadoPago, N=Total, AK=Barrio, AL=SubBarrio, AM=Lote, AN=Teléfono
-  sh.getRange('A3').setFormula(
-    '=IFERROR(' +
-      'QUERY(Home!A:AN,' +
-        '"SELECT B, A, D, H, K, L, M, N, AK, AL, AM, AN ' +
-        'WHERE I = \'Orden de Compra\' ' +
-        'ORDER BY D DESC, A DESC",1)' +
-    ',"No hay órdenes de compra todavía")'
-  );
-
-  // ── Formato de la zona de datos ─────────────────────────────
-  // Encabezados del QUERY (fila 3) se formatean automáticamente
-  sh.getRange('A3:L3')
-    .setBackground('#E8DFC4').setFontColor(BROWN)
     .setFontWeight('bold').setFontSize(10)
-    .setHorizontalAlignment('center');
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setWrap(true);
 
-  // Ancho de columnas
+  sh.setFrozenRows(1);
+  sh.setRowHeight(1, 44);
+
+  // ── Ancho de columnas ──────────────────────────────────────
   const widths = [
-    95,  // A  N° Pedido
-    65,  // B  Hora
-    100, // C  Fecha
-    170, // D  Cliente
-    130, // E  Estado de Entrega
-    120, // F  Forma de Pago
-    120, // G  Estado de Pago
-    95,  // H  Total ($)
-    140, // I  Barrio
-    140, // J  Sub Barrio
-    130, // K  Domicilio
-    130, // L  Teléfono
+    95,   // A  N° Orden
+    140,  // B  Fecha Creación
+    65,   // C  Semana
+    85,   // D  Mes
+    95,   // E  Canal
+    105,  // F  N° Pedido Origen
+    170,  // G  Cliente
+    120,  // H  Teléfono
+    160,  // I  Dirección
+    140,  // J  Proveedor
+    200,  // K  Producto
+    75,   // L  Abreviatura
+    75,   // M  Cantidad
+    105,  // N  Costo Unitario
+    105,  // O  Costo Total
+    115,  // P  Precio Venta Unit.
+    105,  // Q  Ingreso Total
+    115,  // R  Margen Bruto ($)
+    85,   // S  Margen (%)
+    120,  // T  Origen
+    110,  // U  Estado OC
+    120,  // V  Fecha Pedido Prov
+    120,  // W  Fecha Recibido
+    120,  // X  Pagado Proveedor
+    120,  // Y  Cobrado Cliente
   ];
   widths.forEach((w, i) => sh.setColumnWidth(i + 1, w));
 
-  // Formato moneda en Total (col H en esta hoja)
-  sh.getRange('H4:H5000').setNumberFormat('$#,##0');
+  // ── Formato numérico ──────────────────────────────────────
+  sh.getRange('N2:P5000').setNumberFormat('$#,##0');    // Costo Unit, Costo Total, Precio Venta
+  sh.getRange('Q2:R5000').setNumberFormat('$#,##0');    // Ingreso, Margen $
+  sh.getRange('S2:S5000').setNumberFormat('0.0%');      // Margen %
 
-  sh.setFrozenRows(3);
-  sh.setTabColor('#0D47A1'); // azul — distinguir de Home (naranja)
+  // ── Centrar columnas compactas ─────────────────────────────
+  sh.getRange('A2:A5000').setHorizontalAlignment('center');
+  sh.getRange('C2:C5000').setHorizontalAlignment('center');
+  sh.getRange('L2:M5000').setHorizontalAlignment('center');
 
-  // ── Nota informativa ────────────────────────────────────────
-  sh.getRange('A2').setValue('⚡ Esta hoja se actualiza automáticamente. Para gestionar pedidos, editá la hoja Home.')
-    .setFontSize(9).setFontColor('#666666').setFontStyle('italic');
+  // ── Dropdown: T — Origen ───────────────────────────────────
+  const origenRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Orden de Compra','Depósito'], true)
+    .setAllowInvalid(false).build();
+  sh.getRange('T2:T5000').setDataValidation(origenRule);
+
+  // ── Dropdown: U — Estado OC ────────────────────────────────
+  const estadoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Pendiente','Pedido','Recibido'], true)
+    .setAllowInvalid(false).build();
+  sh.getRange('U2:U5000').setDataValidation(estadoRule);
+
+  // ── Dropdown: X — Pagado Proveedor ─────────────────────────
+  const pagadoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['No','Sí'], true)
+    .setAllowInvalid(false).build();
+  sh.getRange('X2:X5000').setDataValidation(pagadoRule);
+
+  // ── Dropdown: Y — Cobrado Cliente ──────────────────────────
+  const cobradoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['No','Sí',''], true)
+    .setAllowInvalid(false).build();
+  sh.getRange('Y2:Y5000').setDataValidation(cobradoRule);
+
+  // ── Conditional Formatting ────────────────────────────────
+  const rules = [];
+
+  // U — Estado OC
+  const uRange = sh.getRange('U2:U5000');
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Pendiente')
+    .setBackground('#FFF9C4').setFontColor('#7A6000').setBold(true)
+    .setRanges([uRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Pedido')
+    .setBackground('#BBDEFB').setFontColor('#0D47A1').setBold(true)
+    .setRanges([uRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Recibido')
+    .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
+    .setRanges([uRange]).build());
+
+  // T — Origen
+  const tRange = sh.getRange('T2:T5000');
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Orden de Compra')
+    .setBackground('#BBDEFB').setFontColor('#0D47A1').setBold(true)
+    .setRanges([tRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Depósito')
+    .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
+    .setRanges([tRange]).build());
+
+  // R — Margen Bruto ($): verde positivo, rojo negativo
+  const rRange = sh.getRange('R2:R5000');
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberGreaterThan(0)
+    .setBackground('#E8F5E9').setFontColor('#1B5E20').setBold(true)
+    .setRanges([rRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberLessThanOrEqualTo(0)
+    .setBackground('#FFEBEE').setFontColor('#B71C1C').setBold(true)
+    .setRanges([rRange]).build());
+
+  // X — Pagado Proveedor
+  const xRange = sh.getRange('X2:X5000');
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('No')
+    .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
+    .setRanges([xRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Sí')
+    .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
+    .setRanges([xRange]).build());
+
+  // Y — Cobrado Cliente
+  const yRange = sh.getRange('Y2:Y5000');
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('No')
+    .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
+    .setRanges([yRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Sí')
+    .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
+    .setRanges([yRange]).build());
+
+  sh.setConditionalFormatRules(rules);
+
+  // ── Banding (filas alternas) ───────────────────────────────
+  try {
+    sh.getRange('A2:Y5000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+  } catch(ex) {}
+
+  // ── Tab color ──────────────────────────────────────────────
+  sh.setTabColor('#0D47A1');
 }
 
 // ════════════════════════════════════════════════════════════
