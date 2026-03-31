@@ -1337,27 +1337,18 @@ function enviarPedido(){
   const plural = cantidadItems !== 1 ? 's' : '';
   const barrioInfo = barrioPrivado === 'Estancias del Pilar' ? barrioPrivado + ' — ' + barrio : barrioPrivado;
 
-  const msgLines = [
-    '\uD83E\uDDFE *NUEVO PEDIDO \u2014 MALEU*',
-    '\uD83D\uDCE6 *' + cantidadItems + ' producto' + plural + '*',
-    '',
-    lineas,
-    '',
-    sep,
-    '*TOTAL: ' + totalStr + '*',
-    sep,
-    '',
-    '\uD83D\uDC64 *Nombre:* ' + nombre,
-    '\uD83C\uDFD8 *Barrio:* ' + barrioInfo,
-    '\uD83D\uDCCD *Lote:* ' + direccion,
-    '\uD83D\uDCDE *Tel:* ' + telefono,
-    '\uD83D\uDCC5 *Entrega:* ' + dia + ' \u00B7 ' + horario,
-    '\uD83D\uDCB3 *Pago:* ' + pagoEl.value,
-    '',
-    sep,
-    '\uD83E\uDDE1 _\u00A1Gracias por elegirnos!_',
-  ];
-  const urlText = msgLines.map(function(line) { return encodeURIComponent(line); }).join('%0A');
+  const waMsg = '\uD83E\uDDFE *NUEVO PEDIDO \u2014 MALEU*\n' +
+    '\uD83D\uDCE6 *' + cantidadItems + ' producto' + plural + '*\n\n' +
+    lineas + '\n\n' +
+    sep + '\n*TOTAL: ' + totalStr + '*\n' + sep + '\n\n' +
+    '\uD83D\uDC64 *Nombre:* ' + nombre + '\n' +
+    '\uD83C\uDFD8 *Barrio:* ' + barrioInfo + '\n' +
+    '\uD83D\uDCCD *Lote:* ' + direccion + '\n' +
+    '\uD83D\uDCDE *Tel:* ' + telefono + '\n' +
+    '\uD83D\uDCC5 *Entrega:* ' + dia + ' \u00B7 ' + horario + '\n' +
+    '\uD83D\uDCB3 *Pago:* ' + pagoEl.value + '\n\n' +
+    sep + '\n\uD83E\uDDE1 _\u00A1Gracias por elegirnos!_';
+  const urlText = 'https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(waMsg);
 
   /* Registrar pedido en Google Sheets (fire & forget — no bloquea el flujo) */
   const items = Object.entries(cart).map(([id, qty]) => {
@@ -1374,7 +1365,7 @@ function enviarPedido(){
     waBtn.innerHTML = '<span class="whatsapp-btn-left"><span style="font-size:1.2rem">⏳</span> Registrando pedido... abrimos WhatsApp en segundos</span>';
   }
 
-  const waUrl = 'https://wa.me/' + WA_NUMBER + '?text=' + urlText;
+  const waUrl = urlText;
 
   // Registrar en Sheets y abrir WhatsApp
   fetch(APPS_SCRIPT_URL, {
