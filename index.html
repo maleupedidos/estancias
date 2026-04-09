@@ -1369,27 +1369,23 @@ function enviarPedido(){
 
   const waUrl = urlText;
 
-  // Registrar en Sheets y abrir WhatsApp
-  fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({
-      canal:         'Home',
-      fecha:         new Date().toLocaleString('es-AR'),
-      nombre,
-      barrioPrivado,
-      subBarrio:     barrioPrivado === 'Estancias del Pilar' ? barrio : '',
-      barrio,
-      lote:          direccion,
-      telefono,
-      dia,
-      horario,
-      pago:          pagoEl.value,
-      items,
-      total:         cartTotal()
-    })
-  }).catch(function() {});
+  // Registrar en Sheets con retry
+  const orderData = {
+    canal:         'Home',
+    fecha:         new Date().toLocaleString('es-AR'),
+    nombre,
+    barrioPrivado,
+    subBarrio:     barrioPrivado === 'Estancias del Pilar' ? barrio : '',
+    barrio,
+    lote:          direccion,
+    telefono,
+    dia,
+    horario,
+    pago:          pagoEl.value,
+    items,
+    total:         cartTotal()
+  };
+  _sendWithRetry(orderData, 3);
 
   // Abrir WhatsApp después de 600ms (da tiempo al fetch de salir sin bloquear al usuario)
   setTimeout(function() {
@@ -1545,6 +1541,34 @@ const PROD_ABBR = {
   14:'TG', 15:'TLC', 16:'TC', 13:'F',
   1:'PMa', 2:'PJyQ', 3:'PCC', 4:'PJyM', 19:'PMu',
 };
+/* ── RETRY + BACKUP ────────────────────────────────────── */
+function _sendWithRetry(data, retries) {
+  fetch(APPS_SCRIPT_URL, {
+    method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify(data)
+  }).catch(function() {
+    if (retries > 1) {
+      setTimeout(function() { _sendWithRetry(data, retries - 1); }, 2000);
+    } else {
+      try {
+        var pending = JSON.parse(localStorage.getItem('maleu_pending_orders') || '[]');
+        pending.push({ data: data, ts: Date.now() });
+        localStorage.setItem('maleu_pending_orders', JSON.stringify(pending));
+      } catch(e) {}
+    }
+  });
+}
+function _retryPendingOrders() {
+  try {
+    var pending = JSON.parse(localStorage.getItem('maleu_pending_orders') || '[]');
+    if (pending.length === 0) return;
+    var order = pending.shift();
+    localStorage.setItem('maleu_pending_orders', JSON.stringify(pending));
+    _sendWithRetry(order.data, 2);
+  } catch(e) {}
+}
+setInterval(_retryPendingOrders, 30000);
+
 async function fetchStock() {
   if (!STOCK_CSV_URL) return;
   try {
@@ -1654,6 +1678,7 @@ const _formObs = new IntersectionObserver(([entry]) => {
 _formObs.observe(document.querySelector('.form-section'));
 $id('cart-badge').style.display = 'none';
 fetchStock();
+_retryPendingOrders();
 // Auto-refresh stock cada 60 seg (pausa cuando la pestaña no es visible)
 let _stockTimer = setInterval(fetchStock, 60000);
 document.addEventListener('visibilitychange', () => {
