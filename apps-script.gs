@@ -29,21 +29,55 @@ const CREAM   = '#E8DFC4';
  *  @returns {string} El nuevo ID formateado (ej: 'H-128', 'OC-090')
  */
 function _nextId(prefix) {
-  const sh = SS.getSheetByName('Config');
-  if (!sh) throw new Error('Hoja Config no encontrada. Ejecutá setupConfig().');
+  // Escanear la hoja real para encontrar el máximo ID existente
+  // Esto previene saltos cuando se eliminan filas manualmente
+  const sheetMap = { 'H-': ['Home', 'B'], 'C-': ['Clubes', 'B'], 'OC-': ['Orden de Compra', 'A'], 'P-': ['Pilar', 'B'], 'CF-': ['Capital Federal', 'B'] };
+  const info = sheetMap[prefix];
+  if (!info) throw new Error('Prefix desconocido: ' + prefix);
 
-  // Mapeo prefix → fila en Config
-  const rowMap = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6 };
-  const row = rowMap[prefix];
-  if (!row) throw new Error('Prefix desconocido: ' + prefix);
+  var max = 0;
+  var regex = new RegExp('^' + prefix.replace('-', '\\-') + '(\\d+)$');
 
-  const celda = sh.getRange(row, 2); // Col B = valor actual
-  const actual = Number(celda.getValue()) || 0;
-  const nuevo = actual + 1;
-  celda.setValue(nuevo);
+  // Buscar máximo en la hoja operativa
+  var shData = SS.getSheetByName(info[0]);
+  if (shData && shData.getLastRow() > 1) {
+    var col = info[1];
+    var data = shData.getRange(col + '2:' + col + shData.getLastRow()).getValues();
+    for (var i = 0; i < data.length; i++) {
+      var match = String(data[i][0]).match(regex);
+      if (match) { var n = parseInt(match[1], 10); if (n > max) max = n; }
+    }
+  }
 
-  const pad = prefix === 'OC-' ? 3 : 3;
-  return prefix + String(nuevo).padStart(pad, '0');
+  // También revisar archivos por si el máximo está ahí
+  var archName = 'Archivo ' + info[0];
+  var shArch = SS.getSheetByName(archName);
+  if (shArch && shArch.getLastRow() > 1) {
+    var col2 = info[1];
+    var data2 = shArch.getRange(col2 + '2:' + col2 + shArch.getLastRow()).getValues();
+    for (var j = 0; j < data2.length; j++) {
+      var match2 = String(data2[j][0]).match(regex);
+      if (match2) { var n2 = parseInt(match2[1], 10); if (n2 > max) max = n2; }
+    }
+  }
+
+  // También comparar con Config para nunca retroceder
+  var shConfig = SS.getSheetByName('Config');
+  if (shConfig) {
+    var rowMap = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6 };
+    var configVal = Number(shConfig.getRange(rowMap[prefix], 2).getValue()) || 0;
+    if (configVal > max) max = configVal;
+  }
+
+  var nuevo = max + 1;
+
+  // Actualizar Config
+  if (shConfig) {
+    var rowMap2 = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6 };
+    shConfig.getRange(rowMap2[prefix], 2).setValue(nuevo);
+  }
+
+  return prefix + String(nuevo).padStart(3, '0');
 }
 
 /** Setup de la hoja Config (ejecutar UNA vez) */
@@ -343,6 +377,7 @@ function doGet(e) {
   const action = e && e.parameter && e.parameter.action;
   if (action === 'compras') return _doGetCompras();
   if (action === 'egresos') return _doGetEgresos();
+  if (action === 'entregas') return _doGetEntregas(e);
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -386,6 +421,128 @@ function _doGetEgresos() {
   return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
 }
 
+// ══════════════════════════════════════════════════════════════
+//  ENTREGAS — API para la página de ruteo (ruta.html)
+// ══════════════════════════════════════════════════════════════
+
+/** GET ?action=entregas[&dia=Viernes]
+ *  Devuelve pedidos pendientes de entrega de Home, Pilar y Capital Federal.
+ *  Formato compacto para señal floja. */
+function _doGetEntregas(e) {
+  var dia = e && e.parameter && e.parameter.dia;
+
+  var ABBRS = ['PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ','ECyQ','EV',
+               'TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
+
+  var entregas = [];
+
+  ['Home', 'Pilar', 'Capital Federal'].forEach(function(hoja) {
+    var sh = SS.getSheetByName(hoja);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var data = sh.getDataRange().getValues();
+
+    for (var r = 1; r < data.length; r++) {
+      var estado = String(data[r][10]).trim();
+      if (estado === 'Entregado' || estado === 'Cancelado') continue;
+
+      var diaEntrega = String(data[r][9]).trim();
+      if (dia && diaEntrega !== dia) continue;
+
+      var productos = [];
+      for (var p = 0; p < 19; p++) {
+        var qty = Number(data[r][20 + p]) || 0;
+        if (qty > 0) productos.push({ a: ABBRS[p], q: qty });
+      }
+      if (productos.length === 0) continue;
+
+      var direccion = '', subBarrio = '', lote = '', telefono = '';
+      if (hoja === 'Home') {
+        subBarrio = String(data[r][42] || '').trim();
+        lote = String(data[r][43] || '').trim();
+        direccion = subBarrio + (lote ? ' · Lote ' + lote : '');
+        telefono = String(data[r][44] || '');
+      } else if (hoja === 'Pilar') {
+        direccion = [data[r][41], data[r][42]].filter(Boolean).join(' · ');
+        telefono = String(data[r][43] || '');
+      } else {
+        direccion = [data[r][41], [data[r][42], data[r][43]].filter(Boolean).join(' '), data[r][44]].filter(Boolean).join(' · ');
+        telefono = String(data[r][45] || '');
+      }
+
+      entregas.push({
+        id: Number(data[r][1]) || 0,
+        h: hoja,
+        r: r + 1,
+        c: String(data[r][7] || '').trim(),
+        t: telefono.trim(),
+        d: direccion,
+        sb: subBarrio || String(data[r][41] || '').trim(),
+        l: lote,
+        de: diaEntrega,
+        es: estado,
+        o: String(data[r][8] || '').trim(),
+        fp: String(data[r][11] || '').trim(),
+        ep: String(data[r][12] || '').trim(),
+        $: Number(data[r][13]) || 0,
+        p: productos
+      });
+    }
+  });
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ts: Date.now(), e: entregas }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=marcarEntregado — marca un pedido como Entregado desde ruta.html.
+ *  Replica la lógica de _onEditHome: fecha de entrega + descuento de stock si Depósito. */
+function _doPostMarcarEntregado(data) {
+  var hoja = String(data.hoja || '');
+  var pedidoId = String(data.id || '');
+  var cobrado = !!data.cobrado;
+
+  var sh = SS.getSheetByName(hoja);
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false })).setMimeType(ContentService.MimeType.JSON);
+
+  // Buscar fila por N° Pedido (col B=2). Usar row hint si coincide, sino buscar.
+  var row = Number(data.row) || 0;
+  if (row > 1 && String(sh.getRange(row, 2).getValue()) === pedidoId) {
+    // row hint es correcto
+  } else {
+    var allData = sh.getDataRange().getValues();
+    row = -1;
+    for (var r = 1; r < allData.length; r++) {
+      if (String(allData[r][1]) === pedidoId) { row = r + 1; break; }
+    }
+    if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Verificar que no esté ya Entregado
+  var estadoActual = String(sh.getRange(row, 11).getValue()).trim();
+  if (estadoActual === 'Entregado') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, ya: true })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Marcar Entregado
+  sh.getRange(row, 11).setValue('Entregado');
+
+  // Registrar fecha de entrega
+  var colEntrega = hoja === 'Pilar' ? 45 : hoja === 'Capital Federal' ? 47 : 46;
+  _registrarFechaEntrega(sh, row, colEntrega);
+
+  // Descontar stock si Origen = Depósito
+  var origen = String(sh.getRange(row, 9).getValue()).trim();
+  if (origen === 'Depósito') {
+    var hProd = SS.getSheetByName('Productos');
+    if (hProd) _homeStockFisico(sh, row, hProd, -1);
+  }
+
+  // Marcar cobrado si se indicó
+  if (cobrado) sh.getRange(row, 13).setValue('Cobrado');
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}
+
 // ════════════════════════════════════════════════════════════
 //  doPost — recibe pedidos desde la página + acciones internas
 // ════════════════════════════════════════════════════════════
@@ -395,9 +552,10 @@ function doPost(e) {
 
   try {
     const data = JSON.parse(e.postData.contents);
-    if (data.action === 'compra')       return _doPostCompra(data);
-    if (data.action === 'compraLote')  return _doPostCompraLote(data);
-    if (data.action === 'updateCompra') return _doUpdateCompra(data);
+    if (data.action === 'compra')          return _doPostCompra(data);
+    if (data.action === 'compraLote')     return _doPostCompraLote(data);
+    if (data.action === 'updateCompra')   return _doUpdateCompra(data);
+    if (data.action === 'marcarEntregado') return _doPostMarcarEntregado(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
@@ -500,8 +658,8 @@ function _doPostHome(data, sheetName, prefix) {
   const sh = SS.getSheetByName(sheetName);
   if (!sh) return;
 
-  // ── N° de pedido desde contador global (Config) ──
-  const orderNum = _nextId(prefix + '-');
+  // ── N° de pedido = cantidad de pedidos existentes + 1 (simple: 1, 2, 3...)
+  const orderNum = sh.getLastRow(); // fila 2 = pedido 1, fila 3 = pedido 2, etc.
 
   // ── Fecha y hora en zona horaria Argentina ────────────────
   const ahora   = new Date();
@@ -605,13 +763,26 @@ function _doPostHome(data, sheetName, prefix) {
     row[41] = barrioPrivado;                      // AP  Barrio
     row[42] = subBarrio;                          // AQ  Sub Barrio
     row[43] = String(data.lote || '');            // AR  Domicilio - Lote
-    row[44] = String(data.telefono || '');        // AS  Teléfono
+    var tel = String(data.telefono || '');
+    row[44] = tel;                                  // AS  Teléfono
   }
 
+  // Subtotal sin descuento y Descuento al final de la fila
+  // Se agregan después de las columnas de entrega (AZ y BA, índices 51 y 52)
+  while (row.length < 53) row.push('');
+  row[51] = Number(data.subtotalSinDescuento) || total; // AZ = Subtotal sin Descuento
+  row[52] = Number(data.descuento) || 0;                // BA = Descuento ($)
+
   sh.appendRow(row);
-  // Fórmula Facturado en T (col 20) = Total + Propinas
   var newRow = sh.getLastRow();
+
+  // Fórmula Facturado en T (col 20) = Total + Propinas
   sh.getRange(newRow, 20).setFormula('=N' + newRow + '+R' + newRow + '+S' + newRow);
+
+  // Forzar teléfono como texto (evitar que Sheets lo interprete como fórmula/número)
+  var telCol = (sheetName === 'Capital Federal') ? 46 : (sheetName === 'Pilar') ? 44 : 45;
+  var telVal = String(data.telefono || '');
+  if (telVal) sh.getRange(newRow, telCol).setNumberFormat('@').setValue(telVal);
 
 }
 
@@ -648,8 +819,8 @@ function _doPostClubes(data) {
   const sh = SS.getSheetByName('Clubes');
   if (!sh) return;
 
-  // ── N° de pedido desde contador global (Config) ──
-  const orderNum = _nextId('C-');
+  // ── N° de pedido = cantidad de pedidos existentes + 1
+  const orderNum = sh.getLastRow();
 
   // Fecha y hora Argentina
   const ahora   = new Date();
@@ -733,9 +904,12 @@ function _doPostClubes(data) {
   row[33] = String(data.telefono || '');       // AH  Teléfono
 
   sh.appendRow(row);
-  // Fórmula Facturado en W (col 23) = Total + Propinas
   var newRow = sh.getLastRow();
+  // Fórmula Facturado en W (col 23) = Total + Propinas
   sh.getRange(newRow, 23).setFormula('=Q' + newRow + '+U' + newRow + '+V' + newRow);
+  // Forzar teléfono como texto
+  var telClubes = String(data.telefono || '');
+  if (telClubes) sh.getRange(newRow, 34).setNumberFormat('@').setValue(telClubes);
 }
 
 // Número de semana ISO (lunes = primer día de la semana)
@@ -1073,6 +1247,9 @@ function _clubesStockFisico(shClubes, row, hProductos, signo) {
         var nuevoStock = Math.max(0, fisico + (qty * signo));
         celdaFis.setValue(nuevoStock);
         _logKardex(abbr, signo < 0 ? '-SAL' : '+DEV', qty, fisico, nuevoStock, 'Clubes', refPedido);
+        if (signo < 0 && nuevoStock <= 3 && nuevoStock >= 0) {
+          SS.toast('⚠️ STOCK BAJO: ' + abbr + ' → quedan ' + nuevoStock, 'Alerta Stock', 8);
+        }
         break;
       }
     }
@@ -1172,10 +1349,30 @@ function generarOrdenDeCompra(canal, row) {
     direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · ');
   }
 
-  const abbrToProvMap   = _getAbbrToProveedor();
-  const abbrToNameMap   = _getAbbrToProductName();
-  const abbrToCostoMap  = _getAbbrToCosto();
-  const abbrToPrecioMap = _getAbbrToPrecio();
+  // Cargar todos los lookups en una sola lectura por hoja (optimización de velocidad)
+  var abbrToProvMap = {}, abbrToNameMap = {}, abbrToCostoMap = {}, abbrToPrecioMap = {};
+  var hProvOC = SS.getSheetByName('Proveedores');
+  if (hProvOC) {
+    var pData = hProvOC.getDataRange().getValues();
+    var lastProv = '', lastProd = '';
+    for (var p = 1; p < pData.length; p++) {
+      if (pData[p][2] && String(pData[p][2]).trim()) lastProv = String(pData[p][2]).trim();
+      if (pData[p][1] && String(pData[p][1]).trim()) lastProd = String(pData[p][1]).trim();
+      var ab = String(pData[p][4]).trim();
+      var gu = String(pData[p][3]).trim();
+      if (ab) { abbrToProvMap[ab] = lastProv; abbrToNameMap[ab] = lastProd + (gu ? ' — ' + gu : ''); }
+    }
+  }
+  var hProdOC = SS.getSheetByName('Productos');
+  if (hProdOC) {
+    var prData = hProdOC.getDataRange().getValues();
+    for (var q = 1; q < prData.length; q++) {
+      var abr = String(prData[q][2]).trim();
+      if (!abr) continue;
+      abbrToCostoMap[abr] = parseFloat(String(prData[q][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+      abbrToPrecioMap[abr] = parseFloat(String(prData[q][8]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    }
+  }
 
   // Precios especiales para Clubes (menores al retail)
   const CLUBES_PRECIOS = {
@@ -1265,7 +1462,7 @@ function generarOrdenDeCompra(canal, row) {
       var r = formulaStart + i;
       shOC.getRange(r, 17).setFormula('=P' + r + '*M' + r);          // Q = Ingreso
       shOC.getRange(r, 18).setFormula('=Q' + r + '-O' + r);          // R = Margen $
-      shOC.getRange(r, 19).setFormula('=R' + r + '/Q' + r);          // S = Margen %
+      shOC.getRange(r, 19).setFormula('=R' + r + '/Q' + r); // S = Margen %
     }
 
     // Formato moneda y porcentaje
@@ -1389,6 +1586,10 @@ function _homeStockFisico(shHome, row, hProductos, signo) {
         const nuevoStock = Math.max(0, fisico + (qty * signo));
         celdaFis.setValue(nuevoStock);
         _logKardex(abbr, signo < 0 ? '-SAL' : '+DEV', qty, fisico, nuevoStock, 'Home', refPedido);
+        // Alerta inline si stock queda bajo
+        if (signo < 0 && nuevoStock <= 3 && nuevoStock >= 0) {
+          SS.toast('⚠️ STOCK BAJO: ' + abbr + ' → quedan ' + nuevoStock, 'Alerta Stock', 8);
+        }
         break;
       }
     }
@@ -1522,6 +1723,113 @@ function resetTriggers() {
   SpreadsheetApp.getUi().alert('Triggers reseteados: ' + all.length + ' eliminados, 1 nuevo creado (onEditHandler).');
 }
 
+// ════════════════════════════════════════════════════════════
+//  ALERTA STOCK BAJO — ejecutar con trigger cada 6 horas
+//  Envía email gratis a maleucongelados@gmail.com
+//  COSTO: $0 (usa MailApp de Google, sin WATI)
+// ════════════════════════════════════════════════════════════
+
+/** Verifica productos con stock bajo y envía email si hay alguno.
+ *  Configurar como trigger time-driven: cada 6 horas. */
+function verificarStockBajo() {
+  var hProd = SS.getSheetByName('Productos');
+  var hConf = SS.getSheetByName('Config');
+  if (!hProd) return;
+
+  // Leer umbral desde Config (default: 3)
+  var umbral = 3;
+  if (hConf) {
+    var confData = hConf.getDataRange().getValues();
+    for (var r = 0; r < confData.length; r++) {
+      if (String(confData[r][0]).indexOf('Stock Cr') >= 0) {
+        umbral = Number(confData[r][1]) || 3;
+        break;
+      }
+    }
+  }
+
+  var data = hProd.getDataRange().getValues();
+  var alertas = [];
+  for (var r = 1; r < data.length; r++) {
+    var nombre = String(data[r][1]).trim();
+    var disponible = Number(data[r][7]) || 0; // col H = Disponible
+    var fisico = Number(data[r][5]) || 0;     // col F = Físico
+    if (nombre && disponible <= umbral && fisico > 0) {
+      // Solo alerta si el producto tiene stock fisico (no es un producto inactivo con 0)
+      alertas.push({ nombre: nombre, disponible: disponible, fisico: fisico });
+    } else if (nombre && fisico === 0) {
+      alertas.push({ nombre: nombre, disponible: 0, fisico: 0 });
+    }
+  }
+
+  // Filtrar: solo productos que están activos (tuvieron stock esta semana)
+  var alertasReales = alertas.filter(function(a) {
+    return a.disponible <= umbral;
+  });
+
+  if (alertasReales.length === 0) return; // Todo OK, no alertar
+
+  // Construir email
+  var lineas = alertasReales.map(function(a) {
+    if (a.fisico === 0) return '🔴 ' + a.nombre + ' — SIN STOCK';
+    return '🟡 ' + a.nombre + ' — Quedan ' + a.disponible + ' (físico: ' + a.fisico + ')';
+  });
+
+  var sinStock = alertasReales.filter(function(a) { return a.fisico === 0; }).length;
+  var bajo = alertasReales.length - sinStock;
+
+  var asunto = '⚠️ Maleu — ';
+  if (sinStock > 0) asunto += sinStock + ' sin stock';
+  if (sinStock > 0 && bajo > 0) asunto += ' + ';
+  if (bajo > 0) asunto += bajo + ' con stock bajo';
+
+  var cuerpo = 'Alerta automática de stock — Maleu\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+    lineas.join('\n') + '\n\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━\n' +
+    'Umbral configurado: ' + umbral + ' unidades\n' +
+    'Hora: ' + new Date().toLocaleString('es-AR', {timeZone:'America/Argentina/Buenos_Aires'}) + '\n\n' +
+    'Abrir Sheets: https://docs.google.com/spreadsheets/d/1ILXCc9ddbC_gJPNoUADBiSMXAWLM9v73ov2_xXb8YsY/';
+
+  MailApp.sendEmail({
+    to: 'maleucongelados@gmail.com',
+    subject: asunto,
+    body: cuerpo
+  });
+}
+
+/** Configura el trigger de stock bajo (ejecutar UNA vez).
+ *  Si da error de permisos: ir al editor de Apps Script,
+ *  ejecutar esta función manualmente desde ahí (Run). */
+function setupTriggerStockBajo() {
+  try {
+    // Eliminar triggers existentes de esta función
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'verificarStockBajo') {
+        ScriptApp.deleteTrigger(triggers[i]);
+      }
+    }
+    // Crear trigger cada 6 horas
+    ScriptApp.newTrigger('verificarStockBajo')
+      .timeBased()
+      .everyHours(6)
+      .create();
+    SpreadsheetApp.getUi().alert('Trigger de stock bajo configurado: cada 6 horas → email a maleucongelados@gmail.com');
+  } catch(e) {
+    // Si falla por permisos, dar instrucciones claras
+    SpreadsheetApp.getUi().alert(
+      'Error al crear el trigger: ' + e.message + '\n\n' +
+      'SOLUCIÓN:\n' +
+      '1. Abrí el editor de Apps Script (Extensiones → Apps Script)\n' +
+      '2. Seleccioná la función "setupTriggerStockBajo" en el dropdown\n' +
+      '3. Hacé click en ▶ (Run)\n' +
+      '4. Aceptá los permisos que te pida Google\n\n' +
+      'Solo hace falta hacerlo una vez.'
+    );
+  }
+}
+
 /** Muestra/oculta la hoja Config para edición manual */
 function mostrarConfig() {
   const sh = SS.getSheetByName('Config');
@@ -1594,7 +1902,8 @@ function onOpen() {
     .addItem('Nueva compra a proveedor', 'abrirSidebarCompra')
     .addItem('Resumen para WhatsApp (pendientes)', 'generarResumenWA')
     .addItem('Hoja de Ruta (búsqueda)', 'generarHojaDeRuta')
-    .addItem('Marcar todas las OC como Recibidas', 'marcarOCRecibidas')
+    .addItem('Recibir mercadería (por proveedor)', 'abrirRecibirMercaderia')
+    .addItem('Marcar TODAS las OC como Recibidas', 'marcarOCRecibidas')
     .addSeparator()
     .addItem('Archivar semana (Home + Clubes)', 'archivarSemana')
     .addSeparator()
@@ -1602,6 +1911,8 @@ function onOpen() {
     .addItem('Reset stock semanal', 'resetStockSemanal')
     .addSeparator()
     .addItem('Ver/Editar Config', 'mostrarConfig')
+    .addSeparator()
+    .addItem('⚠️ Activar alerta stock bajo (cada 6hs)', 'setupTriggerStockBajo')
     .addToUi();
 }
 
@@ -1690,7 +2001,269 @@ function marcarOCRecibidas() {
   SS.toast(msg, 'Listo', 5);
 }
 
-/** Genera Hoja de Ruta: Sección 1 = Búsqueda (por proveedor), Sección 2 = Entregas (por cliente con checkbox) */
+// ══════════════════════════════════════════════════════════════
+//  RECIBIR MERCADERÍA POR PROVEEDOR — Dialog con checkboxes
+// ══════════════════════════════════════════════════════════════
+
+/** Devuelve OC en estado "Pedido" agrupadas por proveedor.
+ *  Formato: [{ proveedor, items: [{ row, producto, abbr, qty, costo, canal, origen }], totalCosto }] */
+function getOCPendientesPorProveedor() {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) return [];
+  var data = shOC.getDataRange().getValues();
+  var porProv = {};
+
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][20]).trim() !== 'Pedido') continue; // U=21 (0-based=20)
+    var prov = String(data[r][9]).trim();  // J = Proveedor
+    if (!prov) prov = '(sin proveedor)';
+    if (!porProv[prov]) porProv[prov] = { proveedor: prov, items: [], totalCosto: 0 };
+    var costoTotal = Number(data[r][14]) || 0; // O = Costo Total
+    porProv[prov].items.push({
+      row: r + 1,
+      producto: String(data[r][10]).trim(),   // K = Producto
+      abbr: String(data[r][11]).trim(),       // L = Abreviatura
+      qty: Number(data[r][12]) || 0,          // M = Cantidad
+      costo: costoTotal,
+      canal: String(data[r][4]).trim(),       // E = Canal
+      origen: String(data[r][19]).trim()      // T = Origen
+    });
+    porProv[prov].totalCosto += costoTotal;
+  }
+
+  // Ordenar por cantidad de items desc
+  return Object.keys(porProv).map(function(k) { return porProv[k]; })
+    .sort(function(a, b) { return b.items.length - a.items.length; });
+}
+
+/** Marca como "Recibido" todas las OC de los proveedores seleccionados.
+ *  @param {string[]} proveedores - nombres de proveedores a marcar */
+function marcarRecibidasPorProveedores(proveedores) {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  var hProd = SS.getSheetByName('Productos');
+  if (!shOC || !hProd) return { ok: false, msg: 'No se encontraron las hojas necesarias' };
+
+  var provSet = {};
+  proveedores.forEach(function(p) { provSet[p] = true; });
+
+  var data = shOC.getDataRange().getValues();
+
+  // Timestamp Argentina
+  var ahora = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var dd = String(argDate.getDate()).padStart(2, '0');
+  var mm = String(argDate.getMonth() + 1).padStart(2, '0');
+  var yyyy = argDate.getFullYear();
+  var fechaHoy = dd + '/' + mm + '/' + yyyy;
+
+  var prodData = hProd.getDataRange().getValues();
+  var stockSumado = {};
+  var marcadas = 0;
+  var provsMarcados = {};
+
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][20]).trim() !== 'Pedido') continue;
+    var prov = String(data[r][9]).trim() || '(sin proveedor)';
+    if (!provSet[prov]) continue;
+
+    var row = r + 1;
+    var canal  = String(data[r][4]).trim();
+    var origen = String(data[r][19]).trim();
+    var abbr   = String(data[r][11]).trim();
+    var qty    = Number(data[r][12]) || 0;
+
+    shOC.getRange(row, 21).setValue('Recibido');  // U = Estado OC
+    shOC.getRange(row, 23).setValue(fechaHoy);    // W = Fecha Recibido
+    marcadas++;
+    provsMarcados[prov] = true;
+
+    if (canal === 'Depósito' && origen === 'Orden de Compra' && abbr && qty > 0) {
+      if (!stockSumado[abbr]) stockSumado[abbr] = 0;
+      stockSumado[abbr] += qty;
+    }
+  }
+
+  // Sumar stock en Productos + Kardex
+  var prodActualizados = 0;
+  Object.keys(stockSumado).forEach(function(abbr) {
+    for (var p = 1; p < prodData.length; p++) {
+      if (String(prodData[p][2]).trim() === abbr) {
+        var celda = hProd.getRange(p + 1, 6);
+        var actual = Number(celda.getValue()) || 0;
+        var nuevoStock = actual + stockSumado[abbr];
+        celda.setValue(nuevoStock);
+        _logKardex(abbr, '+REC', stockSumado[abbr], actual, nuevoStock, 'OC', 'Recibido x Prov');
+        prodActualizados++;
+        break;
+      }
+    }
+  });
+
+  var provsArr = Object.keys(provsMarcados);
+  var msg = marcadas + ' órdenes marcadas como Recibido (' + provsArr.join(', ') + ')';
+  if (prodActualizados > 0) msg += '\n' + prodActualizados + ' productos actualizados en stock';
+  SS.toast(msg, 'Listo', 5);
+  return { ok: true, msg: msg, marcadas: marcadas, proveedores: provsArr };
+}
+
+/** Abre el dialog para recibir mercadería por proveedor */
+function abrirRecibirMercaderia() {
+  var html = HtmlService.createHtmlOutput(_getRecibirMercaderiaHTML())
+    .setWidth(420)
+    .setHeight(520);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Recibir mercadería');
+}
+
+function _getRecibirMercaderiaHTML() {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; font-size:13px; color:#331C1C; padding:20px; }
+  h2 { font-size:16px; font-weight:800; margin-bottom:4px; }
+  .subtitle { font-size:12px; color:#7A4A4A; margin-bottom:16px; }
+  .loading { text-align:center; padding:40px 0; color:#7A4A4A; font-style:italic; }
+  .empty { text-align:center; padding:40px 0; color:#7A4A4A; }
+  .prov-list { max-height:340px; overflow-y:auto; }
+  .prov-card {
+    border:1.5px solid #D4C8A0; border-radius:10px; padding:12px;
+    margin-bottom:10px; cursor:pointer; transition:all .15s;
+  }
+  .prov-card:hover { border-color:#F07D47; }
+  .prov-card.selected { border-color:#331C1C; background:#F2E8C7; }
+  .prov-header { display:flex; align-items:center; gap:10px; }
+  .prov-check { width:20px; height:20px; border-radius:5px; border:2px solid #D4C8A0;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:all .15s; font-size:14px; color:#fff; }
+  .prov-card.selected .prov-check { background:#331C1C; border-color:#331C1C; }
+  .prov-name { font-weight:700; font-size:14px; flex:1; }
+  .prov-badge { background:#F07D47; color:#fff; font-size:11px; font-weight:700;
+    padding:2px 8px; border-radius:50px; }
+  .prov-detail { margin-top:8px; font-size:11px; color:#7A4A4A; line-height:1.6; padding-left:30px; }
+  .prov-total { font-size:12px; font-weight:700; color:#331C1C; margin-top:4px; padding-left:30px; }
+  .select-all { font-size:12px; color:#F07D47; font-weight:700; cursor:pointer;
+    text-decoration:underline; margin-bottom:12px; display:inline-block; }
+  .btn-confirm {
+    display:block; width:100%; margin-top:16px; padding:14px;
+    background:#331C1C; color:#F2E8C7; border:none; border-radius:10px;
+    font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .btn-confirm:hover { background:#1E1010; }
+  .btn-confirm:disabled { background:#ccc; color:#888; cursor:not-allowed; }
+  .result { margin-top:12px; padding:12px; border-radius:10px; font-size:12px;
+    font-weight:600; display:none; }
+  .result.ok { display:block; background:#e8f5e8; color:#2d6a2d; }
+  .result.err { display:block; background:#fce8e8; color:#c0392b; }
+</style>
+</head>
+<body>
+
+<h2>Recibir mercadería</h2>
+<p class="subtitle">Seleccioná los proveedores de los que recibiste</p>
+
+<div id="content"><div class="loading">Cargando proveedores...</div></div>
+<div id="actions" style="display:none">
+  <span class="select-all" onclick="toggleAll()">Seleccionar todos</span>
+  <button class="btn-confirm" id="btn" onclick="confirmar()" disabled>Confirmar recibido →</button>
+</div>
+<div class="result" id="result"></div>
+
+<script>
+var proveedores = [];
+var selected = {};
+
+google.script.run.withSuccessHandler(function(data) {
+  proveedores = data;
+  render();
+}).withFailureHandler(function(err) {
+  document.getElementById('content').innerHTML = '<div class="empty">Error: ' + err.message + '</div>';
+}).getOCPendientesPorProveedor();
+
+function render() {
+  var el = document.getElementById('content');
+  if (proveedores.length === 0) {
+    el.innerHTML = '<div class="empty">No hay órdenes en estado "Pedido"</div>';
+    return;
+  }
+  document.getElementById('actions').style.display = '';
+  var html = '<div class="prov-list">';
+  proveedores.forEach(function(p, i) {
+    var items = p.items.map(function(it) {
+      return it.producto + ' x' + it.qty;
+    }).join(', ');
+    html += '<div class="prov-card" data-prov="' + p.proveedor + '" onclick="toggle(this,' + i + ')">' +
+      '<div class="prov-header">' +
+      '<div class="prov-check" id="chk-' + i + '">✓</div>' +
+      '<span class="prov-name">' + p.proveedor + '</span>' +
+      '<span class="prov-badge">' + p.items.length + (p.items.length === 1 ? ' item' : ' items') + '</span>' +
+      '</div>' +
+      '<div class="prov-detail">' + items + '</div>' +
+      '<div class="prov-total">Costo: $' + p.totalCosto.toLocaleString('es-AR') + '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function toggle(card, idx) {
+  var prov = proveedores[idx].proveedor;
+  if (selected[prov]) { delete selected[prov]; card.classList.remove('selected'); }
+  else { selected[prov] = true; card.classList.add('selected'); }
+  document.getElementById('btn').disabled = Object.keys(selected).length === 0;
+}
+
+function toggleAll() {
+  var allSelected = Object.keys(selected).length === proveedores.length;
+  var cards = document.querySelectorAll('.prov-card');
+  if (allSelected) {
+    selected = {};
+    cards.forEach(function(c) { c.classList.remove('selected'); });
+  } else {
+    proveedores.forEach(function(p, i) {
+      selected[p.proveedor] = true;
+      cards[i].classList.add('selected');
+    });
+  }
+  document.getElementById('btn').disabled = Object.keys(selected).length === 0;
+}
+
+function confirmar() {
+  var provsArr = Object.keys(selected);
+  if (provsArr.length === 0) return;
+  var btn = document.getElementById('btn');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+  google.script.run.withSuccessHandler(function(res) {
+    var r = document.getElementById('result');
+    if (res.ok) {
+      r.className = 'result ok';
+      r.textContent = res.msg;
+      r.style.display = 'block';
+      btn.textContent = 'Listo ✓';
+      setTimeout(function() { google.script.host.close(); }, 2000);
+    } else {
+      r.className = 'result err';
+      r.textContent = res.msg;
+      r.style.display = 'block';
+      btn.textContent = 'Confirmar recibido →';
+      btn.disabled = false;
+    }
+  }).withFailureHandler(function(err) {
+    var r = document.getElementById('result');
+    r.className = 'result err';
+    r.textContent = 'Error: ' + err.message;
+    r.style.display = 'block';
+    btn.textContent = 'Confirmar recibido →';
+    btn.disabled = false;
+  }).marcarRecibidasPorProveedores(provsArr);
+}
+</script>
+</body>
+</html>`;
+}
+
+/** Genera Hoja de Ruta: Sección 1 = Búsqueda (por proveedor, desglosado), Sección 2 = Entregas (por cliente, legible) */
 function generarHojaDeRuta() {
   var shOC = SS.getSheetByName('Orden de Compra');
   if (!shOC) { SpreadsheetApp.getUi().alert('No se encontró la hoja "Orden de Compra"'); return; }
@@ -1698,111 +2271,172 @@ function generarHojaDeRuta() {
   var data = shOC.getDataRange().getValues();
   if (data.length <= 1) { SpreadsheetApp.getUi().alert('No hay órdenes de compra'); return; }
 
+  // Separar "Producto — Gusto" en categoría y variedad
+  function splitProducto(nombre) {
+    var parts = nombre.split(' — ');
+    return { cat: (parts[0] || nombre).trim(), variedad: (parts[1] || '').trim() };
+  }
+
   // ── Recopilar datos ──
   var porProv = {};
   var porCliente = {};
   var totalGeneral = 0;
 
   for (var r = 1; r < data.length; r++) {
-    var estado = String(data[r][20]).trim();  // U = Estado OC (0-based 20)
+    var estado = String(data[r][20]).trim();
     if (estado !== 'Pendiente' && estado !== 'Pedido') continue;
-    var origen = String(data[r][19]).trim();  // T = Origen (0-based 19)
+    var origen = String(data[r][19]).trim();
     if (origen === 'Depósito') continue;
 
-    var prov     = String(data[r][9]).trim();   // J = Proveedor
-    var producto = String(data[r][10]).trim();  // K = Producto
-    var qty      = Number(data[r][12]) || 0;    // M = Cantidad
-    var costoU   = Number(String(data[r][13]).replace(/[$.]/g,'').replace(/,/g,'')) || 0; // N = Costo Unit
+    var prov     = String(data[r][9]).trim();
+    var producto = String(data[r][10]).trim();
+    var qty      = Number(data[r][12]) || 0;
+    var costoU   = Number(String(data[r][13]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
     var costoT   = costoU * qty;
-    var cliente  = String(data[r][6]).trim();   // G = Cliente
-    var canal    = String(data[r][4]).trim();   // E = Canal
-    var dir      = String(data[r][8]).trim();   // I = Dirección
+    var cliente  = String(data[r][6]).trim();
+    var canal    = String(data[r][4]).trim();
+    var dir      = String(data[r][8]).trim();
 
     if (!prov || qty === 0) continue;
 
-    // Agrupar por proveedor
-    if (!porProv[prov]) porProv[prov] = { totalCosto: 0, productos: {} };
-    if (!porProv[prov].productos[producto]) porProv[prov].productos[producto] = 0;
-    porProv[prov].productos[producto] += qty;
+    // Proveedor → categoría → variedades
+    if (!porProv[prov]) porProv[prov] = { totalCosto: 0, categorias: {} };
+    var sp = splitProducto(producto);
+    if (!porProv[prov].categorias[sp.cat]) porProv[prov].categorias[sp.cat] = [];
+    // Sumar si ya existe la variedad
+    var found = false;
+    for (var v = 0; v < porProv[prov].categorias[sp.cat].length; v++) {
+      if (porProv[prov].categorias[sp.cat][v].variedad === sp.variedad) {
+        porProv[prov].categorias[sp.cat][v].qty += qty;
+        found = true; break;
+      }
+    }
+    if (!found) porProv[prov].categorias[sp.cat].push({ variedad: sp.variedad, qty: qty });
     porProv[prov].totalCosto += costoT;
     totalGeneral += costoT;
 
-    // Agrupar por cliente
-    var ck = cliente;
-    if (!porCliente[ck]) porCliente[ck] = { canal: canal, dir: dir, items: [], total: 0 };
-    porCliente[ck].items.push({ producto: producto, qty: qty, prov: prov });
-    porCliente[ck].total += costoT;
+    // Cliente → categoría → variedades (sumar si ya existe)
+    if (!porCliente[cliente]) porCliente[cliente] = { canal: canal, dir: dir, categorias: {} };
+    if (!porCliente[cliente].categorias[sp.cat]) porCliente[cliente].categorias[sp.cat] = [];
+    var foundCl = false;
+    for (var vc = 0; vc < porCliente[cliente].categorias[sp.cat].length; vc++) {
+      if (porCliente[cliente].categorias[sp.cat][vc].variedad === sp.variedad) {
+        porCliente[cliente].categorias[sp.cat][vc].qty += qty;
+        foundCl = true; break;
+      }
+    }
+    if (!foundCl) porCliente[cliente].categorias[sp.cat].push({ variedad: sp.variedad, qty: qty });
   }
 
   var provs = Object.keys(porProv);
   var clientes = Object.keys(porCliente);
   if (provs.length === 0) { SpreadsheetApp.getUi().alert('No hay órdenes pendientes para buscar'); return; }
 
+  // ── Fecha de ruta (próximo viernes o día actual) ──
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  // Si es lunes-jueves, la ruta es el viernes. Si es viernes+, es hoy.
+  var rutaDate = new Date(argNow);
+  var dow = rutaDate.getDay(); // 0=dom, 5=vie
+  if (dow >= 1 && dow <= 4) { rutaDate.setDate(rutaDate.getDate() + (5 - dow)); }
+  var DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  var MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var fechaRuta = DIAS_SEMANA[rutaDate.getDay()] + ' ' + rutaDate.getDate() + ' de ' + MESES_LARGO[rutaDate.getMonth()] + ' del ' + rutaDate.getFullYear();
+
   // ── Construir HTML ──
-  var html = '<style>' +
-    'body{font-family:system-ui,sans-serif;font-size:13px;color:#331C1C;padding:20px;max-width:750px;margin:0 auto;}' +
+  var html = '<title>' + fechaRuta + '</title><style>' +
+    '@page{margin:0mm;}' +
+    'body{font-family:system-ui,sans-serif;font-size:13px;color:#331C1C;padding:12mm 15mm;max-width:750px;margin:0 auto;}' +
     'h2{font-size:20px;font-weight:800;margin-bottom:2px;}' +
     '.sub{font-size:12px;color:#7A4A4A;margin-bottom:20px;}' +
     '.section-title{font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#F07D47;margin:24px 0 12px;padding-bottom:6px;border-bottom:2px solid #F07D47;}' +
     '.prov{background:#f8f6f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;}' +
-    '.prov-t{font-size:14px;font-weight:800;display:flex;justify-content:space-between;margin-bottom:8px;}' +
+    '.prov-t{font-size:15px;font-weight:800;display:flex;justify-content:space-between;margin-bottom:10px;}' +
     '.prov-cost{color:#F07D47;}' +
-    '.pl-r{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e8dfc4;font-size:13px;}' +
-    '.pl-r:last-child{border-bottom:none;}' +
-    '.pl-n{font-weight:600;}.pl-q{font-weight:800;color:#F07D47;}' +
+    '.cat-label{font-size:12px;font-weight:800;color:#F07D47;text-transform:uppercase;letter-spacing:.04em;margin:10px 0 4px;padding-top:6px;border-top:1px solid #e8dfc4;}' +
+    '.cat-label:first-child{border-top:none;margin-top:0;padding-top:0;}' +
+    '.var-row{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:13px;}' +
+    '.var-qty{font-weight:800;color:#331C1C;min-width:28px;}' +
+    '.var-name{font-weight:500;}' +
     '.cliente{background:#fff;border:1.5px solid #e8dfc4;border-radius:12px;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid;}' +
-    '.cliente-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}' +
-    '.cliente-name{font-size:14px;font-weight:800;}' +
+    '.cliente-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}' +
+    '.cb{width:18px;height:18px;border:2px solid #331C1C;border-radius:4px;flex-shrink:0;}' +
+    '.cliente-name{font-size:14px;font-weight:800;flex:1;}' +
     '.cliente-canal{font-size:10px;font-weight:700;background:#F07D47;color:#fff;padding:2px 8px;border-radius:50px;}' +
-    '.cliente-dir{font-size:11px;color:#7A4A4A;margin-bottom:8px;}' +
-    '.item-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f2e8c7;font-size:13px;}' +
-    '.item-row:last-child{border-bottom:none;}' +
-    '.checkbox{width:18px;height:18px;border:2px solid #331C1C;border-radius:4px;flex-shrink:0;}' +
-    '.item-name{flex:1;font-weight:600;}' +
-    '.item-qty{font-weight:800;color:#F07D47;min-width:30px;text-align:right;}' +
-    '.item-prov{font-size:10px;color:#7A4A4A;}' +
+    '.cliente-dir{font-size:11px;color:#7A4A4A;margin:0 0 8px 28px;}' +
+    '.cl-cat{font-size:11px;font-weight:800;color:#7A4A4A;margin:8px 0 3px 28px;text-transform:uppercase;letter-spacing:.04em;}' +
+    '.cl-item{display:flex;align-items:center;gap:8px;padding:2px 0 2px 28px;font-size:13px;}' +
+    '.cl-item .cb{width:15px;height:15px;border-width:1.5px;}' +
+    '.cl-qty{font-weight:800;min-width:22px;color:#F07D47;}' +
+    '.cl-name{font-weight:500;}' +
     '.tb{background:#331C1C;color:#F2E8C7;border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;font-size:15px;font-weight:800;margin-top:20px;}' +
     '.tb span:last-child{color:#F07D47;}' +
     '.pb{display:block;width:100%;margin-top:12px;padding:12px;background:#F07D47;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}' +
-    '@media print{.pb{display:none;} body{padding:10px;font-size:12px;} .cliente{border:1px solid #ccc;} .checkbox{border:1.5px solid #000;}}' +
+    '.copy-btn{display:block;width:100%;margin-top:10px;padding:8px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}' +
+    '@media print{.pb,.copy-btn{display:none!important;} body{padding:10px;font-size:12px;} .cliente{border:1px solid #ccc;} .cb{border:1.5px solid #000;}}' +
     '</style>';
 
-  html += '<h2>Hoja de Ruta — Maleu</h2>';
-  html += '<p class="sub">' + new Date().toLocaleDateString('es-AR', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + '</p>';
+  html += '<h2 style="text-align:center">' + fechaRuta + '</h2>';
+  html += '<p class="sub" style="text-align:center">Hoja de Ruta — Maleu</p>';
 
-  // ── SECCIÓN 1: BÚSQUEDA POR PROVEEDOR ──
+  // ── SECCIÓN 1: BÚSQUEDA POR PROVEEDOR (desglosado por categoría) ──
   html += '<div class="section-title">1. Búsqueda por proveedor</div>';
 
-  provs.forEach(function(prov) {
+  provs.forEach(function(prov, idx) {
     var d = porProv[prov];
-    html += '<div class="prov"><div class="prov-t"><span>' + prov + '</span><span class="prov-cost">$' + d.totalCosto.toLocaleString('es-AR') + '</span></div>';
-    Object.keys(d.productos).forEach(function(prod) {
-      html += '<div class="pl-r"><span class="pl-n">' + prod + '</span><span class="pl-q">x' + d.productos[prod] + '</span></div>';
+
+    // Texto WA profesional agrupado por categoría
+    var copyLines = ['Hola! Te paso el pedido de esta semana:', ''];
+    var cats = Object.keys(d.categorias);
+    cats.forEach(function(cat) {
+      copyLines.push(cat + ':');
+      d.categorias[cat].forEach(function(v) {
+        copyLines.push('  ' + v.qty + ' × ' + (v.variedad || cat));
+      });
+      copyLines.push('');
     });
+    copyLines.push('Total: $' + d.totalCosto.toLocaleString('es-AR'));
+    copyLines.push('');
+    copyLines.push('Gracias!');
+    var copyText = copyLines.join('\\n');
+
+    // HTML visual
+    html += '<div class="prov"><div class="prov-t"><span>' + prov + '</span><span class="prov-cost">$' + d.totalCosto.toLocaleString('es-AR') + '</span></div>';
+    cats.forEach(function(cat, ci) {
+      html += '<div class="cat-label"' + (ci===0?' style="border-top:none;margin-top:0;padding-top:0"':'') + '>' + cat + '</div>';
+      d.categorias[cat].forEach(function(v) {
+        html += '<div class="var-row"><span class="var-qty">' + v.qty + ' ×</span><span class="var-name">' + (v.variedad || cat) + '</span></div>';
+      });
+    });
+    html += '<button class="copy-btn" onclick="copyProv(' + idx + ',this)">Copiar para WhatsApp</button>';
+    html += '<textarea id="prov-txt-' + idx + '" style="position:absolute;left:-9999px">' + copyText + '</textarea>';
     html += '</div>';
   });
 
   html += '<div class="tb"><span>Total a pagar proveedores</span><span>$' + totalGeneral.toLocaleString('es-AR') + '</span></div>';
 
-  // ── SECCIÓN 2: ENTREGAS POR CLIENTE ──
+  // ── SECCIÓN 2: ENTREGAS POR CLIENTE (legible, con checkbox por cliente e item) ──
   html += '<div class="section-title">2. Entregas por cliente (' + clientes.length + ')</div>';
 
   clientes.forEach(function(nombre) {
     var c = porCliente[nombre];
     html += '<div class="cliente">';
-    html += '<div class="cliente-head"><span class="cliente-name">' + nombre + '</span><span class="cliente-canal">' + c.canal + '</span></div>';
+    // Checkbox del cliente + nombre + canal
+    html += '<div class="cliente-head"><div class="cb"></div><span class="cliente-name">' + nombre + '</span><span class="cliente-canal">' + c.canal + '</span></div>';
     if (c.dir) html += '<div class="cliente-dir">' + c.dir + '</div>';
-    c.items.forEach(function(item) {
-      html += '<div class="item-row">' +
-        '<div class="checkbox"></div>' +
-        '<span class="item-name">' + item.producto + '</span>' +
-        '<span class="item-qty">x' + item.qty + '</span>' +
-        '</div>';
+    // Items agrupados por categoría
+    var cats = Object.keys(c.categorias);
+    cats.forEach(function(cat) {
+      html += '<div class="cl-cat">' + cat + '</div>';
+      c.categorias[cat].forEach(function(item) {
+        html += '<div class="cl-item"><div class="cb"></div><span class="cl-qty">' + item.qty + ' ×</span><span class="cl-name">' + (item.variedad || cat) + '</span></div>';
+      });
     });
     html += '</div>';
   });
 
   html += '<button class="pb" onclick="window.print()">Imprimir Hoja de Ruta</button>';
+  html += '<script>function copyProv(idx,btn){var el=document.getElementById("prov-txt-"+idx);if(!el)return;var txt=el.value.replace(/\\\\n/g,"\\n");navigator.clipboard.writeText(txt).then(function(){btn.textContent="Copiado!";btn.style.background="#331C1C";setTimeout(function(){btn.textContent="Copiar para WhatsApp";btn.style.background="#25D366";},2000);});}</script>';
 
   SpreadsheetApp.getUi().showModalDialog(
     HtmlService.createHtmlOutput(html).setWidth(750).setHeight(600),
@@ -1931,44 +2565,55 @@ function getProveedores() {
   return provs;
 }
 
-/** Devuelve productos de un proveedor con costo desde Productos */
-function getProductosPorProveedor(proveedor) {
-  const hProv = SS.getSheetByName('Proveedores');
-  const hProd = SS.getSheetByName('Productos');
-  if (!hProv) return [];
+/** Carga TODO de una sola vez: proveedores + productos + costos + stock.
+ *  Así la sidebar no necesita hacer requests por cada cambio de proveedor. */
+function getAllSidebarData() {
+  var hProv = SS.getSheetByName('Proveedores');
+  var hProd = SS.getSheetByName('Productos');
+  if (!hProv) return { proveedores: [], productosPorProv: {} };
 
-  const provData = hProv.getDataRange().getValues();
-  const costoMap = {};
-  const stockMap = {};
+  // Costos y stock desde Productos (1 sola lectura)
+  var costoMap = {}, stockMap = {};
   if (hProd) {
-    const prodData = hProd.getDataRange().getValues();
-    for (let r = 1; r < prodData.length; r++) {
-      const abbr = String(prodData[r][2]).trim();
-      const costo = Number(String(prodData[r][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
-      const stock = Number(prodData[r][5]) || 0; // col F = Stock Físico
-      if (abbr) { costoMap[abbr] = costo; stockMap[abbr] = stock; }
+    var prodData = hProd.getDataRange().getValues();
+    for (var r = 1; r < prodData.length; r++) {
+      var ab = String(prodData[r][2]).trim();
+      if (!ab) continue;
+      costoMap[ab] = parseFloat(String(prodData[r][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+      stockMap[ab] = Number(prodData[r][5]) || 0;
     }
   }
 
-  const items = [];
-  let lastProv = '', lastProd = '';
-  for (let r = 1; r < provData.length; r++) {
-    if (provData[r][2] && String(provData[r][2]).trim()) lastProv = String(provData[r][2]).trim();
-    if (provData[r][1] && String(provData[r][1]).trim()) lastProd = String(provData[r][1]).trim();
-    if (lastProv !== proveedor) continue;
+  // Proveedores y productos (1 sola lectura)
+  var provData = hProv.getDataRange().getValues();
+  var proveedores = [], seenProv = {}, productosPorProv = {};
+  var lastProv = '', lastProd = '';
+  for (var r2 = 1; r2 < provData.length; r2++) {
+    if (provData[r2][2] && String(provData[r2][2]).trim()) lastProv = String(provData[r2][2]).trim();
+    if (provData[r2][1] && String(provData[r2][1]).trim()) lastProd = String(provData[r2][1]).trim();
+    if (!lastProv) continue;
+    if (!seenProv[lastProv]) { seenProv[lastProv] = true; proveedores.push(lastProv); }
 
-    const abbr  = String(provData[r][4]).trim();
-    const gusto = String(provData[r][3]).trim();
+    var abbr = String(provData[r2][4]).trim();
+    var gusto = String(provData[r2][3]).trim();
     if (!abbr) continue;
 
-    items.push({
+    if (!productosPorProv[lastProv]) productosPorProv[lastProv] = [];
+    productosPorProv[lastProv].push({
       abbr: abbr,
       nombre: lastProd + ' — ' + gusto,
       costo: costoMap[abbr] || 0,
       stock: stockMap[abbr] !== undefined ? stockMap[abbr] : null
     });
   }
-  return items;
+
+  return { proveedores: proveedores, productosPorProv: productosPorProv };
+}
+
+/** Legacy: mantener compatibilidad con sidebar que llama getProductosPorProveedor */
+function getProductosPorProveedor(proveedor) {
+  var all = getAllSidebarData();
+  return all.productosPorProv[proveedor] || [];
 }
 
 /** Genera filas en Orden de Compra para compra de Depósito / Red (sidebar) */
@@ -1981,6 +2626,17 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
   // Validar que haya items con cantidad > 0
   const itemsValidos = items.filter(function(item) { return item.qty > 0; });
   if (itemsValidos.length === 0) throw new Error('No hay productos con cantidad > 0');
+
+  // Cargar precios de venta desde Productos (para calcular margen)
+  var precioVentaMap = {};
+  var hProd = SS.getSheetByName('Productos');
+  if (hProd) {
+    var prData = hProd.getDataRange().getValues();
+    for (var p = 1; p < prData.length; p++) {
+      var ab = String(prData[p][2]).trim();
+      if (ab) precioVentaMap[ab] = parseFloat(String(prData[p][8]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    }
+  }
 
   // Timestamp Argentina
   const ahora   = new Date();
@@ -2016,16 +2672,16 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
       item.qty,                                   // M  Cantidad
       item.costo || 0,                            // N  Costo Unitario
       costoTotal,                                 // O  Costo Total
-      0,                                          // P  Precio Venta (0 = reposición)
+      precioVentaMap[item.abbr] || 0,             // P  Precio Venta Unit. (retail)
       0,                                          // Q  Ingreso Total (fórmula)
       0,                                          // R  Margen Bruto $ (fórmula)
       0,                                          // S  Margen % (fórmula)
       item.origen || 'Orden de Compra',           // T  Origen
-      'Pendiente',                                // U  Estado OC
-      fechaBusqueda || '',                         // V  Fecha Pedido Prov
+      'Pedido',                                   // U  Estado OC (igual que Home)
+      dd + '/' + mm + '/' + yyyy,                 // V  Fecha Pedido Prov (hoy)
       '',                                         // W  Fecha Recibido
       'No',                                       // X  Pagado Proveedor
-      '',                                         // Y  Cobrado Cliente (vacío = no aplica)
+      'No',                                       // Y  Cobrado Cliente
     ]);
   });
 
@@ -2036,13 +2692,14 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
   // Fórmulas financieras (setFormula individual, compatible con locale español)
   for (let i = 0; i < newRows.length; i++) {
     const r = startRow + i;
-    shOC.getRange(r, 17).setFormula('=P' + r + '*M' + r);    // Q = Ingreso
-    shOC.getRange(r, 18).setFormula('=Q' + r + '-O' + r);    // R = Margen $
-    shOC.getRange(r, 19).setFormula('=R' + r + '/Q' + r);    // S = Margen %
+    shOC.getRange(r, 17).setFormula('=P' + r + '*M' + r);              // Q = Ingreso
+    shOC.getRange(r, 18).setFormula('=Q' + r + '-O' + r);              // R = Margen $
+    shOC.getRange(r, 19).setFormula('=R' + r + '/Q' + r); // S = Margen %
   }
 
-  // Formato moneda y porcentaje
-  shOC.getRange(startRow, 13, newRows.length, 1).setNumberFormat('0');       // M Cantidad
+  // Formato — batch en lugar de individual (más rápido)
+  var fmtRange = shOC.getRange(startRow, 13, newRows.length, 7); // M a S
+  shOC.getRange(startRow, 13, newRows.length, 1).setNumberFormat('0');       // M
   shOC.getRange(startRow, 14, newRows.length, 2).setNumberFormat('$#,##0');  // N-O
   shOC.getRange(startRow, 16, newRows.length, 3).setNumberFormat('$#,##0');  // P-R
   shOC.getRange(startRow, 19, newRows.length, 1).setNumberFormat('0.0%');    // S
@@ -2151,16 +2808,18 @@ function _getSidebarHTML() {
 <script>
 let productos = [];
 let proveedorActual = '';
+let _allData = null; // Cache de todos los datos
 
-// Cargar proveedores al abrir
-google.script.run.withSuccessHandler(function(provs) {
+// Cargar TODO de una vez al abrir (1 sola request = más rápido)
+google.script.run.withSuccessHandler(function(data) {
+  _allData = data;
   const sel = document.getElementById('sel-prov');
-  provs.forEach(function(p) {
+  data.proveedores.forEach(function(p) {
     const opt = document.createElement('option');
     opt.value = p; opt.textContent = p;
     sel.appendChild(opt);
   });
-}).getProveedores();
+}).getAllSidebarData();
 
 // Pre-cargar fecha de mañana
 var manana = new Date();
@@ -2179,8 +2838,9 @@ function onProvChange() {
     updateSummary();
     return;
   }
-  container.innerHTML = '<div class="empty-msg">Cargando...</div>';
-  google.script.run.withSuccessHandler(function(items) {
+  // Usar datos cacheados (instantáneo, sin request al server)
+  var items = (_allData && _allData.productosPorProv[proveedorActual]) || [];
+  (function(items) {
     productos = items;
     if (items.length === 0) {
       container.innerHTML = '<div class="empty-msg">Sin productos para este proveedor</div>';
@@ -2206,7 +2866,7 @@ function onProvChange() {
         '</div>';
     }).join('') + '</div>';
     updateSummary();
-  }).getProductosPorProveedor(proveedorActual);
+  })(items);
 }
 
 function getItems() {

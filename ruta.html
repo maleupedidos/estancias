@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#331C1C">
+<title>Maleu Ruta</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F5F2EB;color:#331C1C;overflow-x:hidden;min-height:100dvh}
+
+/* ── TOP BAR ── */
+.topbar{background:#331C1C;color:#F2E8C7;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+.topbar h1{font-size:16px;font-weight:800;flex:1;letter-spacing:.03em}
+.status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.status-dot.online{background:#4CAF50}
+.status-dot.offline{background:#F44336;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.badge{background:#F07D47;color:#fff;font-size:12px;font-weight:800;padding:3px 10px;border-radius:50px}
+.btn-refresh{background:none;border:none;color:#F2E8C7;font-size:20px;cursor:pointer;padding:8px;border-radius:8px;line-height:1}
+.btn-refresh:active{background:rgba(255,255,255,.15)}
+.btn-refresh.spinning{animation:spin .8s linear}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── TABS ── */
+.tabs{display:flex;background:#E8DFC4;position:sticky;top:52px;z-index:99}
+.tab{flex:1;padding:12px;text-align:center;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:.15s}
+.tab.active{border-bottom-color:#F07D47;color:#F07D47}
+
+/* ── LOADING / EMPTY ── */
+.loading,.empty{text-align:center;padding:60px 20px;color:#7A4A4A}
+.loading{font-style:italic}
+
+/* ── SUMMARY BAR ── */
+.summary-bar{background:#fff;border-bottom:1px solid #E8DFC4;padding:12px 16px;font-size:12px;color:#7A4A4A;line-height:1.6}
+.summary-bar strong{color:#331C1C}
+
+/* ── ARMADO VIEW ── */
+.armado-list{padding:8px}
+.armado-card{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:8px;border:2px solid #E8DFC4;transition:.15s}
+.armado-card.done{opacity:.4;border-color:#4CAF50;background:#f0f8f0}
+.armado-head{display:flex;align-items:center;gap:10px}
+.armado-check{width:28px;height:28px;border-radius:8px;border:2.5px solid #D4C8A0;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:#fff;cursor:pointer;transition:.15s}
+.armado-card.done .armado-check{background:#4CAF50;border-color:#4CAF50}
+.armado-name{font-size:15px;font-weight:700;flex:1}
+.armado-zona{font-size:10px;font-weight:700;background:#F07D47;color:#fff;padding:2px 8px;border-radius:50px}
+.armado-prods{margin-top:8px;padding-left:38px;font-size:13px;line-height:1.7;color:#555}
+.armado-prods span{font-weight:700;color:#331C1C}
+
+/* ── RUTA VIEW ── */
+.ruta-container{display:flex;flex-direction:column;min-height:calc(100dvh - 104px)}
+.ruta-card{flex:1;padding:16px;display:flex;flex-direction:column}
+.ruta-counter{text-align:center;font-size:12px;color:#7A4A4A;padding:8px;font-weight:600}
+.ruta-zona{text-align:center;font-size:11px;font-weight:700;color:#F07D47;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.ruta-nombre{text-align:center;font-size:22px;font-weight:800;margin-bottom:4px}
+.ruta-dir{text-align:center;font-size:16px;color:#7A4A4A;margin-bottom:2px}
+.ruta-lote{text-align:center;font-size:42px;font-weight:900;color:#F07D47;letter-spacing:.02em;margin-bottom:12px;line-height:1.1}
+.ruta-productos{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:12px;flex:1}
+.ruta-prod-item{display:flex;justify-content:space-between;padding:4px 0;font-size:14px;border-bottom:1px solid #F2E8C7}
+.ruta-prod-item:last-child{border:none}
+.ruta-prod-qty{font-weight:800;color:#F07D47;min-width:30px}
+.ruta-pago{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.ruta-total{font-size:22px;font-weight:800}
+.pago-badge{font-size:12px;font-weight:700;padding:4px 12px;border-radius:50px}
+.pago-badge.cobrado{background:#e8f5e8;color:#2d6a2d}
+.pago-badge.no-cobrado{background:#fff3e0;color:#e67e22}
+.pago-badge.efectivo{border:2px solid #4CAF50}
+.pago-badge.transferencia{border:2px solid #2196F3}
+
+/* ── ACTION BUTTONS ── */
+.ruta-actions{padding:0 16px 16px;display:flex;flex-direction:column;gap:8px}
+.btn-entregar{width:100%;padding:18px;border:none;border-radius:14px;font-family:inherit;font-size:18px;font-weight:800;cursor:pointer;transition:.15s}
+.btn-entregar.primary{background:#4CAF50;color:#fff}
+.btn-entregar.primary:active{background:#388E3C;transform:scale(.97)}
+.btn-entregar.secondary{background:#fff;color:#331C1C;border:2px solid #E8DFC4}
+.btn-entregar.secondary:active{background:#F2E8C7}
+.btn-entregar.cobrar{background:#F07D47;color:#fff}
+.btn-entregar.cobrar:active{background:#d06830}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn-entregar{flex:1}
+.btn-nav{background:none;border:2px solid #D4C8A0;color:#331C1C;width:50px;height:50px;border-radius:12px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-nav:active{background:#E8DFC4}
+.nav-row{display:flex;gap:8px;align-items:center;justify-content:center;padding:0 16px 8px}
+.btn-call{background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700}
+
+/* ── SYNC BANNER ── */
+.sync-banner{background:#FFF3E0;color:#E65100;text-align:center;padding:6px;font-size:11px;font-weight:700;display:none}
+.sync-banner.visible{display:block}
+
+/* ── HIDDEN ── */
+.hidden{display:none!important}
+
+/* ── NEW ORDER TOAST ── */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#331C1C;color:#F2E8C7;padding:10px 20px;border-radius:50px;font-size:13px;font-weight:700;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>MALEU RUTA</h1>
+  <div class="status-dot" id="statusDot"></div>
+  <span class="badge" id="counterBadge">0</span>
+  <button class="btn-refresh" id="btnRefresh" onclick="refresh()">&#x21bb;</button>
+</div>
+
+<div class="sync-banner" id="syncBanner">Hay entregas pendientes de sincronizar</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="armado" onclick="switchTab('armado')">ARMADO</div>
+  <div class="tab" data-tab="ruta" onclick="switchTab('ruta')">RUTA</div>
+</div>
+
+<div id="loadingView" class="loading">Cargando pedidos...</div>
+<div id="emptyView" class="empty hidden">No hay pedidos pendientes</div>
+
+<!-- ARMADO -->
+<div id="armadoView" class="hidden">
+  <div class="summary-bar" id="summaryBar"></div>
+  <div class="armado-list" id="armadoList"></div>
+</div>
+
+<!-- RUTA -->
+<div id="rutaView" class="hidden">
+  <div class="ruta-container">
+    <div class="ruta-counter" id="rutaCounter"></div>
+    <div class="ruta-card" id="rutaCard"></div>
+    <div class="nav-row">
+      <button class="btn-nav" onclick="rutaPrev()">&#x2190;</button>
+      <button class="btn-entregar secondary" onclick="rutaNext()" style="flex:1">Siguiente &#x2192;</button>
+      <button class="btn-nav" onclick="rutaNext()">&#x2192;</button>
+    </div>
+    <div class="ruta-actions" id="rutaActions"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   MALEU RUTA — Plataforma de delivery mobile-first
+   ═══════════════════════════════════════════════════════════ */
+
+var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxmrG5YVSshcYezk8lXFx_uxb7NFGcb9EfTXc7dsIN4rZyj73CET4mk_aKPFPDY2wNi/exec';
+
+var PROD_NAMES = {
+  PPM:'Pack Muzza x2', PPJyQ:'Pack J&Q x2', PPCyQ:'Pack C&Q x2',
+  SCo:'Sorr. Cordero', SQB:'Sorr. Queso Brie', SL:'Sorr. Langostinos',
+  SPyP:'Sorr. Pollo&Puerro', SJyQ:'Sorr. J&Q', SE:'Sorr. Espinaca', SCa:'Sorr. Calabaza',
+  ECaC:'Emp. Carne x8', EJyQ:'Emp. J&Q x8', ECyQ:'Emp. C&Q x8', EV:'Emp. Verdura x8',
+  TG:'Torta Golosa', TLC:'Torta Lemon', TC:'Torta Coco', F:'Franui',
+  PMu:'Pizza Muzza', PMa:'Pizza Margarita', PJyQ:'Pizza J&Q', PCC:'Pizza Cebolla', PJyM:'Pizza J&M'
+};
+
+/* ── STATE ─────────────────────────────────────────────── */
+var entregas = [];          // pedidos pendientes (del server + merge local)
+var entregados = {};        // { "Home|3": true } — marcados localmente
+var cobrados = {};          // { "Home|3": true } — marcados cobrado localmente
+var syncQueue = [];         // cola de POSTs pendientes
+var armadoDone = {};        // { "Home|3": true } — bolsas armadas
+var currentTab = 'armado';
+var rutaIndex = 0;
+var isOnline = navigator.onLine;
+
+/* ── INIT ──────────────────────────────────────────────── */
+loadLocal();
+updateOnlineStatus();
+window.addEventListener('online', function() { isOnline = true; updateOnlineStatus(); processSyncQueue(); });
+window.addEventListener('offline', function() { isOnline = false; updateOnlineStatus(); });
+refresh();
+
+// Auto-refresh cada 90s si hay señal
+setInterval(function() { if (isOnline && document.visibilityState === 'visible') refresh(true); }, 90000);
+
+/* ── ONLINE STATUS ─────────────────────────────────────── */
+function updateOnlineStatus() {
+  var dot = document.getElementById('statusDot');
+  dot.className = 'status-dot ' + (isOnline ? 'online' : 'offline');
+}
+
+/* ── LOCAL STORAGE ─────────────────────────────────────── */
+function saveLocal() {
+  try {
+    localStorage.setItem('maleu_ruta', JSON.stringify({
+      entregas: entregas, entregados: entregados, cobrados: cobrados,
+      syncQueue: syncQueue, armadoDone: armadoDone, ts: Date.now()
+    }));
+  } catch(e) {}
+}
+
+function loadLocal() {
+  try {
+    var d = JSON.parse(localStorage.getItem('maleu_ruta') || '{}');
+    if (d.entregas) entregas = d.entregas;
+    if (d.entregados) entregados = d.entregados;
+    if (d.cobrados) cobrados = d.cobrados;
+    if (d.syncQueue) syncQueue = d.syncQueue;
+    if (d.armadoDone) armadoDone = d.armadoDone;
+  } catch(e) {}
+}
+
+/* ── REFRESH (GET data) ────────────────────────────────── */
+function refresh(silent) {
+  if (!silent) document.getElementById('loadingView').classList.remove('hidden');
+  var btn = document.getElementById('btnRefresh');
+  btn.classList.add('spinning');
+
+  // Día de hoy
+  var DIAS = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+  var DIAS_ACC = ['Domingo','Lunes','Martes','Mi\u00E9rcoles','Jueves','Viernes','S\u00E1bado'];
+  var hoy = new Date();
+  var diaHoy = DIAS_ACC[hoy.getDay()];
+
+  fetch(APPS_SCRIPT_URL + '?action=entregas&t=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      btn.classList.remove('spinning');
+      var serverEntregas = data.e || [];
+
+      // Merge: mantener estado local de entregados que aún no se sincronizaron
+      var prevCount = getPendientes().length;
+      entregas = serverEntregas;
+
+      // Limpiar entregados confirmados por el server (ya no aparecen como pendientes)
+      var serverKeys = {};
+      entregas.forEach(function(e) { serverKeys[e.h + '|' + e.id] = true; });
+      Object.keys(entregados).forEach(function(k) {
+        if (!serverKeys[k]) delete entregados[k]; // server ya lo procesó
+      });
+      Object.keys(cobrados).forEach(function(k) {
+        if (!serverKeys[k]) delete cobrados[k];
+      });
+
+      saveLocal();
+      render();
+
+      // Notificar nuevos pedidos
+      var newCount = getPendientes().length;
+      if (silent && newCount > prevCount) {
+        showToast((newCount - prevCount) + ' pedido(s) nuevo(s)');
+      }
+
+      document.getElementById('loadingView').classList.add('hidden');
+      processSyncQueue();
+    })
+    .catch(function() {
+      btn.classList.remove('spinning');
+      document.getElementById('loadingView').classList.add('hidden');
+      // Usar datos del cache
+      if (entregas.length > 0) {
+        render();
+        showToast('Sin conexion - datos del cache');
+      }
+    });
+}
+
+/* ── HELPERS ────────────────────────────────────────────── */
+function eKey(e) { return e.h + '|' + e.id; }
+
+function isEntregado(e) { return entregados[eKey(e)] || e.es === 'Entregado'; }
+function isCobrado(e) { return cobrados[eKey(e)] || e.ep === 'Cobrado'; }
+
+function getPendientes() {
+  return entregas.filter(function(e) { return !isEntregado(e); });
+}
+
+function getSorted() {
+  // Agrupar por sub-barrio, dentro por lote numérico
+  var pending = getPendientes();
+  pending.sort(function(a, b) {
+    if (a.sb !== b.sb) return a.sb.localeCompare(b.sb);
+    var la = parseInt(a.l) || 999, lb = parseInt(b.l) || 999;
+    return la - lb;
+  });
+  return pending;
+}
+
+function prodText(prods) {
+  return prods.map(function(p) {
+    return '<span>' + p.q + 'x</span> ' + (PROD_NAMES[p.a] || p.a);
+  }).join('<br>');
+}
+
+function prodTextShort(prods) {
+  return prods.map(function(p) {
+    return p.q + 'x ' + (PROD_NAMES[p.a] || p.a);
+  }).join(', ');
+}
+
+function formatMoney(n) {
+  return '$' + n.toLocaleString('es-AR');
+}
+
+/* ── RENDER ─────────────────────────────────────────────── */
+function render() {
+  var pending = getPendientes();
+  var total = entregas.length;
+  var done = total - pending.length;
+
+  document.getElementById('counterBadge').textContent = done + '/' + total;
+  document.getElementById('syncBanner').className = 'sync-banner' + (syncQueue.length > 0 ? ' visible' : '');
+
+  if (total === 0) {
+    document.getElementById('emptyView').classList.remove('hidden');
+    document.getElementById('armadoView').classList.add('hidden');
+    document.getElementById('rutaView').classList.add('hidden');
+    return;
+  }
+  document.getElementById('emptyView').classList.add('hidden');
+
+  if (currentTab === 'armado') renderArmado();
+  else renderRuta();
+}
+
+/* ── ARMADO ─────────────────────────────────────────────── */
+function renderArmado() {
+  document.getElementById('armadoView').classList.remove('hidden');
+  document.getElementById('rutaView').classList.add('hidden');
+
+  var pending = getSorted();
+
+  // Resumen de productos totales
+  var totals = {};
+  pending.forEach(function(e) {
+    e.p.forEach(function(p) {
+      if (!totals[p.a]) totals[p.a] = 0;
+      totals[p.a] += p.q;
+    });
+  });
+  var summaryParts = Object.keys(totals).map(function(a) {
+    return '<strong>' + totals[a] + '</strong> ' + (PROD_NAMES[a] || a);
+  });
+  document.getElementById('summaryBar').innerHTML =
+    '<strong>' + pending.length + ' pedidos pendientes</strong><br>' +
+    summaryParts.join(' &middot; ');
+
+  var html = '';
+
+  // Agrupar por sub-barrio
+  var groups = {};
+  pending.forEach(function(e) {
+    var g = e.sb || e.h;
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(e);
+  });
+
+  Object.keys(groups).sort().forEach(function(g) {
+    html += '<div style="padding:8px 4px 2px;font-size:11px;font-weight:700;color:#F07D47;text-transform:uppercase;letter-spacing:.06em">' + g + '</div>';
+    groups[g].forEach(function(e) {
+      var key = eKey(e);
+      var isDone = armadoDone[key];
+      html += '<div class="armado-card' + (isDone ? ' done' : '') + '" onclick="toggleArmado(\'' + key + '\')">' +
+        '<div class="armado-head">' +
+        '<div class="armado-check">' + (isDone ? '&#x2713;' : '') + '</div>' +
+        '<span class="armado-name">' + e.c + '</span>' +
+        (e.h !== 'Home' ? '<span class="armado-zona">' + e.h + '</span>' : '') +
+        '</div>' +
+        '<div class="armado-prods">' + prodText(e.p) + '</div>' +
+        '</div>';
+    });
+  });
+
+  document.getElementById('armadoList').innerHTML = html;
+}
+
+function toggleArmado(key) {
+  if (armadoDone[key]) delete armadoDone[key];
+  else armadoDone[key] = true;
+  saveLocal();
+  renderArmado();
+}
+
+/* ── RUTA ──────────────────────────────────────────────── */
+function renderRuta() {
+  document.getElementById('armadoView').classList.add('hidden');
+  document.getElementById('rutaView').classList.remove('hidden');
+
+  var sorted = getSorted();
+  if (sorted.length === 0) {
+    document.getElementById('rutaCounter').textContent = 'Todas las entregas completadas';
+    document.getElementById('rutaCard').innerHTML = '<div class="empty" style="padding:40px">Sin pedidos pendientes</div>';
+    document.getElementById('rutaActions').innerHTML = '';
+    return;
+  }
+
+  if (rutaIndex >= sorted.length) rutaIndex = sorted.length - 1;
+  if (rutaIndex < 0) rutaIndex = 0;
+
+  var e = sorted[rutaIndex];
+  var key = eKey(e);
+
+  document.getElementById('rutaCounter').textContent =
+    (rutaIndex + 1) + ' de ' + sorted.length + ' pendientes';
+
+  // Card content
+  var loteDisplay = e.l || e.d;
+  var html = '';
+  if (e.sb) html += '<div class="ruta-zona">' + e.sb + (e.h !== 'Home' ? ' (' + e.h + ')' : '') + '</div>';
+  html += '<div class="ruta-nombre">' + e.c + '</div>';
+  if (e.sb && e.l) {
+    html += '<div class="ruta-lote">Lote ' + e.l + '</div>';
+  } else {
+    html += '<div class="ruta-dir" style="font-size:24px;font-weight:800;margin-bottom:12px">' + e.d + '</div>';
+  }
+
+  // Productos
+  html += '<div class="ruta-productos">';
+  e.p.forEach(function(p) {
+    html += '<div class="ruta-prod-item"><span>' + (PROD_NAMES[p.a] || p.a) + '</span><span class="ruta-prod-qty">' + p.q + '</span></div>';
+  });
+  html += '</div>';
+
+  // Pago
+  var pagoClass = isCobrado(e) ? 'cobrado' : 'no-cobrado';
+  var pagoType = e.fp === 'Efectivo' ? ' efectivo' : ' transferencia';
+  html += '<div class="ruta-pago">' +
+    '<span class="ruta-total">' + formatMoney(e.$) + '</span>' +
+    '<span class="pago-badge ' + pagoClass + pagoType + '">' +
+    e.fp + ' &middot; ' + (isCobrado(e) ? 'Cobrado' : 'No cobrado') +
+    '</span></div>';
+
+  document.getElementById('rutaCard').innerHTML = html;
+
+  // Actions
+  var actions = '';
+
+  // Llamar
+  if (e.t) {
+    var tel = e.t.replace(/[^0-9+]/g, '');
+    actions += '<a href="tel:' + tel + '" class="btn-entregar btn-call" style="text-decoration:none">&#x260E; Llamar a ' + e.c.split(' ')[0] + '</a>';
+  }
+
+  // Cobrar (si no está cobrado y es efectivo)
+  if (!isCobrado(e)) {
+    actions += '<button class="btn-entregar cobrar" onclick="marcarCobrado(\'' + key + '\')">COBRADO ' + formatMoney(e.$) + '</button>';
+  }
+
+  // Entregado
+  actions += '<button class="btn-entregar primary" onclick="marcarEntregado(\'' + key + '\')">ENTREGADO &#x2713;</button>';
+
+  document.getElementById('rutaActions').innerHTML = actions;
+}
+
+function rutaNext() { rutaIndex++; renderRuta(); }
+function rutaPrev() { rutaIndex = Math.max(0, rutaIndex - 1); renderRuta(); }
+
+/* ── MARCAR ENTREGADO ──────────────────────────────────── */
+function marcarEntregado(key) {
+  entregados[key] = true;
+
+  // Encontrar la entrega
+  var parts = key.split('|');
+  var hoja = parts[0], id = parts[1];
+  var entrega = entregas.find(function(e) { return e.h === hoja && String(e.id) === id; });
+
+  if (entrega) {
+    // Agregar a cola de sync
+    syncQueue.push({
+      action: 'marcarEntregado',
+      hoja: entrega.h,
+      id: String(entrega.id),
+      row: entrega.r,
+      cobrado: !!cobrados[key],
+      ts: Date.now()
+    });
+  }
+
+  saveLocal();
+  render();
+  processSyncQueue();
+
+  // Vibrar si soportado
+  if (navigator.vibrate) navigator.vibrate(50);
+}
+
+function marcarCobrado(key) {
+  cobrados[key] = true;
+  saveLocal();
+  renderRuta();
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+/* ── SYNC QUEUE ────────────────────────────────────────── */
+function processSyncQueue() {
+  if (!isOnline || syncQueue.length === 0) return;
+
+  var item = syncQueue[0];
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(item)
+  }).then(function() {
+    syncQueue.shift();
+    saveLocal();
+    document.getElementById('syncBanner').className = 'sync-banner' + (syncQueue.length > 0 ? ' visible' : '');
+    // Procesar siguiente
+    if (syncQueue.length > 0) setTimeout(processSyncQueue, 1000);
+  }).catch(function() {
+    // Reintentar en 30s
+    setTimeout(processSyncQueue, 30000);
+  });
+}
+
+/* ── TAB SWITCH ────────────────────────────────────────── */
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  render();
+}
+
+/* ── TOAST ─────────────────────────────────────────────── */
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+</script>
+</body>
+</html>
