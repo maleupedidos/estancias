@@ -742,7 +742,7 @@ function _doPostHome(data, sheetName, prefix) {
 
   // T (col 20) = Facturado → se pone fórmula DESPUÉS del appendRow
   row[39] = costoTotal;                         // Costo
-  row[40] = total - costoTotal;                 // Margen Bruto
+  row[40] = 0;                                   // AO  Margen Bruto (fórmula se pone después)
 
   if (sheetName === 'Capital Federal') {
     // Capital Federal: AP=Barrio, AQ=Calle, AR=Número, AS=Piso, AT=Teléfono (52 cols)
@@ -778,6 +778,8 @@ function _doPostHome(data, sheetName, prefix) {
 
   // Fórmula Facturado en T (col 20) = Total + Propinas
   sh.getRange(newRow, 20).setFormula('=N' + newRow + '+R' + newRow + '+S' + newRow);
+  // Fórmula Margen Bruto en AO (col 41) = Facturado - Costo
+  sh.getRange(newRow, 41).setFormula('=T' + newRow + '-AN' + newRow);
 
   // Forzar teléfono como texto (evitar que Sheets lo interprete como fórmula/número)
   var telCol = (sheetName === 'Capital Federal') ? 46 : (sheetName === 'Pilar') ? 44 : 45;
@@ -900,13 +902,15 @@ function _doPostClubes(data) {
   });
 
   row[31] = costoTotal;                        // AF  Costo
-  row[32] = total - costoTotal;                // AG  Margen Bruto
+  row[32] = 0;                                 // AG  Margen Bruto (fórmula se pone después)
   row[33] = String(data.telefono || '');       // AH  Teléfono
 
   sh.appendRow(row);
   var newRow = sh.getLastRow();
   // Fórmula Facturado en W (col 23) = Total + Propinas
   sh.getRange(newRow, 23).setFormula('=Q' + newRow + '+U' + newRow + '+V' + newRow);
+  // Fórmula Margen Bruto en AG (col 33) = Facturado - Costo
+  sh.getRange(newRow, 33).setFormula('=W' + newRow + '-AF' + newRow);
   // Forzar teléfono como texto
   var telClubes = String(data.telefono || '');
   if (telClubes) sh.getRange(newRow, 34).setNumberFormat('@').setValue(telClubes);
