@@ -31,7 +31,7 @@ const CREAM   = '#E8DFC4';
 function _nextId(prefix) {
   // Escanear la hoja real para encontrar el máximo ID existente
   // Esto previene saltos cuando se eliminan filas manualmente
-  const sheetMap = { 'H-': ['Home', 'B'], 'C-': ['Clubes', 'B'], 'OC-': ['Orden de Compra', 'A'], 'P-': ['Pilar', 'B'], 'CF-': ['Capital Federal', 'B'] };
+  const sheetMap = { 'H-': ['Home', 'B'], 'C-': ['Clubes', 'B'], 'OC-': ['Orden de Compra', 'A'], 'P-': ['Pilar', 'B'], 'CF-': ['Capital Federal', 'B'], 'R-': ['Red', 'B'] };
   const info = sheetMap[prefix];
   if (!info) throw new Error('Prefix desconocido: ' + prefix);
 
@@ -256,7 +256,8 @@ function archivarSemana() {
   var shPilar  = SS.getSheetByName('Pilar');
   var shCaba   = SS.getSheetByName('Capital Federal');
   var shClubes = SS.getSheetByName('Clubes');
-  var archHome = 0, archPilar = 0, archCaba = 0, archClubes = 0;
+  var shRed    = SS.getSheetByName('Red');
+  var archHome = 0, archPilar = 0, archCaba = 0, archClubes = 0, archRed = 0;
 
   function _countArchivable(sh, colEstado) {
     if (!sh || sh.getLastRow() <= 1) return 0;
@@ -273,8 +274,9 @@ function archivarSemana() {
   archPilar  = _countArchivable(shPilar, 10);
   archCaba   = _countArchivable(shCaba, 10);
   archClubes = _countArchivable(shClubes, 13);
+  archRed    = _countArchivable(shRed, 11); // Red: Estado Entrega en col L (index 11)
 
-  if (archHome === 0 && archPilar === 0 && archCaba === 0 && archClubes === 0) {
+  if (archHome === 0 && archPilar === 0 && archCaba === 0 && archClubes === 0 && archRed === 0) {
     ui.alert('No hay pedidos para archivar', 'No se encontraron pedidos en estado "Entregado" o "Cancelado".', ui.ButtonSet.OK);
     return;
   }
@@ -286,7 +288,8 @@ function archivarSemana() {
     '  Home: ' + archHome + ' pedido(s)\n' +
     '  Pilar: ' + archPilar + ' pedido(s)\n' +
     '  Capital Federal: ' + archCaba + ' pedido(s)\n' +
-    '  Clubes: ' + archClubes + ' pedido(s)\n\n' +
+    '  Clubes: ' + archClubes + ' pedido(s)\n' +
+    '  Red: ' + archRed + ' pedido(s)\n\n' +
     'Las filas se copian a las hojas de archivo y se eliminan de las hojas operativas.\n' +
     'Los pedidos Pendientes y Reservados NO se tocan.\n\n' +
     '¿Confirmar?',
@@ -314,6 +317,11 @@ function archivarSemana() {
   // ── Archivar Clubes ──
   if (shClubes && archClubes > 0) {
     totalMovidas += _archivarHoja(shClubes, 'Archivo Clubes', 13);
+  }
+
+  // ── Archivar Red ──
+  if (shRed && archRed > 0) {
+    totalMovidas += _archivarHoja(shRed, 'Archivo Red', 11);
   }
 
   SS.toast(totalMovidas + ' pedidos archivados correctamente.', 'Archivo completado', 6);
@@ -378,6 +386,10 @@ function doGet(e) {
   if (action === 'compras') return _doGetCompras();
   if (action === 'egresos') return _doGetEgresos();
   if (action === 'entregas') return _doGetEntregas(e);
+  if (action === 'busqueda') return _doGetBusqueda();
+  if (action === 'catalogo') return _doGetCatalogo();
+  if (action === 'admin') return _doGetAdmin();
+  if (action === 'ventas') return _doGetVentas();
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -436,6 +448,7 @@ function _doGetEntregas(e) {
 
   var entregas = [];
 
+  // ── Home, Pilar, Capital Federal ──
   ['Home', 'Pilar', 'Capital Federal'].forEach(function(hoja) {
     var sh = SS.getSheetByName(hoja);
     if (!sh || sh.getLastRow() <= 1) return;
@@ -455,16 +468,19 @@ function _doGetEntregas(e) {
       }
       if (productos.length === 0) continue;
 
-      var direccion = '', subBarrio = '', lote = '', telefono = '';
+      var direccion = '', barrio = '', subBarrio = '', lote = '', telefono = '';
       if (hoja === 'Home') {
+        barrio = String(data[r][41] || '').trim();
         subBarrio = String(data[r][42] || '').trim();
         lote = String(data[r][43] || '').trim();
-        direccion = subBarrio + (lote ? ' · Lote ' + lote : '');
+        direccion = (subBarrio || barrio) + (lote ? ' · Lote ' + lote : '');
         telefono = String(data[r][44] || '');
       } else if (hoja === 'Pilar') {
+        barrio = 'Pilar';
         direccion = [data[r][41], data[r][42]].filter(Boolean).join(' · ');
         telefono = String(data[r][43] || '');
       } else {
+        barrio = 'Capital Federal';
         direccion = [data[r][41], [data[r][42], data[r][43]].filter(Boolean).join(' '), data[r][44]].filter(Boolean).join(' · ');
         telefono = String(data[r][45] || '');
       }
@@ -476,7 +492,8 @@ function _doGetEntregas(e) {
         c: String(data[r][7] || '').trim(),
         t: telefono.trim(),
         d: direccion,
-        sb: subBarrio || String(data[r][41] || '').trim(),
+        b: barrio,
+        sb: subBarrio || barrio,
         l: lote,
         de: diaEntrega,
         es: estado,
@@ -489,9 +506,536 @@ function _doGetEntregas(e) {
     }
   });
 
+  // ── Clubes ──
+  var ABBRS_CLUB = ['PMu','PMa','PJyQ','PCC','PJyM','PPM','PPJyQ','PPCyQ'];
+  var shClub = SS.getSheetByName('Clubes');
+  if (shClub && shClub.getLastRow() > 1) {
+    var clubData = shClub.getDataRange().getValues();
+    for (var rc = 1; rc < clubData.length; rc++) {
+      var estadoC = String(clubData[rc][13]).trim(); // N = Estado de Entrega
+      if (estadoC === 'Entregado' || estadoC === 'Cancelado') continue;
+
+      var diaC = String(clubData[rc][12]).trim(); // M = Día de Entrega
+      if (dia && diaC !== dia) continue;
+
+      var prodsC = [];
+      for (var pc = 0; pc < 8; pc++) {
+        var qtyC = Number(clubData[rc][23 + pc]) || 0; // X-AE = cols 23-30
+        if (qtyC > 0) prodsC.push({ a: ABBRS_CLUB[pc], q: qtyC });
+      }
+      if (prodsC.length === 0) continue;
+
+      var club = String(clubData[rc][8] || '').trim();
+      var deporte = String(clubData[rc][9] || '').trim();
+      var grupo = String(clubData[rc][10] || '').trim();
+      var dirClub = [club, deporte, grupo].filter(Boolean).join(' · ');
+
+      entregas.push({
+        id: Number(clubData[rc][1]) || 0,
+        h: 'Clubes',
+        r: rc + 1,
+        c: String(clubData[rc][7] || '').trim(),
+        t: String(clubData[rc][33] || '').trim(), // AH = Teléfono
+        d: dirClub,
+        b: club,
+        sb: club,
+        l: '',
+        de: diaC,
+        es: estadoC,
+        o: String(clubData[rc][11] || '').trim(), // L = Origen
+        fp: String(clubData[rc][14] || '').trim(), // O = Forma de Pago
+        ep: String(clubData[rc][15] || '').trim(), // P = Estado de Pago
+        $: Number(clubData[rc][16]) || 0, // Q = Total
+        p: prodsC
+      });
+    }
+  }
+
+  // ── Red ──
+  var ABBRS_RED = ['PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ','ECyQ','EV',
+                   'TG','TLC','TC','F','SQB','SL','SPyP','SE','PMu','PMa','PJyQ','PCC','PJyM'];
+  var shRed = SS.getSheetByName('Red');
+  if (shRed && shRed.getLastRow() > 1) {
+    var redData = shRed.getDataRange().getValues();
+    for (var rr = 1; rr < redData.length; rr++) {
+      var estadoR = String(redData[rr][11]).trim(); // L = Estado de Entrega
+      if (estadoR === 'Entregado' || estadoR === 'Cancelado') continue;
+
+      var diaR = String(redData[rr][10]).trim(); // K = Día de Entrega
+      if (dia && diaR !== dia) continue;
+
+      var prodsR = [];
+      for (var pr = 0; pr < 23; pr++) {
+        var qtyR = Number(redData[rr][21 + pr]) || 0; // V-AR = cols 21-43
+        if (qtyR > 0) prodsR.push({ a: ABBRS_RED[pr], q: qtyR });
+      }
+      if (prodsR.length === 0) continue;
+
+      var vendedorR = String(redData[rr][7] || '').trim();
+      var partidoR = String(redData[rr][48] || '').trim();
+      var localidadR = String(redData[rr][49] || '').trim();
+      var barrioR = String(redData[rr][50] || '').trim();
+      var domicilioR = String(redData[rr][51] || '').trim();
+      var dirRed = [vendedorR, partidoR, localidadR, barrioR, domicilioR].filter(Boolean).join(' · ');
+
+      entregas.push({
+        id: Number(redData[rr][1]) || 0,
+        h: 'Red',
+        r: rr + 1,
+        c: String(redData[rr][8] || '').trim(), // I = Cliente
+        t: String(redData[rr][52] || '').trim(), // BA = Teléfono
+        d: dirRed,
+        b: 'Red · ' + partidoR,
+        sb: localidadR || partidoR,
+        l: domicilioR,
+        de: diaR,
+        es: estadoR,
+        o: String(redData[rr][9] || '').trim(), // J = Origen
+        fp: String(redData[rr][12] || '').trim(), // M = Forma de Pago
+        ep: String(redData[rr][13] || '').trim(), // N = Estado de Pago
+        $: Number(redData[rr][14]) || 0, // O = Total
+        p: prodsR,
+        v: vendedorR // Vendedor (extra para Red)
+      });
+    }
+  }
+
   return ContentService
     .createTextOutput(JSON.stringify({ ts: Date.now(), e: entregas }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BÚSQUEDA — API para la página de búsqueda de productos (busqueda.html)
+// ══════════════════════════════════════════════════════════════
+
+/** GET ?action=busqueda
+ *  Devuelve OC pendientes/pedidas agrupadas por proveedor y por cliente.
+ *  Formato compacto para PWA offline-first. */
+function _doGetBusqueda() {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC || shOC.getLastRow() <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ ts: Date.now(), provs: [], clientes: [], total: 0 }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var data = shOC.getDataRange().getValues();
+
+  function splitProducto(nombre) {
+    var parts = nombre.split(' \u2014 ');
+    return { cat: (parts[0] || nombre).trim(), var: (parts[1] || '').trim() };
+  }
+
+  var porProv = {};
+  var porCliente = {};
+  var totalGeneral = 0;
+  var ocRows = []; // para poder marcar estado desde la PWA
+
+  for (var r = 1; r < data.length; r++) {
+    var estado = String(data[r][20]).trim();
+    if (estado !== 'Pendiente' && estado !== 'Pedido' && estado !== 'Recibido') continue;
+    var origen = String(data[r][19]).trim();
+    if (origen === 'Dep\u00f3sito') continue;
+
+    var esRecibido = (estado === 'Recibido');
+
+    var ocNum    = String(data[r][0]).trim();
+    var prov     = String(data[r][9]).trim();
+    var producto = String(data[r][10]).trim();
+    var abbr     = String(data[r][11]).trim();
+    var qty      = Number(data[r][12]) || 0;
+    var costoU   = Number(data[r][13]) || 0;
+    var costoT   = costoU * qty;
+    var precioV  = Number(data[r][15]) || 0;
+    var ingresoT = precioV * qty;
+    var cliente  = String(data[r][6]).trim();
+    var canal    = String(data[r][4]).trim();
+    var dir      = String(data[r][8]).trim();
+    var tel      = String(data[r][7]).trim();
+    var nPedido  = String(data[r][5]).trim();
+
+    if (!prov || qty === 0) continue;
+
+    // Proveedor agrupado (solo Pendiente/Pedido — lo que falta comprar/recibir)
+    if (!esRecibido) {
+      if (!porProv[prov]) porProv[prov] = { costo: 0, cats: {} };
+      var sp = splitProducto(producto);
+      if (!porProv[prov].cats[sp.cat]) porProv[prov].cats[sp.cat] = [];
+      var found = false;
+      for (var v = 0; v < porProv[prov].cats[sp.cat].length; v++) {
+        if (porProv[prov].cats[sp.cat][v].v === sp.var) {
+          porProv[prov].cats[sp.cat][v].q += qty;
+          porProv[prov].cats[sp.cat][v].ct += costoT;
+          found = true; break;
+        }
+      }
+      if (!found) porProv[prov].cats[sp.cat].push({ v: sp.var, q: qty, ct: costoT });
+      porProv[prov].costo += costoT;
+      totalGeneral += costoT;
+    }
+
+    // Cliente agrupado (Pendiente + Pedido + Recibido — todo lo que hay que armar/entregar)
+    var cKey = cliente + '|' + nPedido;
+    if (!porCliente[cKey]) porCliente[cKey] = { n: cliente, canal: canal, dir: dir, tel: tel, ped: nPedido, items: [], ing: 0 };
+    porCliente[cKey].items.push({ prod: producto, q: qty, pv: precioV * qty, est: estado });
+    porCliente[cKey].ing += ingresoT;
+
+    // OC rows para control de estado
+    ocRows.push({ oc: ocNum, r: r + 1, prov: prov, prod: producto, abbr: abbr, q: qty, est: estado, canal: canal });
+  }
+
+  // Armar arrays
+  var provsArr = [];
+  var provNames = Object.keys(porProv);
+  provNames.forEach(function(prov) {
+    var d = porProv[prov];
+    var catsArr = [];
+    Object.keys(d.cats).forEach(function(cat) {
+      catsArr.push({ cat: cat, items: d.cats[cat] });
+    });
+    // Generar texto WhatsApp
+    var waLines = ['Hola! Te paso el pedido de esta semana:', ''];
+    catsArr.forEach(function(c) {
+      waLines.push(c.cat + ':');
+      c.items.forEach(function(it) { waLines.push('  ' + it.q + ' \u00d7 ' + (it.v || c.cat)); });
+      waLines.push('');
+    });
+    waLines.push('Total: $' + d.costo.toLocaleString('es-AR'));
+    waLines.push('');
+    waLines.push('Gracias!');
+    provsArr.push({ n: prov, costo: d.costo, cats: catsArr, wa: waLines.join('\n') });
+  });
+
+  var clientesArr = [];
+  Object.keys(porCliente).forEach(function(k) {
+    clientesArr.push(porCliente[k]);
+  });
+
+  // ── DEUDAS: OC Recibidas no pagadas, agrupadas por proveedor y semana ──
+  var deudas = {};
+  for (var rd = 1; rd < data.length; rd++) {
+    var estD = String(data[rd][20]).trim();
+    if (estD !== 'Recibido') continue;
+    var pagado = String(data[rd][23]).trim(); // X = Pagado Proveedor
+    if (pagado === 'Sí' || pagado === 'Si') continue;
+
+    var provD   = String(data[rd][9]).trim();
+    var semD    = String(data[rd][2]).trim(); // C = Semana
+    var costoTD = Number(data[rd][14]) || 0;  // O = Costo Total
+    var prodD   = String(data[rd][10]).trim();
+    var qtyD    = Number(data[rd][12]) || 0;
+
+    if (!provD || costoTD === 0) continue;
+    if (!deudas[provD]) deudas[provD] = { total: 0, semanas: {}, rows: [] };
+    deudas[provD].total += costoTD;
+    if (!deudas[provD].semanas[semD]) deudas[provD].semanas[semD] = 0;
+    deudas[provD].semanas[semD] += costoTD;
+    deudas[provD].rows.push({ r: rd + 1, prod: prodD, q: qtyD, costo: costoTD, sem: semD });
+  }
+
+  var deudasArr = [];
+  Object.keys(deudas).forEach(function(prov) {
+    var d = deudas[prov];
+    var semsArr = [];
+    Object.keys(d.semanas).sort().forEach(function(s) {
+      semsArr.push({ sem: s, monto: d.semanas[s] });
+    });
+    deudasArr.push({ n: prov, total: d.total, semanas: semsArr, rows: d.rows });
+  });
+
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      ts: Date.now(),
+      provs: provsArr,
+      clientes: clientesArr,
+      total: totalGeneral,
+      ocs: ocRows,
+      deudas: deudasArr
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=pagarProveedor — registra pago a proveedor.
+ *  Recibe { action:'pagarProveedor', proveedor:'Sevuchitas', efectivo:3000, mp:2000, rows:[5,6,7], notas:'...' }
+ *  - Crea 1-2 filas en Egresos (una por método con monto > 0)
+ *  - Crea 1-2 filas en Movimientos Historicos
+ *  - Marca OC rows como Pagado Proveedor = "Sí" */
+function _doPostPagarProveedor(postData) {
+  var proveedor = String(postData.proveedor || '').trim();
+  var montoEf = Number(postData.efectivo) || 0;
+  var montoMp = Number(postData.mp) || 0;
+  var rows = postData.rows || [];
+  var notas = String(postData.notas || '').trim();
+  var totalPago = montoEf + montoMp;
+
+  if (!proveedor || totalPago <= 0) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Sin monto' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var semana = _isoWeek(argNow);
+  var mes = MESES[argNow.getMonth()];
+
+  // ── Registrar en Egresos ──
+  var shEg = SS.getSheetByName('Egresos');
+  if (!shEg) {
+    shEg = SS.insertSheet('Egresos');
+    shEg.getRange(1, 1, 1, 8).setValues([['Fecha', 'Semana', 'Mes', 'Categoria', 'Concepto', 'Metodo', 'Monto', 'Notas']]);
+    shEg.setFrozenRows(1);
+  }
+
+  var concepto = 'Pago a ' + proveedor;
+  var pagos = [];
+  if (montoEf > 0) pagos.push({ metodo: 'Efectivo', monto: montoEf });
+  if (montoMp > 0) pagos.push({ metodo: 'Mercado Pago', monto: montoMp });
+
+  pagos.forEach(function(p) {
+    shEg.appendRow([argNow, semana, mes, 'Proveedor', concepto, p.metodo, p.monto, notas]);
+    var lastRow = shEg.getLastRow();
+    shEg.getRange(lastRow, 1).setNumberFormat('dd/MM/yyyy');
+    shEg.getRange(lastRow, 7).setNumberFormat('$#,##0');
+  });
+
+  // ── Registrar en Movimientos Historicos ──
+  var shMH = SS.getSheetByName('Movimientos Historicos');
+  if (shMH) {
+    pagos.forEach(function(p) {
+      shMH.appendRow([argNow, mes, semana, 'Proveedor', concepto, p.metodo, p.monto, notas]);
+      var lastRow = shMH.getLastRow();
+      shMH.getRange(lastRow, 1).setNumberFormat('dd/MM/yyyy');
+      shMH.getRange(lastRow, 7).setNumberFormat('$#,##0');
+    });
+  }
+
+  // ── Marcar OC rows como Pagado ──
+  if (rows.length > 0) {
+    var shOC = SS.getSheetByName('Orden de Compra');
+    if (shOC) {
+      rows.forEach(function(r) {
+        var row = Number(r);
+        if (row > 1) shOC.getRange(row, 24).setValue('Sí'); // X = Pagado Proveedor
+      });
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalPago, filas: pagos.length })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=marcarOC — cambia estado de OC desde busqueda.html.
+ *  Recibe { action:'marcarOC', rows:[{r:5, estado:'Pedido'}, ...] } */
+function _doPostMarcarOC(postData) {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) return ContentService.createTextOutput(JSON.stringify({ ok: false })).setMimeType(ContentService.MimeType.JSON);
+
+  var rows = postData.rows || [];
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+
+  rows.forEach(function(item) {
+    var row = Number(item.r);
+    var nuevoEstado = String(item.estado || '').trim();
+    if (!row || !nuevoEstado) return;
+
+    // Col U (21) = Estado OC
+    shOC.getRange(row, 21).setValue(nuevoEstado);
+
+    // Si "Pedido" → Col V (22) = Fecha Pedido Prov
+    if (nuevoEstado === 'Pedido') {
+      shOC.getRange(row, 22).setValue(argNow);
+    }
+    // Si "Recibido" → Col W (23) = Fecha Recibido
+    if (nuevoEstado === 'Recibido') {
+      shOC.getRange(row, 23).setValue(argNow);
+    }
+  });
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, updated: rows.length })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=recibirMercaderia — marca OC como Recibido con cantidad real.
+ *  Recibe { action:'recibirMercaderia', items:[{r:5, qtyRecibida:7}, {r:6, qtyRecibida:0}] }
+ *  Si qtyRecibida = 0, la fila se marca como "Cancelado" (no llegó).
+ *  Si qtyRecibida < qtyOriginal, se actualiza la cantidad y recalculan costos. */
+function _doPostRecibirMercaderia(postData) {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) return ContentService.createTextOutput(JSON.stringify({ ok: false })).setMimeType(ContentService.MimeType.JSON);
+
+  var items = postData.items || [];
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var updated = 0;
+
+  items.forEach(function(item) {
+    var row = Number(item.r);
+    var qtyRecibida = Number(item.qtyRecibida);
+    if (!row) return;
+
+    if (qtyRecibida <= 0) {
+      // No llegó nada: cancelar esta línea de OC
+      shOC.getRange(row, 21).setValue('Cancelado'); // U = Estado OC
+      shOC.getRange(row, 23).setValue(argNow);      // W = Fecha Recibido
+      shOC.getRange(row, 13).setValue(0);            // M = Cantidad → 0
+      shOC.getRange(row, 15).setValue(0);            // O = Costo Total → 0
+    } else {
+      // Actualizar cantidad recibida
+      var costoUnit = Number(shOC.getRange(row, 14).getValue()) || 0; // N = Costo Unitario
+      shOC.getRange(row, 13).setValue(qtyRecibida);                   // M = Cantidad
+      shOC.getRange(row, 15).setValue(costoUnit * qtyRecibida);       // O = Costo Total
+      shOC.getRange(row, 21).setValue('Recibido');                    // U = Estado OC
+      shOC.getRange(row, 23).setValue(argNow);                        // W = Fecha Recibido
+    }
+    updated++;
+  });
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, updated: updated })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** GET ?action=catalogo
+ *  Devuelve proveedores, productos por proveedor, costos y stock.
+ *  Para el formulario de "Nuevo Pedido" en busqueda.html. */
+function _doGetCatalogo() {
+  var hProv = SS.getSheetByName('Proveedores');
+  var hProd = SS.getSheetByName('Productos');
+  if (!hProv) return ContentService.createTextOutput(JSON.stringify({ proveedores: [], productos: {} })).setMimeType(ContentService.MimeType.JSON);
+
+  // Costos y stock desde Productos
+  var costoMap = {}, stockMap = {};
+  if (hProd) {
+    var prodData = hProd.getDataRange().getValues();
+    for (var r = 1; r < prodData.length; r++) {
+      var ab = String(prodData[r][2]).trim();
+      if (!ab) continue;
+      costoMap[ab] = parseFloat(String(prodData[r][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+      stockMap[ab] = Number(prodData[r][5]) || 0;
+    }
+  }
+
+  // Proveedores y productos
+  var provData = hProv.getDataRange().getValues();
+  var proveedores = [], seenProv = {}, productosPorProv = {};
+  var lastProv = '', lastProd = '';
+  for (var r2 = 1; r2 < provData.length; r2++) {
+    if (provData[r2][2] && String(provData[r2][2]).trim()) lastProv = String(provData[r2][2]).trim();
+    if (provData[r2][1] && String(provData[r2][1]).trim()) lastProd = String(provData[r2][1]).trim();
+    if (!lastProv) continue;
+    if (!seenProv[lastProv]) { seenProv[lastProv] = true; proveedores.push(lastProv); }
+
+    var abbr = String(provData[r2][4]).trim();
+    var gusto = String(provData[r2][3]).trim();
+    if (!abbr) continue;
+
+    if (!productosPorProv[lastProv]) productosPorProv[lastProv] = [];
+    productosPorProv[lastProv].push({
+      a: abbr,
+      n: lastProd + (gusto ? ' \u2014 ' + gusto : ''),
+      c: costoMap[abbr] || 0,
+      s: stockMap[abbr] !== undefined ? stockMap[abbr] : null
+    });
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ts: Date.now(), proveedores: proveedores, productos: productosPorProv }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=compraManual — crea filas en Orden de Compra desde busqueda.html.
+ *  Replica la lógica de confirmarCompraDeposito pero vía API web.
+ *  Recibe { action:'compraManual', vendedor:'Tadeo — Stock', proveedor:'Sevuchitas', items:[{abbr,nombre,costo,qty,origen}] } */
+function _doPostCompraManual(postData) {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Hoja OC no encontrada' })).setMimeType(ContentService.MimeType.JSON);
+
+  var proveedor = String(postData.proveedor || '').trim();
+  var vendedor = String(postData.vendedor || 'Tadeo \u2014 Stock').trim();
+  var items = postData.items || [];
+  var esMarcos = vendedor === 'Marcos Bottcher';
+
+  var itemsValidos = items.filter(function(it) { return (Number(it.qty) || 0) > 0; });
+  if (itemsValidos.length === 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Sin productos' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Precios de venta desde Productos
+  var precioVentaMap = {};
+  var hProd = SS.getSheetByName('Productos');
+  if (hProd) {
+    var prData = hProd.getDataRange().getValues();
+    for (var p = 1; p < prData.length; p++) {
+      var ab = String(prData[p][2]).trim();
+      if (ab) precioVentaMap[ab] = parseFloat(String(prData[p][8]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    }
+  }
+
+  // Timestamp Argentina
+  var ahora = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var dd = String(argDate.getDate()).padStart(2, '0');
+  var mm = String(argDate.getMonth() + 1).padStart(2, '0');
+  var yyyy = argDate.getFullYear();
+  var hh = String(argDate.getHours()).padStart(2, '0');
+  var mi = String(argDate.getMinutes()).padStart(2, '0');
+  var fechaStr = dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
+  var semana = _isoWeek(argDate);
+  var mesNombre = MESES[argDate.getMonth()];
+
+  var newRows = [];
+  itemsValidos.forEach(function(item) {
+    var ocId = _nextId('OC-');
+    var costo = Number(item.costo) || 0;
+    var qty = Number(item.qty) || 0;
+    var costoTotal = costo * qty;
+    newRows.push([
+      ocId,                                         // A  N° Orden
+      fechaStr,                                     // B  Fecha Creación
+      semana,                                       // C  Semana
+      mesNombre,                                    // D  Mes
+      esMarcos ? 'Red' : 'Dep\u00f3sito',          // E  Canal
+      '',                                           // F  N° Pedido Origen
+      vendedor,                                     // G  Cliente
+      '',                                           // H  Teléfono
+      esMarcos ? 'Tortugas, Gar\u00edn' : 'Dep\u00f3sito Maleu', // I  Dirección
+      proveedor,                                    // J  Proveedor
+      String(item.nombre || ''),                    // K  Producto
+      String(item.abbr || ''),                      // L  Abreviatura
+      qty,                                          // M  Cantidad
+      costo,                                        // N  Costo Unitario
+      costoTotal,                                   // O  Costo Total
+      precioVentaMap[item.abbr] || 0,               // P  Precio Venta Unit.
+      0,                                            // Q  Ingreso Total (fórmula)
+      0,                                            // R  Margen Bruto $ (fórmula)
+      0,                                            // S  Margen % (fórmula)
+      String(item.origen || 'Orden de Compra'),     // T  Origen
+      'Pedido',                                     // U  Estado OC
+      dd + '/' + mm + '/' + yyyy,                   // V  Fecha Pedido Prov
+      '',                                           // W  Fecha Recibido
+      'No',                                         // X  Pagado Proveedor
+      'No',                                         // Y  Cobrado Cliente
+    ]);
+  });
+
+  var startRow = shOC.getLastRow() + 1;
+  shOC.getRange(startRow, 1, newRows.length, 25).setValues(newRows);
+
+  // Fórmulas financieras
+  for (var i = 0; i < newRows.length; i++) {
+    var r = startRow + i;
+    shOC.getRange(r, 17).setFormula('=P' + r + '*M' + r);
+    shOC.getRange(r, 18).setFormula('=Q' + r + '-O' + r);
+    shOC.getRange(r, 19).setFormula('=R' + r + '/Q' + r);
+  }
+
+  // Formato
+  shOC.getRange(startRow, 13, newRows.length, 1).setNumberFormat('0');
+  shOC.getRange(startRow, 14, newRows.length, 2).setNumberFormat('$#,##0');
+  shOC.getRange(startRow, 16, newRows.length, 3).setNumberFormat('$#,##0');
+  shOC.getRange(startRow, 19, newRows.length, 1).setNumberFormat('0.0%');
+
+  var totalCosto = newRows.reduce(function(s, row) { return s + (row[14] || 0); }, 0);
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true, filas: newRows.length, totalCosto: totalCosto,
+    primerOC: newRows[0][0], ultimoOC: newRows[newRows.length - 1][0]
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=marcarEntregado — marca un pedido como Entregado desde ruta.html.
@@ -517,28 +1061,54 @@ function _doPostMarcarEntregado(data) {
     if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false })).setMimeType(ContentService.MimeType.JSON);
   }
 
+  // Columnas según hoja (Clubes y Red tienen layout diferente)
+  var isClub = (hoja === 'Clubes');
+  var isRed  = (hoja === 'Red');
+  var colEstadoEntrega = isClub ? 14 : isRed ? 12 : 11;   // N / L / K
+  var colOrigen        = isClub ? 12 : isRed ? 10 : 9;    // L / J / I
+  var colEstadoPago    = isClub ? 16 : isRed ? 14 : 13;   // P / N / M
+  var colFormaPago     = isClub ? 15 : isRed ? 13 : 12;   // O / M / L
+  var colPropinaEf     = isClub ? 21 : isRed ? 19 : 18;   // U / S / R
+  var colPropinaTr     = isClub ? 22 : isRed ? 20 : 19;   // V / T / S
+
   // Verificar que no esté ya Entregado
-  var estadoActual = String(sh.getRange(row, 11).getValue()).trim();
+  var estadoActual = String(sh.getRange(row, colEstadoEntrega).getValue()).trim();
   if (estadoActual === 'Entregado') {
     return ContentService.createTextOutput(JSON.stringify({ ok: true, ya: true })).setMimeType(ContentService.MimeType.JSON);
   }
 
   // Marcar Entregado
-  sh.getRange(row, 11).setValue('Entregado');
+  sh.getRange(row, colEstadoEntrega).setValue('Entregado');
 
-  // Registrar fecha de entrega
-  var colEntrega = hoja === 'Pilar' ? 45 : hoja === 'Capital Federal' ? 47 : 46;
-  _registrarFechaEntrega(sh, row, colEntrega);
+  // Registrar fecha de entrega (solo Home/Pilar/CF tienen columnas de fecha entrega)
+  if (!isClub && !isRed) {
+    var colEntrega = hoja === 'Pilar' ? 45 : hoja === 'Capital Federal' ? 47 : 46;
+    _registrarFechaEntrega(sh, row, colEntrega);
+  }
 
-  // Descontar stock si Origen = Depósito
-  var origen = String(sh.getRange(row, 9).getValue()).trim();
+  // Descontar stock según Origen
+  var origen = String(sh.getRange(row, colOrigen).getValue()).trim();
   if (origen === 'Depósito') {
     var hProd = SS.getSheetByName('Productos');
     if (hProd) _homeStockFisico(sh, row, hProd, -1);
+  } else if (origen === 'Mixto') {
+    var hProd = SS.getSheetByName('Productos');
+    if (hProd) _homeStockFisicoMixto(sh, row, hProd, -1);
   }
 
   // Marcar cobrado si se indicó
-  if (cobrado) sh.getRange(row, 13).setValue('Cobrado');
+  if (cobrado) sh.getRange(row, colEstadoPago).setValue('Cobrado');
+
+  // Escribir propina si existe
+  var propina = Number(data.propina) || 0;
+  if (propina > 0) {
+    var formaPago = String(sh.getRange(row, colFormaPago).getValue()).trim();
+    if (formaPago === 'Efectivo') {
+      sh.getRange(row, colPropinaEf).setValue(propina);
+    } else {
+      sh.getRange(row, colPropinaTr).setValue(propina);
+    }
+  }
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
 }
@@ -556,6 +1126,15 @@ function doPost(e) {
     if (data.action === 'compraLote')     return _doPostCompraLote(data);
     if (data.action === 'updateCompra')   return _doUpdateCompra(data);
     if (data.action === 'marcarEntregado') return _doPostMarcarEntregado(data);
+    if (data.action === 'gasto')           return _doPostGasto(data);
+    if (data.action === 'ingreso')         return _doPostIngreso(data);
+    if (data.action === 'ajusteSaldo')     return _doPostAjusteSaldo(data);
+    if (data.action === 'marcarCobrado')   return _doPostMarcarCobrado(data);
+    if (data.action === 'setOrigenProductos') return _doPostSetOrigenProductos(data);
+    if (data.action === 'marcarOC')        return _doPostMarcarOC(data);
+    if (data.action === 'recibirMercaderia') return _doPostRecibirMercaderia(data);
+    if (data.action === 'pagarProveedor')  return _doPostPagarProveedor(data);
+    if (data.action === 'compraManual')    return _doPostCompraManual(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
@@ -605,6 +1184,7 @@ function _logPedidoFallido(e, err) {
 function _doPostPedido(data) {
     const canal = String(data.canal || 'Home');
     if (canal === 'Clubes')          _doPostClubes(data);
+    else if (canal === 'Red')        _doPostRed(data);
     else if (canal === 'Pilar')      _doPostHome(data, 'Pilar', 'P');
     else if (canal === 'Capital Federal') _doPostHome(data, 'Capital Federal', 'CF');
     else                             _doPostHome(data, 'Home', 'H');
@@ -916,6 +1496,158 @@ function _doPostClubes(data) {
   if (telClubes) sh.getRange(newRow, 34).setNumberFormat('@').setValue(telClubes);
 }
 
+// ════════════════════════════════════════════════════════════
+//  _doPostRed — escribe en la hoja "Red" (canal vendedores independientes)
+//  55 columnas A–BC: incluye Vendedor, 23 productos, comisión 17%
+// ════════════════════════════════════════════════════════════
+
+// Mapeo ID producto (web) → columna 1-based hoja Red
+// Productos empiezan en col V(22), 23 productos hasta AR(44)
+const RED_PRODUCT_COLS = {
+  5:  22,  // PPM
+  6:  23,  // PPJyQ
+  7:  24,  // PPCyQ
+  8:  25,  // SCo
+  9:  26,  // SJyQ
+  10: 27,  // SCa
+  11: 28,  // ECaC
+  12: 29,  // EJyQ
+  17: 30,  // ECyQ
+  18: 31,  // EV
+  14: 32,  // TG
+  15: 33,  // TLC
+  16: 34,  // TC
+  13: 35,  // F
+  20: 36,  // SQB
+  21: 37,  // SL
+  22: 38,  // SPyP
+  23: 39,  // SE
+  19: 40,  // PMu
+  1:  41,  // PMa
+  2:  42,  // PJyQ
+  3:  43,  // PCC
+  4:  44,  // PJyM
+};
+
+// Mapeo ID producto (web Red) → abreviatura en hoja Productos
+const RED_ID_TO_ABBR = {
+  5:'PPM', 6:'PPJyQ', 7:'PPCyQ',
+  8:'SCo', 9:'SJyQ', 10:'SCa',
+  11:'ECaC', 12:'EJyQ', 17:'ECyQ', 18:'EV',
+  14:'TG', 15:'TLC', 16:'TC', 13:'F',
+  20:'SQB', 21:'SL', 22:'SPyP', 23:'SE',
+  19:'PMu', 1:'PMa', 2:'PJyQ', 3:'PCC', 4:'PJyM',
+};
+
+function _doPostRed(data) {
+  const sh = SS.getSheetByName('Red');
+  if (!sh) return;
+
+  const orderNum = _nextId('R-');
+
+  // Fecha y hora Argentina
+  const ahora   = new Date();
+  const argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const DIAS    = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const diaNombre = DIAS[argDate.getDay()];
+  const dd   = String(argDate.getDate()).padStart(2, '0');
+  const mm   = String(argDate.getMonth() + 1).padStart(2, '0');
+  const yyyy = argDate.getFullYear();
+  const fechaStr = dd + '/' + mm + '/' + yyyy;
+  const horaStr  = String(argDate.getHours()).padStart(2, '0') + ':' + String(argDate.getMinutes()).padStart(2, '0');
+  const mes    = MESES[argDate.getMonth()];
+  const semana = _isoWeek(argDate);
+
+  // Pago
+  const envio         = Number(data.envio) || 0;
+  const total         = Number(data.total) || 0;
+  const pago          = String(data.pago || '');
+  const totalSinEnvio = total - envio;
+  const efectivo      = pago === 'Efectivo'      ? totalSinEnvio : 0;
+  const transferencia = pago === 'Transferencia' ? totalSinEnvio : 0;
+
+  // Cantidades
+  const qtys = {};
+  (data.items || []).forEach(function(item) {
+    qtys[Number(item.id)] = Number(item.qty) || 0;
+  });
+
+  // Costo desde hoja Productos
+  let costoTotal = 0;
+  const hProductos = SS.getSheetByName('Productos');
+  if (hProductos) {
+    const prodData = hProductos.getDataRange().getValues();
+    (data.items || []).forEach(function(item) {
+      const abbr = RED_ID_TO_ABBR[Number(item.id)];
+      if (!abbr) return;
+      for (let r = 1; r < prodData.length; r++) {
+        if (String(prodData[r][2]).trim() === abbr) {
+          const costoUnit = Number(prodData[r][9]) || 0; // col J = Costo
+          costoTotal += costoUnit * (Number(item.qty) || 0);
+          break;
+        }
+      }
+    });
+  }
+
+  // Construir fila de 55 columnas (A a BC)
+  const row = new Array(55).fill('');
+  row[0]  = horaStr;                                // A  Hora
+  row[1]  = orderNum;                               // B  N° Pedido
+  row[2]  = diaNombre;                              // C  Día
+  row[3]  = fechaStr;                               // D  Fecha
+  row[4]  = mes;                                    // E  Mes
+  row[5]  = semana;                                 // F  Semana
+  row[6]  = yyyy;                                   // G  Año
+  row[7]  = String(data.vendedor || '');            // H  Vendedor
+  row[8]  = String(data.nombre || '');              // I  Cliente
+  row[9]  = 'Pendiente';                            // J  Origen
+  row[10] = String(data.dia || '');                 // K  Día de Entrega
+  row[11] = 'Pendiente';                            // L  Estado de Entrega
+  row[12] = pago;                                   // M  Forma de Pago
+  row[13] = 'No Cobrado';                           // N  Estado de Pago
+  row[14] = total;                                  // O  Total ($)
+  row[15] = envio;                                  // P  Envío ($)
+  row[16] = efectivo;                               // Q  Efectivo
+  row[17] = transferencia;                          // R  Transferencia
+  row[18] = 0;                                      // S  Propina Ef
+  row[19] = 0;                                      // T  Propina Trans
+  // U (col 21) = Facturado → fórmula después
+
+  // Productos: cols V–AR (índices 21–43 en base-0)
+  Object.keys(RED_PRODUCT_COLS).forEach(function(id) {
+    row[RED_PRODUCT_COLS[id] - 1] = qtys[Number(id)] || 0;
+  });
+
+  row[44] = costoTotal;                             // AS  Costo
+  // AT (col 46) = Margen Bruto → fórmula después
+  // AU (col 47) = Comisión 17% → fórmula después
+  // AV (col 48) = Margen Neto → fórmula después
+  row[48] = String(data.partido || '');             // AW  Partido
+  row[49] = String(data.localidad || '');           // AX  Localidad
+  row[50] = String(data.barrioRed || '');           // AY  Barrio
+  row[51] = String(data.domicilioRed || '');        // AZ  Domicilio
+  row[52] = String(data.telefono || '');            // BA  Teléfono
+  row[53] = Number(data.subtotalSinDescuento) || total; // BB  Subtotal sin Descuento
+  row[54] = Number(data.descuento) || 0;            // BC  Descuento
+
+  sh.appendRow(row);
+  var newRow = sh.getLastRow();
+
+  // Fórmula Facturado en U (col 21) = Total + Propinas
+  sh.getRange(newRow, 21).setFormula('=O' + newRow + '+S' + newRow + '+T' + newRow);
+  // Fórmula Margen Bruto en AT (col 46) = Facturado - Costo
+  sh.getRange(newRow, 46).setFormula('=U' + newRow + '-AS' + newRow);
+  // Fórmula Comisión 17% en AU (col 47) = Facturado * 0.17
+  sh.getRange(newRow, 47).setFormula('=U' + newRow + '*0.17');
+  // Fórmula Margen Neto en AV (col 48) = Margen Bruto - Comisión
+  sh.getRange(newRow, 48).setFormula('=AT' + newRow + '-AU' + newRow);
+  // Forzar teléfono como texto
+  var telRed = String(data.telefono || '');
+  if (telRed) sh.getRange(newRow, 53).setNumberFormat('@').setValue(telRed);
+}
+
 // Número de semana ISO (lunes = primer día de la semana)
 function _isoWeek(date) {
   const d      = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -1058,6 +1790,33 @@ const HOME_COL_TO_ABBR = {
   39: 'PJyM',  // AM
 };
 
+// Red: col V(22) a AR(44) = 23 productos
+const RED_COL_TO_ABBR = {
+  22: 'PPM',   // V
+  23: 'PPJyQ', // W
+  24: 'PPCyQ', // X
+  25: 'SCo',   // Y
+  26: 'SJyQ',  // Z
+  27: 'SCa',   // AA
+  28: 'ECaC',  // AB
+  29: 'EJyQ',  // AC
+  30: 'ECyQ',  // AD
+  31: 'EV',    // AE
+  32: 'TG',    // AF
+  33: 'TLC',   // AG
+  34: 'TC',    // AH
+  35: 'F',     // AI
+  36: 'SQB',   // AJ
+  37: 'SL',    // AK
+  38: 'SPyP',  // AL
+  39: 'SE',    // AM
+  40: 'PMu',   // AN
+  41: 'PMa',   // AO
+  42: 'PJyQ',  // AP
+  43: 'PCC',   // AQ
+  44: 'PJyM',  // AR
+};
+
 // IMPORTANTE: esta función debe configurarse SOLO como trigger instalable.
 // NO usar el nombre "onEdit" para evitar doble ejecución (simple + instalable).
 // En Activadores: función = onEditHandler, evento = Al editar
@@ -1066,6 +1825,7 @@ function onEditHandler(e) {
   const sheetName = sheet.getName();
 
   if (sheetName === 'Home' || sheetName === 'Pilar' || sheetName === 'Capital Federal') return _onEditHome(e);
+  if (sheetName === 'Red')             return _onEditRed(e);
   if (sheetName === 'Clubes')          return _onEditClubes(e);
   if (sheetName === 'Orden de Compra') return _onEditOC(e);
   if (sheetName === 'Pedidos')         return _onEditPedidos(e);
@@ -1173,6 +1933,89 @@ const CLUBES_COL_TO_ABBR = {
   30: 'PPJyQ', // AD
   31: 'PPCyQ', // AE
 };
+
+// ── Red: Origen col J(10), Estado Entrega col L(12) ──
+function _onEditRed(e) {
+  const col = e.range.getColumn();
+  const row = e.range.getRow();
+  if (row <= 1) return;
+
+  const sh = e.range.getSheet();
+
+  // Si cambió Origen (col J=10) a "Orden de Compra" → generar OC
+  if (col === 10) {
+    const nuevoOrigen = String(e.value || '');
+    if (nuevoOrigen === 'Orden de Compra') {
+      var lock = LockService.getScriptLock();
+      if (lock.tryLock(100)) {
+        try {
+          var pedidoNum = String(sh.getRange(row, 2).getValue());
+          var shOC = SS.getSheetByName('Orden de Compra');
+          if (shOC && shOC.getLastRow() > 1) {
+            var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+            for (var i = 0; i < existentes.length; i++) {
+              if (String(existentes[i][0]).trim() === pedidoNum) {
+                SS.toast('OC ya existe para ' + pedidoNum, 'Duplicado evitado', 4);
+                return;
+              }
+            }
+          }
+          generarOrdenDeCompra('Red', row);
+          SS.toast('Orden de Compra generada para ' + pedidoNum, 'OC', 5);
+        } finally {
+          lock.releaseLock();
+        }
+      }
+    }
+    return;
+  }
+
+  if (col !== 12) return; // solo col L (12) = Estado de Entrega
+
+  const origen   = String(sh.getRange(row, 10).getValue()); // col J (10) = Origen
+  const nuevo    = String(e.value || '');
+  const anterior = String(e.oldValue || '');
+
+  // → Entregado: descontar stock si Depósito (no hay columnas de fecha entrega en Red)
+  if (nuevo === 'Entregado' && anterior !== 'Entregado') {
+    if (origen === 'Depósito') {
+      const hProductos = SS.getSheetByName('Productos');
+      if (hProductos) _redStockFisico(sh, row, hProductos, -1);
+    }
+  }
+  // ← Sale de Entregado: devolver stock
+  if (anterior === 'Entregado' && nuevo !== 'Entregado') {
+    if (origen === 'Depósito') {
+      const hProductos = SS.getSheetByName('Productos');
+      if (hProductos) _redStockFisico(sh, row, hProductos, +1);
+    }
+  }
+}
+
+// Stock para Red: 23 productos en cols V(22)-AR(44)
+function _redStockFisico(shRed, row, hProductos, signo) {
+  const cantidades = shRed.getRange(row, 22, 1, 23).getValues()[0]; // cols V–AR
+  const prodData   = hProductos.getDataRange().getValues();
+  const refPedido  = String(shRed.getRange(row, 2).getValue() || '');
+
+  Object.keys(RED_COL_TO_ABBR).forEach(function(colStr) {
+    const colIdx = Number(colStr);
+    const abbr   = RED_COL_TO_ABBR[colIdx];
+    const qty    = Number(cantidades[colIdx - 22]) || 0;
+    if (qty === 0) return;
+
+    for (let r = 1; r < prodData.length; r++) {
+      if (String(prodData[r][2]).trim() === abbr) {
+        const celdaFis = hProductos.getRange(r + 1, 6);
+        const fisico   = Number(celdaFis.getValue()) || 0;
+        const nuevoStock = Math.max(0, fisico + (qty * signo));
+        celdaFis.setValue(nuevoStock);
+        _logKardex(abbr, signo < 0 ? '-SAL' : '+DEV', qty, fisico, nuevoStock, 'Red', refPedido);
+        break;
+      }
+    }
+  });
+}
 
 function _onEditClubes(e) {
   const col = e.range.getColumn();
@@ -1348,6 +2191,9 @@ function generarOrdenDeCompra(canal, row) {
   } else if (canal === 'Capital Federal') {
     colCliente = 7; colPedido = 1; colTelefono = 45; // AT(46) = Teléfono
     direccion = [rowData[41], rowData[42] + ' ' + rowData[43], rowData[44]].filter(Boolean).join(' · '); // AP=Barrio, AQ=Calle, AR=Número, AS=Piso
+  } else if (canal === 'Red') {
+    colCliente = 8; colPedido = 1; colTelefono = 52; // BA(53) = Teléfono
+    direccion = [rowData[48], rowData[49], rowData[50], rowData[51]].filter(Boolean).join(' · '); // AW=Partido, AX=Localidad, AY=Barrio, AZ=Domicilio
   } else if (canal === 'Clubes') {
     colCliente = 7; colPedido = 1; colTelefono = 33; // AH(34) = Teléfono
     direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · ');
@@ -1386,6 +2232,7 @@ function generarOrdenDeCompra(canal, row) {
 
   const colToAbbrMap = (canal === 'Clubes')
     ? {24:'PMu', 25:'PMa', 26:'PJyQ', 27:'PCC', 28:'PJyM', 29:'PPM', 30:'PPJyQ', 31:'PPCyQ'}
+    : (canal === 'Red') ? RED_COL_TO_ABBR
     : HOME_COL_TO_ABBR;
 
   const cliente    = String(rowData[colCliente] || '');
@@ -1439,7 +2286,7 @@ function generarOrdenDeCompra(canal, row) {
       0,                                         // R  Margen Bruto $ (fórmula)
       0,                                         // S  Margen % (fórmula)
       'Orden de Compra',                         // T  Origen
-      'Pendiente',                               // U  Estado OC
+      'Pedido',                                  // U  Estado OC
       '',                                        // V  Fecha Pedido Prov
       '',                                        // W  Fecha Recibido
       'No',                                      // X  Pagado Proveedor
@@ -1529,21 +2376,28 @@ function _onEditHome(e) {
   const sheetName = sh.getName();
   const colEntrega = sheetName === 'Pilar' ? 45 : sheetName === 'Capital Federal' ? 47 : 46;
 
-  // → Entregado: registrar fecha SIEMPRE + descontar stock solo si Depósito
+  // → Entregado: registrar fecha SIEMPRE + descontar stock según origen
   if (nuevo === 'Entregado' && anterior !== 'Entregado') {
     _registrarFechaEntrega(sh, row, colEntrega);
     if (origen === 'Depósito') {
       const hProductos = SS.getSheetByName('Productos');
       if (hProductos) _homeStockFisico(sh, row, hProductos, -1);
+    } else if (origen === 'Mixto') {
+      // Solo descontar productos con origen Depósito (leer JSON de Origen Detalle)
+      const hProductos = SS.getSheetByName('Productos');
+      if (hProductos) _homeStockFisicoMixto(sh, row, hProductos, -1);
     }
   }
 
-  // ← Sale de Entregado: limpiar fecha SIEMPRE + devolver stock solo si Depósito
+  // ← Sale de Entregado: limpiar fecha SIEMPRE + devolver stock según origen
   if (anterior === 'Entregado' && nuevo !== 'Entregado') {
     sh.getRange(row, colEntrega, 1, 6).clearContent();
     if (origen === 'Depósito') {
       const hProductos = SS.getSheetByName('Productos');
       if (hProductos) _homeStockFisico(sh, row, hProductos, +1);
+    } else if (origen === 'Mixto') {
+      const hProductos = SS.getSheetByName('Productos');
+      if (hProductos) _homeStockFisicoMixto(sh, row, hProductos, +1);
     }
   }
 }
@@ -1594,6 +2448,43 @@ function _homeStockFisico(shHome, row, hProductos, signo) {
         if (signo < 0 && nuevoStock <= 3 && nuevoStock >= 0) {
           SS.toast('⚠️ STOCK BAJO: ' + abbr + ' → quedan ' + nuevoStock, 'Alerta Stock', 8);
         }
+        break;
+      }
+    }
+  });
+}
+
+// Versión Mixto: solo descuenta productos que tienen origen "D" en el JSON
+function _homeStockFisicoMixto(shHome, row, hProductos, signo) {
+  // Buscar columna "Origen Detalle"
+  var headers = shHome.getRange(1, 1, 1, shHome.getLastColumn()).getValues()[0];
+  var colDetalle = -1;
+  for (var h = 0; h < headers.length; h++) {
+    if (String(headers[h]).trim() === 'Origen Detalle') { colDetalle = h + 1; break; }
+  }
+  if (colDetalle === -1) return; // No hay detalle, no descontar nada
+  var jsonStr = String(shHome.getRange(row, colDetalle).getValue() || '');
+  var detalle = {};
+  try { detalle = JSON.parse(jsonStr); } catch(e) { return; }
+
+  var cantidades = shHome.getRange(row, 21, 1, 19).getValues()[0];
+  var prodData = hProductos.getDataRange().getValues();
+  var refPedido = String(shHome.getRange(row, 2).getValue() || '');
+
+  Object.keys(HOME_COL_TO_ABBR).forEach(function(colStr) {
+    var colIdx = Number(colStr);
+    var abbr = HOME_COL_TO_ABBR[colIdx];
+    if (detalle[abbr] !== 'D') return; // Solo descontar los de Depósito
+    var qty = Number(cantidades[colIdx - 21]) || 0;
+    if (qty === 0) return;
+
+    for (var r = 1; r < prodData.length; r++) {
+      if (String(prodData[r][2]).trim() === abbr) {
+        var celdaFis = hProductos.getRange(r + 1, 6);
+        var fisico = Number(celdaFis.getValue()) || 0;
+        var nuevoStock = Math.max(0, fisico + (qty * signo));
+        celdaFis.setValue(nuevoStock);
+        _logKardex(abbr, signo < 0 ? '-SAL' : '+DEV', qty, fisico, nuevoStock, 'Home', refPedido);
         break;
       }
     }
@@ -3749,4 +4640,913 @@ function _setupEgresos() {
 
   try { sh.getRange('A2:H1000').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false); }
   catch(ex) {}
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ADMIN — Dashboard resumen completo de Maleu
+// ══════════════════════════════════════════════════════════════
+
+/** GET ?action=admin
+ *  Devuelve resumen de pedidos (semana actual) + stock + OC pendientes.
+ *  Datos compactos para la PWA admin. */
+function _doGetAdmin() {
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+
+  // ── Leer pedidos de las 4 hojas operativas ──
+  var ABBRS_HOME = ['PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ','ECyQ','EV',
+                    'TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
+  var ABBRS_CLUB = ['PMu','PMa','PJyQ','PCC','PJyM','PPM','PPCyQ','PPJyQ'];
+
+  var canales = [];
+  var pedidos = [];
+
+  // Home, Pilar, Capital Federal (misma estructura: 53 cols)
+  ['Home', 'Pilar', 'Capital Federal'].forEach(function(hoja) {
+    var sh = SS.getSheetByName(hoja);
+    var stats = { nombre: hoja, pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
+    if (!sh || sh.getLastRow() <= 1) { canales.push(stats); return; }
+    var data = sh.getDataRange().getValues();
+
+    for (var r = 1; r < data.length; r++) {
+      var estado = String(data[r][10]).trim();
+      var estadoPago = String(data[r][12]).trim();
+      var total = Number(data[r][13]) || 0;
+      var facturado = Number(data[r][19]) || total;
+      var origen = String(data[r][8]).trim();
+      var cliente = String(data[r][7]).trim();
+      var nPedido = String(data[r][1]).trim();
+      var diaEntrega = String(data[r][9]).trim();
+      var fecha = data[r][3];
+      var fechaStr = '';
+      if (fecha instanceof Date) {
+        fechaStr = Utilities.formatDate(fecha, 'America/Argentina/Buenos_Aires', 'dd/MM');
+      } else {
+        fechaStr = String(fecha || '');
+      }
+
+      stats.pedidos++;
+      if (estado === 'Entregado') stats.entregados++;
+      else if (estado === 'Cancelado') stats.cancelados++;
+      else if (estado === 'Reservado') stats.reservados++;
+      else stats.pendientes++;
+
+      stats.facturado += facturado;
+      if (estadoPago === 'Cobrado') stats.cobrado += facturado;
+      else stats.noCobrado += facturado;
+
+      // Productos del pedido
+      var prods = [];
+      for (var p = 0; p < 19; p++) {
+        var qty = Number(data[r][20 + p]) || 0;
+        if (qty > 0) prods.push({ a: ABBRS_HOME[p], q: qty });
+      }
+
+      var formaPago = String(data[r][11] || '').trim();
+      var costoPed = Number(data[r][39]) || 0;
+      var margenPed = Number(data[r][40]) || 0;
+      var subBarrio = hoja === 'Home' ? String(data[r][42] || '').trim() : '';
+
+      pedidos.push({
+        n: nPedido, h: hoja, c: cliente, f: fechaStr, de: diaEntrega,
+        es: estado, o: origen, ep: estadoPago, fp: formaPago,
+        $: facturado, co: costoPed, mg: margenPed, br: subBarrio, p: prods
+      });
+    }
+    canales.push(stats);
+  });
+
+  // Clubes (34 cols, estructura diferente)
+  var shClubes = SS.getSheetByName('Clubes');
+  var statsClubes = { nombre: 'Clubes', pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
+  if (shClubes && shClubes.getLastRow() > 1) {
+    var dataClubes = shClubes.getDataRange().getValues();
+    for (var rc = 1; rc < dataClubes.length; rc++) {
+      var estadoC = String(dataClubes[rc][13]).trim();
+      var estadoPagoC = String(dataClubes[rc][15]).trim();
+      var totalC = Number(dataClubes[rc][16]) || 0;
+      var facturadoC = Number(dataClubes[rc][22]) || totalC;
+      var origenC = String(dataClubes[rc][11]).trim();
+      var clienteC = String(dataClubes[rc][7]).trim();
+      var clubC = String(dataClubes[rc][8]).trim();
+      var nPedidoC = String(dataClubes[rc][1]).trim();
+      var diaEntregaC = String(dataClubes[rc][12]).trim();
+      var fechaC = dataClubes[rc][3];
+      var fechaStrC = '';
+      if (fechaC instanceof Date) {
+        fechaStrC = Utilities.formatDate(fechaC, 'America/Argentina/Buenos_Aires', 'dd/MM');
+      } else {
+        fechaStrC = String(fechaC || '');
+      }
+
+      statsClubes.pedidos++;
+      if (estadoC === 'Entregado') statsClubes.entregados++;
+      else if (estadoC === 'Cancelado') statsClubes.cancelados++;
+      else if (estadoC === 'Reservado') statsClubes.reservados++;
+      else statsClubes.pendientes++;
+
+      statsClubes.facturado += facturadoC;
+      if (estadoPagoC === 'Cobrado') statsClubes.cobrado += facturadoC;
+      else statsClubes.noCobrado += facturadoC;
+
+      // Productos Clubes
+      var prodsC = [];
+      for (var pc = 0; pc < 8; pc++) {
+        var qtyC = Number(dataClubes[rc][23 + pc]) || 0;
+        if (qtyC > 0) prodsC.push({ a: ABBRS_CLUB[pc], q: qtyC });
+      }
+
+      var formaPagoC = String(dataClubes[rc][14] || '').trim();
+
+      var costoCl = Number(dataClubes[rc][31]) || 0;
+      var margenCl = Number(dataClubes[rc][32]) || 0;
+
+      pedidos.push({
+        n: nPedidoC, h: 'Clubes',
+        c: clienteC + (clubC ? ' (' + clubC + ')' : ''),
+        f: fechaStrC, de: diaEntregaC, es: estadoC, o: origenC,
+        ep: estadoPagoC, fp: formaPagoC, $: facturadoC,
+        co: costoCl, mg: margenCl, br: clubC, p: prodsC
+      });
+    }
+  }
+  canales.push(statsClubes);
+
+  // Red (55 cols, estructura propia)
+  var ABBRS_RED_DASH = ['PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ','ECyQ','EV',
+                        'TG','TLC','TC','F','SQB','SL','SPyP','SE','PMu','PMa','PJyQ','PCC','PJyM'];
+  var shRedDash = SS.getSheetByName('Red');
+  var statsRed = { nombre: 'Red', pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
+  if (shRedDash && shRedDash.getLastRow() > 1) {
+    var dataRed = shRedDash.getDataRange().getValues();
+    for (var rr = 1; rr < dataRed.length; rr++) {
+      var estadoR = String(dataRed[rr][11]).trim(); // L = Estado Entrega
+      var estadoPagoR = String(dataRed[rr][13]).trim(); // N = Estado Pago
+      var totalR = Number(dataRed[rr][14]) || 0; // O = Total
+      var facturadoR = Number(dataRed[rr][20]) || totalR; // U = Facturado
+      var origenR = String(dataRed[rr][9]).trim(); // J = Origen
+      var clienteR = String(dataRed[rr][8]).trim(); // I = Cliente
+      var vendedorR = String(dataRed[rr][7]).trim(); // H = Vendedor
+      var nPedidoR = String(dataRed[rr][1]).trim();
+      var diaEntregaR = String(dataRed[rr][10]).trim(); // K
+      var fechaR = dataRed[rr][3];
+      var fechaStrR = fechaR instanceof Date ? Utilities.formatDate(fechaR, 'America/Argentina/Buenos_Aires', 'dd/MM') : String(fechaR || '');
+
+      statsRed.pedidos++;
+      if (estadoR === 'Entregado') statsRed.entregados++;
+      else if (estadoR === 'Cancelado') statsRed.cancelados++;
+      else if (estadoR === 'Reservado') statsRed.reservados++;
+      else statsRed.pendientes++;
+
+      statsRed.facturado += facturadoR;
+      if (estadoPagoR === 'Cobrado') statsRed.cobrado += facturadoR;
+      else statsRed.noCobrado += facturadoR;
+
+      var prodsR = [];
+      for (var prr = 0; prr < 23; prr++) {
+        var qtyR = Number(dataRed[rr][21 + prr]) || 0;
+        if (qtyR > 0) prodsR.push({ a: ABBRS_RED_DASH[prr], q: qtyR });
+      }
+
+      var formaPagoR = String(dataRed[rr][12] || '').trim();
+      var costoR = Number(dataRed[rr][44]) || 0;
+      var margenR = Number(dataRed[rr][45]) || 0;
+
+      pedidos.push({
+        n: nPedidoR, h: 'Red',
+        c: clienteR + (vendedorR ? ' (Red: ' + vendedorR + ')' : ''),
+        f: fechaStrR, de: diaEntregaR, es: estadoR, o: origenR,
+        ep: estadoPagoR, fp: formaPagoR, $: facturadoR,
+        co: costoR, mg: margenR, br: vendedorR, p: prodsR
+      });
+    }
+  }
+  canales.push(statsRed);
+
+  // ── Totales ──
+  var totales = { pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0, ticket: 0 };
+  canales.forEach(function(c) {
+    totales.pedidos += c.pedidos;
+    totales.entregados += c.entregados;
+    totales.pendientes += c.pendientes;
+    totales.cancelados += c.cancelados;
+    totales.reservados += c.reservados;
+    totales.facturado += c.facturado;
+    totales.cobrado += c.cobrado;
+    totales.noCobrado += c.noCobrado;
+  });
+  if (totales.pedidos > 0) totales.ticket = Math.round(totales.facturado / totales.pedidos);
+
+  // ── Stock (hoja Productos) ──
+  var stock = [];
+  var shProd = SS.getSheetByName('Productos');
+  if (shProd && shProd.getLastRow() > 1) {
+    var dataProd = shProd.getDataRange().getValues();
+    // Buscar columnas por header
+    var hdr = dataProd[0];
+    var colNombre = -1, colAbbr = -1, colFisico = -1, colReservado = -1, colDisp = -1;
+    for (var h = 0; h < hdr.length; h++) {
+      var hv = String(hdr[h]).trim().toLowerCase();
+      if (hv === 'producto' || hv === 'nombre') colNombre = h;
+      if (hv === 'abreviatura') colAbbr = h;
+      if (hv === 'stock físico' || hv === 'stock fisico') colFisico = h;
+      if (hv === 'reservado') colReservado = h;
+      if (hv === 'disponible') colDisp = h;
+    }
+    for (var rp = 1; rp < dataProd.length; rp++) {
+      var nombre = colNombre >= 0 ? String(dataProd[rp][colNombre]).trim() : '';
+      var abbr = colAbbr >= 0 ? String(dataProd[rp][colAbbr]).trim() : '';
+      if (!nombre && !abbr) continue;
+      var fisico = colFisico >= 0 ? (Number(dataProd[rp][colFisico]) || 0) : 0;
+      var reservado = colReservado >= 0 ? (Number(dataProd[rp][colReservado]) || 0) : 0;
+      var disponible = colDisp >= 0 ? (Number(dataProd[rp][colDisp]) || 0) : fisico - reservado;
+      stock.push({ n: nombre, a: abbr, f: fisico, r: reservado, d: disponible });
+    }
+  }
+
+  // ── OC pendientes ──
+  var ocPend = 0;
+  var ocTotal = 0;
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (shOC && shOC.getLastRow() > 1) {
+    var dataOC = shOC.getDataRange().getValues();
+    for (var ro = 1; ro < dataOC.length; ro++) {
+      var estOC = String(dataOC[ro][20]).trim();
+      if (estOC === 'Pendiente' || estOC === 'Pedido') {
+        ocPend++;
+        ocTotal += Number(dataOC[ro][14]) || 0;
+      }
+    }
+  }
+
+  // ── Egresos (gastos) ──
+  var gastos = [];
+  var totalGastos = 0;
+  var gastosEf = 0;
+  var gastosMP = 0;
+  var shEgr = SS.getSheetByName('Egresos');
+  if (shEgr && shEgr.getLastRow() > 1) {
+    var dataEgr = shEgr.getDataRange().getValues();
+    var hdrE = dataEgr[0];
+    for (var re = 1; re < dataEgr.length; re++) {
+      if (!dataEgr[re][0]) continue;
+      var fechaE = dataEgr[re][0];
+      var fechaStrE = '';
+      if (fechaE instanceof Date) {
+        fechaStrE = Utilities.formatDate(fechaE, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+      } else {
+        fechaStrE = String(fechaE || '');
+      }
+      var montoE = Number(dataEgr[re][6]) || 0;
+      var metodoE = String(dataEgr[re][5] || '').trim();
+      totalGastos += montoE;
+      if (metodoE === 'Efectivo') gastosEf += montoE;
+      else gastosMP += montoE;
+
+      gastos.push({
+        f: fechaStrE,
+        sem: String(dataEgr[re][1] || ''),
+        mes: String(dataEgr[re][2] || ''),
+        cat: String(dataEgr[re][3] || '').trim(),
+        con: String(dataEgr[re][4] || '').trim(),
+        met: metodoE,
+        $: montoE,
+        not: String(dataEgr[re][7] || '').trim()
+      });
+    }
+  }
+
+  // ── Cobrado por método de pago ──
+  var cobradoEf = 0;
+  var cobradoMP = 0;
+  pedidos.forEach(function(p) {
+    if (p.ep === 'Cobrado') {
+      if (p.fp === 'Efectivo') cobradoEf += p.$;
+      else cobradoMP += p.$;
+    }
+  });
+
+  // ── Saldo Base (último ajuste manual) ──
+  var saldoBase = { ef: 0, mp: 0, fecha: '' };
+  var shSaldo = SS.getSheetByName('Saldo Base');
+  if (shSaldo && shSaldo.getLastRow() > 1) {
+    var lastRow = shSaldo.getLastRow();
+    saldoBase.ef = Number(shSaldo.getRange(lastRow, 2).getValue()) || 0;
+    saldoBase.mp = Number(shSaldo.getRange(lastRow, 3).getValue()) || 0;
+    var fSaldo = shSaldo.getRange(lastRow, 1).getValue();
+    saldoBase.fecha = fSaldo instanceof Date ? Utilities.formatDate(fSaldo, 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm') : '';
+  }
+
+  // ── Ingresos manuales ──
+  var ingresos = [];
+  var ingresosEf = 0;
+  var ingresosMP = 0;
+  var shIng = SS.getSheetByName('Ingresos');
+  if (shIng && shIng.getLastRow() > 1) {
+    var dataIng = shIng.getDataRange().getValues();
+    for (var ri = 1; ri < dataIng.length; ri++) {
+      if (!dataIng[ri][0]) continue;
+      var fechaI = dataIng[ri][0];
+      var fechaStrI = fechaI instanceof Date ? Utilities.formatDate(fechaI, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fechaI || '');
+      var montoI = Number(dataIng[ri][6]) || 0;
+      var metodoI = String(dataIng[ri][5] || '').trim();
+      if (metodoI === 'Efectivo') ingresosEf += montoI;
+      else ingresosMP += montoI;
+      ingresos.push({
+        f: fechaStrI, cat: String(dataIng[ri][3] || '').trim(),
+        con: String(dataIng[ri][4] || '').trim(), met: metodoI,
+        $: montoI, not: String(dataIng[ri][7] || '').trim()
+      });
+    }
+  }
+
+  // ── Gastos Historicos (por mes, para P&L) ──
+  var gastosHist = {};
+  var shGH = SS.getSheetByName('Gastos Historicos');
+  if (shGH && shGH.getLastRow() > 1) {
+    var dGH = shGH.getDataRange().getValues();
+    for (var rg = 1; rg < dGH.length; rg++) {
+      if (!dGH[rg][0]) continue;
+      var mesGH = String(dGH[rg][1] || '').trim();
+      if (!mesGH) continue;
+      var montoGH = Number(dGH[rg][6]) || 0;
+      if (!gastosHist[mesGH]) gastosHist[mesGH] = 0;
+      gastosHist[mesGH] += montoGH;
+    }
+  }
+  // Also add current Egresos to gastosHist
+  gastos.forEach(function(g) {
+    var m = g.mes || '';
+    if (m) { if (!gastosHist[m]) gastosHist[m] = 0; gastosHist[m] += g.$; }
+  });
+
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      ts: Date.now(),
+      canales: canales,
+      totales: totales,
+      pedidos: pedidos,
+      stock: stock,
+      oc: { pendientes: ocPend, costo: ocTotal },
+      caja: { cobradoEf: cobradoEf, cobradoMP: cobradoMP, gastosEf: gastosEf, gastosMP: gastosMP, totalGastos: totalGastos, ingresosEf: ingresosEf, ingresosMP: ingresosMP },
+      saldoBase: saldoBase,
+      gastos: gastos,
+      ingresos: ingresos,
+      gastosHist: gastosHist
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=gasto — guarda un gasto en la hoja Egresos.
+ *  Recibe { action:'gasto', fecha, categoria, concepto, metodo, monto, notas } */
+function _doPostGasto(data) {
+  var shEgr = SS.getSheetByName('Egresos');
+  if (!shEgr) {
+    shEgr = SS.insertSheet('Egresos');
+    shEgr.getRange(1, 1, 1, 8).setValues([['Fecha', 'Semana', 'Mes', 'Categoría', 'Concepto', 'Método', 'Monto', 'Notas']]);
+    shEgr.setFrozenRows(1);
+  }
+
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+
+  // Parse fecha or use today
+  var fecha = data.fecha ? new Date(data.fecha + 'T12:00:00') : argNow;
+  var semana = _getWeekNumber(fecha);
+  var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var mes = meses[fecha.getMonth()];
+
+  var cat = String(data.categoria || '').trim();
+  var con = String(data.concepto || '').trim();
+  var met = String(data.metodo || '').trim();
+  var monto = Number(data.monto) || 0;
+  var notas = String(data.notas || '').trim();
+
+  shEgr.appendRow([fecha, semana, mes, cat, con, met, monto, notas]);
+  shEgr.getRange(shEgr.getLastRow(), 1).setNumberFormat('dd/MM/yyyy');
+
+  // Copiar a Movimientos Historicos
+  _appendMovHistorico(fecha, mes, semana, cat, con, met, monto, notas);
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Agrega una fila a "Movimientos Historicos" (headers en fila 2, data desde fila 3). */
+function _appendMovHistorico(fecha, mes, semana, cat, concepto, metodo, monto, notas) {
+  var sh = SS.getSheetByName('Movimientos Historicos');
+  if (!sh) return;
+  sh.appendRow([fecha, mes, semana, cat, concepto, metodo, monto, notas]);
+  sh.getRange(sh.getLastRow(), 1).setNumberFormat('dd/MM/yyyy');
+  sh.getRange(sh.getLastRow(), 7).setNumberFormat('$#.##0,00');
+}
+
+function _getWeekNumber(d) {
+  var oneJan = new Date(d.getFullYear(), 0, 1);
+  var days = Math.floor((d - oneJan) / 86400000);
+  return Math.ceil((days + oneJan.getDay() + 1) / 7);
+}
+
+/** POST action=ingreso — guarda un ingreso manual en hoja Ingresos.
+ *  { action:'ingreso', fecha, categoria, concepto, metodo, monto, notas } */
+function _doPostIngreso(data) {
+  var sh = SS.getSheetByName('Ingresos');
+  if (!sh) {
+    sh = SS.insertSheet('Ingresos');
+    sh.getRange(1, 1, 1, 8).setValues([['Fecha', 'Semana', 'Mes', 'Categoría', 'Concepto', 'Método', 'Monto', 'Notas']]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, 8).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
+  }
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var fecha = data.fecha ? new Date(data.fecha + 'T12:00:00') : argNow;
+  var semana = _getWeekNumber(fecha);
+  var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var mes = meses[fecha.getMonth()];
+  var cat = String(data.categoria||'').trim();
+  var con = String(data.concepto||'').trim();
+  var met = String(data.metodo||'').trim();
+  var monto = Number(data.monto)||0;
+  var notas = String(data.notas||'').trim();
+
+  sh.appendRow([fecha, semana, mes, cat, con, met, monto, notas]);
+  sh.getRange(sh.getLastRow(), 1).setNumberFormat('dd/MM/yyyy');
+
+  // Copiar a Movimientos Historicos (como ingreso)
+  _appendMovHistorico(fecha, mes, semana, 'INGRESO: '+cat, con, met, monto, notas);
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=ajusteSaldo — guarda saldo base manual (EF y MP).
+ *  { action:'ajusteSaldo', efectivo:number, mp:number } */
+/** POST action=setOrigenProductos — define origen por producto dentro de un pedido.
+ *  { action:'setOrigenProductos', hoja:'Home', id:'H-045', productos:[{a:'PPM',o:'D'},{a:'SCo',o:'OC'}] }
+ *  o='D' (Depósito) / o='OC' (Orden de Compra) */
+function _doPostSetOrigenProductos(data) {
+  var hoja = String(data.hoja || '');
+  var pedidoId = String(data.id || '');
+  var prods = data.productos || [];
+
+  var sh = SS.getSheetByName(hoja);
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Buscar fila
+  var allData = sh.getDataRange().getValues();
+  var row = -1;
+  for (var r = 1; r < allData.length; r++) {
+    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  }
+  if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Determinar resumen
+  var allD = true, allOC = true;
+  prods.forEach(function(p) {
+    if (p.o === 'D') allOC = false;
+    if (p.o === 'OC') allD = false;
+  });
+  var summary = allD ? 'Depósito' : allOC ? 'Orden de Compra' : 'Mixto';
+
+  // Columna Origen según hoja
+  var colOrigen = hoja === 'Clubes' ? 12 : hoja === 'Red' ? 10 : 9;
+  sh.getRange(row, colOrigen).setValue(summary);
+
+  // Guardar detalle JSON en columna "Origen Detalle"
+  var headers = allData[0];
+  var colDetalle = -1;
+  for (var h = 0; h < headers.length; h++) {
+    if (String(headers[h]).trim() === 'Origen Detalle') { colDetalle = h + 1; break; }
+  }
+  if (colDetalle === -1) {
+    colDetalle = headers.length + 1;
+    sh.getRange(1, colDetalle).setValue('Origen Detalle');
+  }
+  var detailObj = {};
+  prods.forEach(function(p) { detailObj[p.a] = p.o; });
+  sh.getRange(row, colDetalle).setValue(JSON.stringify(detailObj));
+
+  // Generar OC solo para productos con origen OC
+  var ocProds = prods.filter(function(p) { return p.o === 'OC'; });
+  if (ocProds.length > 0) {
+    // Verificar que no existan OC previas para este pedido
+    var shOC = SS.getSheetByName('Orden de Compra');
+    var yaExiste = false;
+    if (shOC && shOC.getLastRow() > 1) {
+      var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < existentes.length; i++) {
+        if (String(existentes[i][0]).trim() === pedidoId) { yaExiste = true; break; }
+      }
+    }
+    if (!yaExiste) {
+      _generarOCSelectiva(hoja, row, ocProds.map(function(p) { return p.a; }));
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, origen: summary })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Genera OC solo para un subconjunto de productos (abreviaturas).
+ *  Reutiliza la lógica de generarOrdenDeCompra pero filtra por abbrs. */
+function _generarOCSelectiva(canal, row, abbrs) {
+  var shOrigen = SS.getSheetByName(canal);
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOrigen || !shOC) return;
+
+  var rowData = shOrigen.getRange(row, 1, 1, shOrigen.getLastColumn()).getValues()[0];
+  var colCliente, colPedido, colTelefono;
+  var direccion = '';
+
+  if (canal === 'Home') {
+    colCliente = 7; colPedido = 1; colTelefono = 44;
+    direccion = [rowData[41], rowData[42], 'Lote ' + rowData[43]].filter(Boolean).join(' · ');
+  } else if (canal === 'Pilar') {
+    colCliente = 7; colPedido = 1; colTelefono = 43;
+    direccion = [rowData[41], rowData[42]].filter(Boolean).join(' · ');
+  } else if (canal === 'Capital Federal') {
+    colCliente = 7; colPedido = 1; colTelefono = 45;
+    direccion = [rowData[41], rowData[42] + ' ' + rowData[43], rowData[44]].filter(Boolean).join(' · ');
+  } else if (canal === 'Clubes') {
+    colCliente = 7; colPedido = 1; colTelefono = 33;
+    direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · ');
+  }
+
+  // Lookups
+  var abbrToProvMap = {}, abbrToNameMap = {}, abbrToCostoMap = {}, abbrToPrecioMap = {};
+  var hProvOC = SS.getSheetByName('Proveedores');
+  if (hProvOC) {
+    var pData = hProvOC.getDataRange().getValues();
+    var lastProv = '', lastProd = '';
+    for (var p = 1; p < pData.length; p++) {
+      if (pData[p][2] && String(pData[p][2]).trim()) lastProv = String(pData[p][2]).trim();
+      if (pData[p][1] && String(pData[p][1]).trim()) lastProd = String(pData[p][1]).trim();
+      var ab = String(pData[p][4]).trim();
+      var gu = String(pData[p][3]).trim();
+      if (ab) { abbrToProvMap[ab] = lastProv; abbrToNameMap[ab] = lastProd + (gu ? ' — ' + gu : ''); }
+    }
+  }
+  var hProdOC = SS.getSheetByName('Productos');
+  if (hProdOC) {
+    var prData = hProdOC.getDataRange().getValues();
+    for (var q = 1; q < prData.length; q++) {
+      var abr = String(prData[q][2]).trim();
+      if (!abr) continue;
+      abbrToCostoMap[abr] = parseFloat(String(prData[q][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+      abbrToPrecioMap[abr] = parseFloat(String(prData[q][8]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+    }
+  }
+
+  var CLUBES_PRECIOS = {'PMu':7000,'PMa':7000,'PJyQ':7000,'PCC':7000,'PJyM':7800,'PPM':11000,'PPJyQ':11000,'PPCyQ':11000};
+  var colToAbbrMap = (canal === 'Clubes')
+    ? {24:'PMu',25:'PMa',26:'PJyQ',27:'PCC',28:'PJyM',29:'PPM',30:'PPJyQ',31:'PPCyQ'}
+    : HOME_COL_TO_ABBR;
+
+  var cliente = String(rowData[colCliente] || '');
+  var numPedido = String(rowData[colPedido] || '');
+  var telefono = String(rowData[colTelefono] || '');
+
+  var ahora = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var dd = String(argDate.getDate()).padStart(2,'0');
+  var mm = String(argDate.getMonth()+1).padStart(2,'0');
+  var yyyy = argDate.getFullYear();
+  var hh = String(argDate.getHours()).padStart(2,'0');
+  var mi = String(argDate.getMinutes()).padStart(2,'0');
+  var fechaStr = dd+'/'+mm+'/'+yyyy+' '+hh+':'+mi;
+  var semana = _isoWeek(argDate);
+  var mesNombre = MESES[argDate.getMonth()];
+
+  // Solo generar OC para las abreviaturas indicadas
+  var abbrSet = {};
+  abbrs.forEach(function(a) { abbrSet[a] = true; });
+
+  var newRows = [];
+  Object.keys(colToAbbrMap).forEach(function(colStr) {
+    var colIdx = Number(colStr);
+    var abbr = colToAbbrMap[colIdx];
+    if (!abbrSet[abbr]) return; // Skip si no está en la lista OC
+    var qty = Number(rowData[colIdx - 1]) || 0;
+    if (qty === 0) return;
+
+    var ocId = _nextId('OC-');
+    var costoUnit = abbrToCostoMap[abbr] || 0;
+    var costoTotal = costoUnit * qty;
+    var precioVenta = (canal === 'Clubes') ? (CLUBES_PRECIOS[abbr] || 0) : (abbrToPrecioMap[abbr] || 0);
+
+    newRows.push([
+      ocId, fechaStr, semana, mesNombre, canal, numPedido, cliente, telefono, direccion,
+      abbrToProvMap[abbr] || '', abbrToNameMap[abbr] || abbr, abbr, qty,
+      costoUnit, costoTotal, precioVenta, 0, 0, 0,
+      'Orden de Compra', 'Pendiente', '', '', 'No', 'No'
+    ]);
+  });
+
+  if (newRows.length > 0) {
+    newRows.forEach(function(r) { shOC.appendRow(r); });
+    var actualLastRow = shOC.getLastRow();
+    var formulaStart = actualLastRow - newRows.length + 1;
+    for (var i = 0; i < newRows.length; i++) {
+      var rr = formulaStart + i;
+      shOC.getRange(rr, 17).setFormula('=P'+rr+'*M'+rr);
+      shOC.getRange(rr, 18).setFormula('=Q'+rr+'-O'+rr);
+      shOC.getRange(rr, 19).setFormula('=R'+rr+'/Q'+rr);
+    }
+    shOC.getRange(formulaStart, 13, newRows.length, 1).setNumberFormat('0');
+    shOC.getRange(formulaStart, 14, newRows.length, 2).setNumberFormat('$#,##0');
+    shOC.getRange(formulaStart, 16, newRows.length, 3).setNumberFormat('$#,##0');
+    shOC.getRange(formulaStart, 19, newRows.length, 1).setNumberFormat('0.0%');
+  }
+}
+
+/** POST action=marcarCobrado — marca un pedido como Cobrado desde el Panel.
+ *  { action:'marcarCobrado', hoja:'Clubes', id:'C-005' } */
+function _doPostMarcarCobrado(data) {
+  var hoja = String(data.hoja || '');
+  var pedidoId = String(data.id || '');
+
+  var sh = SS.getSheetByName(hoja);
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Buscar fila por N° Pedido (col B=2)
+  var allData = sh.getDataRange().getValues();
+  var row = -1;
+  for (var r = 1; r < allData.length; r++) {
+    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  }
+  if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Columna Estado de Pago según hoja
+  var colPago = hoja === 'Clubes' ? 16 : hoja === 'Red' ? 14 : 13; // Clubes=P(16), Red=N(14), Home/Pilar/CF=M(13)
+  sh.getRange(row, colPago).setValue('Cobrado');
+
+  // Propina (opcional)
+  var propina = Number(data.propina) || 0;
+  var propMet = String(data.propMet || '').trim();
+  if (propina > 0 && propMet) {
+    if (hoja === 'Clubes') {
+      // Clubes: Propina Ef=U(21), Propina Trans=V(22)
+      var colProp = propMet === 'Efectivo' ? 21 : 22;
+    } else if (hoja === 'Red') {
+      // Red: Propina Ef=S(19), Propina Trans=T(20)
+      var colProp = propMet === 'Efectivo' ? 19 : 20;
+    } else {
+      // Home/Pilar/CF: Propina Ef=R(18), Propina Trans=S(19)
+      var colProp = propMet === 'Efectivo' ? 18 : 19;
+    }
+    var propActual = Number(sh.getRange(row, colProp).getValue()) || 0;
+    sh.getRange(row, colProp).setValue(propActual + propina);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doPostAjusteSaldo(data) {
+  var deseadoEf = Number(data.efectivo) || 0;
+  var deseadoMP = Number(data.mp) || 0;
+
+  // ── Calcular cobrados actuales (pedidos operativos cobrados) ──
+  var cobradoEf = 0, cobradoMP = 0;
+  ['Home', 'Pilar', 'Capital Federal'].forEach(function(hoja) {
+    var sh = SS.getSheetByName(hoja);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var d = sh.getDataRange().getValues();
+    for (var r = 1; r < d.length; r++) {
+      if (String(d[r][12]).trim() === 'Cobrado') {
+        var fac = Number(d[r][19]) || Number(d[r][13]) || 0;
+        if (String(d[r][11]).trim() === 'Efectivo') cobradoEf += fac;
+        else cobradoMP += fac;
+      }
+    }
+  });
+  var shCl = SS.getSheetByName('Clubes');
+  if (shCl && shCl.getLastRow() > 1) {
+    var dCl = shCl.getDataRange().getValues();
+    for (var rc = 1; rc < dCl.length; rc++) {
+      if (String(dCl[rc][15]).trim() === 'Cobrado') {
+        var facC = Number(dCl[rc][22]) || Number(dCl[rc][16]) || 0;
+        if (String(dCl[rc][14]).trim() === 'Efectivo') cobradoEf += facC;
+        else cobradoMP += facC;
+      }
+    }
+  }
+
+  // ── Calcular gastos actuales ──
+  var gastosEf = 0, gastosMP = 0;
+  var shEgr = SS.getSheetByName('Egresos');
+  if (shEgr && shEgr.getLastRow() > 1) {
+    var dE = shEgr.getDataRange().getValues();
+    for (var re = 1; re < dE.length; re++) {
+      if (!dE[re][0]) continue;
+      var mE = Number(dE[re][6]) || 0;
+      if (String(dE[re][5]).trim() === 'Efectivo') gastosEf += mE;
+      else gastosMP += mE;
+    }
+  }
+
+  // ── Calcular ingresos actuales ──
+  var ingresosEf = 0, ingresosMP = 0;
+  var shIng = SS.getSheetByName('Ingresos');
+  if (shIng && shIng.getLastRow() > 1) {
+    var dI = shIng.getDataRange().getValues();
+    for (var ri = 1; ri < dI.length; ri++) {
+      if (!dI[ri][0]) continue;
+      var mI = Number(dI[ri][6]) || 0;
+      if (String(dI[ri][5]).trim() === 'Efectivo') ingresosEf += mI;
+      else ingresosMP += mI;
+    }
+  }
+
+  // ── Back-calculate base so that: base + cobrado + ingresos - gastos = deseado ──
+  var baseEf = deseadoEf - cobradoEf - ingresosEf + gastosEf;
+  var baseMP = deseadoMP - cobradoMP - ingresosMP + gastosMP;
+
+  // ── Guardar ──
+  var shSaldo = SS.getSheetByName('Saldo Base');
+  if (!shSaldo) {
+    shSaldo = SS.insertSheet('Saldo Base');
+    shSaldo.getRange(1, 1, 1, 3).setValues([['Fecha', 'Efectivo', 'Mercado Pago']]);
+    shSaldo.setFrozenRows(1);
+    shSaldo.getRange(1, 1, 1, 3).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
+  }
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  shSaldo.appendRow([argNow, baseEf, baseMP]);
+  shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  VENTAS — Lee Archivo + Operativas (entregados) + Historico
+// ══════════════════════════════════════════════════════════════
+
+/** GET ?action=ventas
+ *  Devuelve TODAS las ventas: archivadas + semana actual (entregados) + histórico legacy.
+ *  Canales: Venta Directa (Home+Pilar+CF), Clubes, Red, B2B, Catering. */
+function _doGetVentas() {
+  var ventas = [];
+  var MVAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  // ── Helper: parsear fila VD (Home/Pilar/CF) — misma estructura en operativa, archivo e historico ──
+  function parseVD(data, r, zona) {
+    var cliente = String(data[r][7] || '').trim();
+    if (!cliente) return null;
+    var facturado = Number(data[r][19]) || Number(data[r][13]) || 0;
+    if (facturado === 0) return null;
+    var fechaEnt = data[r][47];
+    var fecha = fechaEnt instanceof Date ? fechaEnt : data[r][3];
+    var fechaStr = fecha instanceof Date ? Utilities.formatDate(fecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fecha || '');
+    var mesEnt = String(data[r][48] || '').trim();
+    var semEnt = Number(data[r][49]) || 0;
+    var mesPed = String(data[r][4] || '').trim();
+    var semPed = Number(data[r][5]) || 0;
+    var mes = MVAL.indexOf(mesEnt) >= 0 ? mesEnt : mesPed;
+    var sem = semEnt > 0 ? semEnt : semPed;
+    return {
+      canal: 'Venta Directa', zona: zona, fecha: fechaStr, mes: mes, sem: sem,
+      cliente: cliente, estado: String(data[r][10] || '').trim(),
+      fp: String(data[r][11] || '').trim(), ep: String(data[r][12] || '').trim(),
+      $: facturado, ef: Number(data[r][15]) || 0, tr: Number(data[r][16]) || 0,
+      costo: Number(data[r][39]) || 0, margen: Number(data[r][40]) || 0
+    };
+  }
+
+  // ── Helper: parsear fila Clubes ──
+  function parseClubes(data, r) {
+    var cli = String(data[r][7] || '').trim();
+    if (!cli) return null;
+    var club = String(data[r][8] || '').trim();
+    var fac = Number(data[r][22]) || Number(data[r][16]) || 0;
+    if (fac === 0) return null;
+    var fC = data[r][3];
+    var fCS = fC instanceof Date ? Utilities.formatDate(fC, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fC || '');
+    return {
+      canal: 'Clubes', zona: club, fecha: fCS,
+      mes: String(data[r][4] || '').trim(), sem: Number(data[r][5]) || 0,
+      cliente: cli + (club ? ' (' + club + ')' : ''),
+      estado: String(data[r][13] || '').trim(),
+      fp: String(data[r][14] || '').trim(), ep: String(data[r][15] || '').trim(),
+      $: fac, ef: Number(data[r][18]) || 0, tr: Number(data[r][19]) || 0,
+      costo: Number(data[r][31]) || 0, margen: Number(data[r][32]) || 0
+    };
+  }
+
+  // ── Helper: leer hoja completa con parser ──
+  function readSheet(sheetName, parser, parserArg) {
+    var sh = SS.getSheetByName(sheetName);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var v = parser(data, r, parserArg);
+      if (v) ventas.push(v);
+    }
+  }
+
+  // ── Helper: leer solo Entregados de hoja operativa ──
+  function readOperativa(sheetName, parser, parserArg, colEstado) {
+    var sh = SS.getSheetByName(sheetName);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var estado = String(data[r][colEstado] || '').trim();
+      if (estado !== 'Entregado') continue;
+      var v = parser(data, r, parserArg);
+      if (v) ventas.push(v);
+    }
+  }
+
+  // ── Venta Directa: Archivo + Operativa (entregados) + Historico legacy ──
+  var vdCfg = [
+    { zona: 'Home' },
+    { zona: 'Pilar' },
+    { zona: 'Capital Federal' }
+  ];
+  vdCfg.forEach(function(cfg) {
+    readSheet('Archivo ' + cfg.zona, parseVD, cfg.zona);
+    readOperativa(cfg.zona, parseVD, cfg.zona, 10);
+    readSheet('Historico ' + cfg.zona, parseVD, cfg.zona);
+  });
+
+  // ── Clubes: Archivo + Operativa (entregados) + Historico legacy ──
+  readSheet('Archivo Clubes', parseClubes);
+  readOperativa('Clubes', parseClubes, null, 13);
+  readSheet('Historico Clubes', parseClubes);
+
+  // ── Red (headers row 1, data from row 2) ──
+  var shRd = SS.getSheetByName('Historico Red');
+  if (shRd && shRd.getLastRow() > 1) {
+    var dRd = shRd.getDataRange().getValues();
+    for (var rr = 1; rr < dRd.length; rr++) {
+      var cliR = String(dRd[rr][5] || '').trim();
+      if (!cliR) continue;
+      var facR = Number(dRd[rr][12]) || 0;
+      if (facR === 0) continue;
+      var fR = dRd[rr][1];
+      var fRS = fR instanceof Date ? Utilities.formatDate(fR, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fR || '');
+      ventas.push({
+        canal: 'Red', zona: String(dRd[rr][7] || '').trim(), fecha: fRS,
+        mes: String(dRd[rr][2] || '').trim(), sem: Number(dRd[rr][3]) || 0,
+        cliente: cliR, estado: 'Entregado',
+        fp: Number(dRd[rr][14]) > 0 ? 'Transferencia' : 'Efectivo', ep: 'Cobrado',
+        $: facR, ef: Number(dRd[rr][13]) || 0, tr: Number(dRd[rr][14]) || 0,
+        costo: 0, margen: 0
+      });
+    }
+  }
+
+  // ── B2B (headers row 1, data from row 2) ──
+  var shB = SS.getSheetByName('Historico B2B');
+  if (shB && shB.getLastRow() > 1) {
+    var dB = shB.getDataRange().getValues();
+    for (var rb = 1; rb < dB.length; rb++) {
+      var cliB = String(dB[rb][5] || '').trim();
+      if (!cliB) continue;
+      var facB = Number(dB[rb][8]) || 0;
+      if (facB === 0) continue;
+      var fB = dB[rb][1];
+      var fBS = fB instanceof Date ? Utilities.formatDate(fB, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fB || '');
+      ventas.push({
+        canal: 'B2B', zona: '', fecha: fBS,
+        mes: String(dB[rb][2] || '').trim(), sem: Number(dB[rb][3]) || 0,
+        cliente: cliB, estado: 'Entregado',
+        fp: Number(dB[rb][10]) > 0 ? 'Transferencia' : 'Efectivo', ep: 'Cobrado',
+        $: facB, ef: Number(dB[rb][9]) || 0, tr: Number(dB[rb][10]) || 0,
+        costo: 0, margen: 0
+      });
+    }
+  }
+
+  // ── Catering (headers row 1, data from row 2) ──
+  var shCt = SS.getSheetByName('Historico Catering');
+  if (shCt && shCt.getLastRow() > 1) {
+    var dCt = shCt.getDataRange().getValues();
+    for (var rt = 1; rt < dCt.length; rt++) {
+      var cliT = String(dCt[rt][5] || '').trim();
+      if (!cliT) continue;
+      var facT = Number(dCt[rt][8]) || 0;
+      if (facT === 0) continue;
+      var fT = dCt[rt][1];
+      var fTS = fT instanceof Date ? Utilities.formatDate(fT, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fT || '');
+      ventas.push({
+        canal: 'Catering', zona: String(dCt[rt][7] || '').trim(), fecha: fTS,
+        mes: String(dCt[rt][2] || '').trim(), sem: Number(dCt[rt][3]) || 0,
+        cliente: cliT, estado: 'Entregado',
+        fp: Number(dCt[rt][11]) > 0 ? 'Transferencia' : 'Efectivo', ep: 'Cobrado',
+        $: facT, ef: Number(dCt[rt][10]) || 0, tr: Number(dCt[rt][11]) || 0,
+        costo: Number(dCt[rt][17]) || 0, margen: Number(dCt[rt][22]) || 0
+      });
+    }
+  }
+
+  // ── Deduplicar por N° Pedido (puede estar en operativa + archivo si justo se archivó) ──
+  var seen = {};
+  ventas = ventas.filter(function(v) {
+    var key = v.canal + '|' + v.cliente + '|' + v.fecha + '|' + v.$;
+    if (seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ts: Date.now(), v: ventas }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
