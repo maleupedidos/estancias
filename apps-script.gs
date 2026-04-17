@@ -64,7 +64,7 @@ function _nextId(prefix) {
   // También comparar con Config para nunca retroceder
   var shConfig = SS.getSheetByName('Config');
   if (shConfig) {
-    var rowMap = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6 };
+    var rowMap = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6, 'R-': 7 };
     var configVal = Number(shConfig.getRange(rowMap[prefix], 2).getValue()) || 0;
     if (configVal > max) max = configVal;
   }
@@ -73,7 +73,7 @@ function _nextId(prefix) {
 
   // Actualizar Config
   if (shConfig) {
-    var rowMap2 = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6 };
+    var rowMap2 = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6, 'R-': 7 };
     shConfig.getRange(rowMap2[prefix], 2).setValue(nuevo);
   }
 
@@ -1639,8 +1639,8 @@ function _doPostRed(data) {
   sh.getRange(newRow, 21).setFormula('=O' + newRow + '+S' + newRow + '+T' + newRow);
   // Fórmula Margen Bruto en AT (col 46) = Facturado - Costo
   sh.getRange(newRow, 46).setFormula('=U' + newRow + '-AS' + newRow);
-  // Fórmula Comisión 17% en AU (col 47) = Facturado * 0.17
-  sh.getRange(newRow, 47).setFormula('=U' + newRow + '*0.17');
+  // Fórmula Comisión 17% en AU (col 47) = Facturado * 17/100
+  sh.getRange(newRow, 47).setFormula('=U' + newRow + '*17/100');
   // Fórmula Margen Neto en AV (col 48) = Margen Bruto - Comisión
   sh.getRange(newRow, 48).setFormula('=AT' + newRow + '-AU' + newRow);
   // Forzar teléfono como texto
