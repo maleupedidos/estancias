@@ -387,12 +387,143 @@ function doGet(e) {
   if (action === 'egresos') return _doGetEgresos();
   if (action === 'entregas') return _doGetEntregas(e);
   if (action === 'vendedores') return _doGetVendedores();
+  if (action === 'dashboardVendedor') return _doGetDashboardVendedor(e);
   if (action === 'busqueda') return _doGetBusqueda();
   if (action === 'catalogo') return _doGetCatalogo();
   if (action === 'admin') return _doGetAdmin();
   if (action === 'ventas') return _doGetVentas();
   if (action === 'stock') return _doGetStock();
+  if (action === 'precios') return _doGetPrecios();
+  if (action === 'cobrosPendientes') return _doGetCobrosPendientes();
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
+}
+
+// Cobros pendientes: pedidos Entregados + No Cobrados de TODAS las hojas
+// Red: agrupado por Vendedor (aplica 17% de comision)
+function _doGetCobrosPendientes() {
+  var hojas = [
+    {name:'Home', colCliente:7, colEst:10, colPago:12, colTotal:13, colTel:44, colFp:11, colDia:9, colFecha:3},
+    {name:'Pilar', colCliente:7, colEst:10, colPago:12, colTotal:13, colTel:43, colFp:11, colDia:9, colFecha:3},
+    {name:'Capital Federal', colCliente:7, colEst:10, colPago:12, colTotal:13, colTel:45, colFp:11, colDia:9, colFecha:3},
+    {name:'Clubes', colCliente:7, colEst:13, colPago:15, colTotal:16, colTel:null, colFp:14, colDia:12, colFecha:3}
+  ];
+  var out = [];
+  hojas.forEach(function(cfg) {
+    var sh = SS.getSheetByName(cfg.name);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var estado = String(data[r][cfg.colEst] || '').trim();
+      var pago = String(data[r][cfg.colPago] || '').trim();
+      if (estado !== 'Entregado') continue;
+      if (pago === 'Cobrado') continue;
+      var id = data[r][1];
+      if (!id) continue;
+      var fecha = data[r][cfg.colFecha];
+      var fechaStr = '';
+      if (fecha instanceof Date) fechaStr = Utilities.formatDate(fecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+      else fechaStr = String(fecha || '').trim();
+      out.push({
+        key: cfg.name + '|' + id,
+        h: cfg.name,
+        id: String(id),
+        c: String(data[r][cfg.colCliente] || '').trim(),
+        t: cfg.colTel !== null ? String(data[r][cfg.colTel] || '').trim() : '',
+        '$': Number(data[r][cfg.colTotal]) || 0,
+        fp: String(data[r][cfg.colFp] || '').trim(),
+        de: String(data[r][cfg.colDia] || '').trim(),
+        fe: fechaStr
+      });
+    }
+  });
+
+  // Red: agrupar por Vendedor (col 8 1-based = idx 7)
+  var shRed = SS.getSheetByName('Red');
+  if (shRed && shRed.getLastRow() > 1) {
+    var dRed = shRed.getDataRange().getValues();
+    var porVendedor = {};
+    for (var r = 1; r < dRed.length; r++) {
+      var estado = String(dRed[r][11] || '').trim(); // col 12 Estado Entrega
+      var pago = String(dRed[r][13] || '').trim();   // col 14 Estado Pago
+      if (estado !== 'Entregado') continue;
+      if (pago === 'Cobrado') continue;
+      var vendedor = String(dRed[r][7] || '').trim(); // col 8 Vendedor
+      if (!vendedor) continue;
+      var pedId = dRed[r][1];
+      if (!pedId) continue;
+      var total = Number(dRed[r][14]) || 0; // col 15 Total
+      var fechaV = dRed[r][3];
+      var fechaStr = fechaV instanceof Date
+        ? Utilities.formatDate(fechaV, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
+        : String(fechaV || '').trim();
+      if (!porVendedor[vendedor]) {
+        porVendedor[vendedor] = {
+          vendedor: vendedor,
+          ids: [],
+          totalBruto: 0,
+          fechas: [],
+          tel: '',
+          fps: {}
+        };
+      }
+      var v = porVendedor[vendedor];
+      v.ids.push(String(pedId));
+      v.totalBruto += total;
+      v.fechas.push(fechaStr);
+      var fpRed = String(dRed[r][12] || '').trim(); // col 13 Forma Pago
+      if (fpRed) v.fps[fpRed] = (v.fps[fpRed] || 0) + 1;
+    }
+    // Convertir en cobros (uno por vendedor)
+    Object.keys(porVendedor).forEach(function(vName) {
+      var v = porVendedor[vName];
+      var comision = Math.round(v.totalBruto * 0.17);
+      var neto = v.totalBruto - comision;
+      // Fecha mas vieja
+      var fechasValidas = v.fechas.filter(Boolean).sort(function(a,b){
+        var pa=a.split('/'),pb=b.split('/');
+        var ta=new Date(+pa[2],+pa[1]-1,+pa[0]).getTime();
+        var tb=new Date(+pb[2],+pb[1]-1,+pb[0]).getTime();
+        return ta-tb;
+      });
+      var fpDom = Object.keys(v.fps).sort(function(a,b){return v.fps[b]-v.fps[a]})[0] || 'Transferencia';
+      out.push({
+        key: 'Red|vendedor:' + vName,
+        h: 'Red',
+        id: v.ids.join(','),
+        c: vName + ' (Vendedor Red)',
+        t: '',
+        '$': neto,
+        fp: fpDom,
+        de: '',
+        fe: fechasValidas[0] || '',
+        isVendedor: true,
+        pedidosIds: v.ids,
+        totalBruto: v.totalBruto,
+        comision: comision
+      });
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ts: Date.now(), cobros: out}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Precios y costos por abreviatura — consumido por ruta.html (solapa +)
+function _doGetPrecios() {
+  var hProd = SS.getSheetByName('Productos');
+  var out = {};
+  if (hProd) {
+    var data = hProd.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var abbr = String(data[r][2]).trim();
+      if (!abbr) continue;
+      var precio = parseFloat(String(data[r][8]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+      var costo = parseFloat(String(data[r][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
+      out[abbr] = {p: precio, c: costo};
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify(out))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Stock disponible en tiempo real — consumido por la tienda online
@@ -659,6 +790,147 @@ function _doGetVendedores() {
   }
   return ContentService.createTextOutput(JSON.stringify({ ts: Date.now(), vendedores: vendedores }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=loginVendedor — valida credenciales contra hoja Vendedores
+ *  Recibe { action:'loginVendedor', usuario, pin }
+ *  Devuelve { ok, nombre, wa, comision } o { ok:false, err } */
+function _doPostLoginVendedor(data) {
+  var usuario = String(data.usuario || '').trim().toLowerCase();
+  var pin     = String(data.pin || '').trim();
+
+  if (!usuario || !pin) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Usuario y PIN requeridos' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sh = SS.getSheetByName('Vendedores');
+  if (!sh || sh.getLastRow() <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Sin vendedores' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var rows = sh.getDataRange().getValues();
+  for (var r = 1; r < rows.length; r++) {
+    var u = String(rows[r][7] || '').trim().toLowerCase(); // col H = Usuario
+    var p = String(rows[r][8] || '').trim();               // col I = PIN
+    var estado = String(rows[r][6] || '').trim();          // col G = Estado
+    if (u === usuario && p === pin && estado === 'Activo') {
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: true,
+        nombre: String(rows[r][0] || ''),
+        wa: String(rows[r][1] || ''),
+        comision: Number(rows[r][9]) || 17,
+        barrios: String(rows[r][3] || '').split(',').map(function(b){return b.trim();}).filter(Boolean),
+        partido: String(rows[r][4] || ''),
+        localidad: String(rows[r][5] || '')
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Usuario o PIN incorrectos' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** GET ?action=dashboardVendedor&nombre=X — stats del vendedor
+ *  Devuelve: { ok, stats: {semana, mes, comisionTotal, totalPedidos}, pedidos: [], clientes: [] } */
+function _doGetDashboardVendedor(e) {
+  var nombre = String(e && e.parameter && e.parameter.nombre || '').trim();
+  if (!nombre) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'nombre requerido' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Leer hoja Red (operativa)
+  var sh = SS.getSheetByName('Red');
+  var pedidos = [];
+  var clientesMap = {}; // {nombre: {count, total, ultFecha}}
+
+  // Fecha actual Argentina
+  var ahora = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var semanaActual = _isoWeek(argDate);
+  var mesActual    = argDate.getMonth() + 1; // 1-12
+  var yearActual   = argDate.getFullYear();
+  var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var nombreMesActual = MESES[mesActual - 1];
+
+  var semanaFacturado = 0, semanaPedidos = 0;
+  var mesFacturado = 0, mesPedidos = 0;
+  var totalFacturado = 0, totalPedidos = 0;
+
+  if (sh && sh.getLastRow() > 1) {
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var vendedor = String(data[r][7] || '').trim();
+      if (vendedor !== nombre) continue;
+
+      var nPedido    = String(data[r][1] || '').trim();
+      var fechaCell  = data[r][3];
+      var mes        = String(data[r][4] || '').trim();
+      var semana     = Number(data[r][5]) || 0;
+      var year       = Number(data[r][6]) || 0;
+      var cliente    = String(data[r][8] || '').trim();
+      var estado     = String(data[r][11] || '').trim();
+      var diaEntrega = String(data[r][10] || '').trim();
+      var total      = Number(data[r][14]) || 0;
+      var facturado  = Number(data[r][20]) || total;
+      var comision   = Number(data[r][46]) || Math.round(facturado * 17 / 100);
+
+      var fechaStr = '';
+      if (fechaCell instanceof Date) {
+        fechaStr = Utilities.formatDate(fechaCell, 'America/Argentina/Buenos_Aires', 'dd/MM');
+      } else fechaStr = String(fechaCell || '');
+
+      // Stats semana/mes/total (solo pedidos no cancelados)
+      if (estado !== 'Cancelado') {
+        totalFacturado += facturado; totalPedidos++;
+        if (year === yearActual && semana === semanaActual) {
+          semanaFacturado += facturado; semanaPedidos++;
+        }
+        if (year === yearActual && mes === nombreMesActual) {
+          mesFacturado += facturado; mesPedidos++;
+        }
+      }
+
+      // Pedidos recientes
+      pedidos.push({
+        n: nPedido, c: cliente, f: fechaStr, de: diaEntrega,
+        $: facturado, com: comision, es: estado
+      });
+
+      // Clientes agrupados
+      if (cliente) {
+        if (!clientesMap[cliente]) clientesMap[cliente] = { n: cliente, count: 0, total: 0, ult: fechaStr };
+        clientesMap[cliente].count++;
+        clientesMap[cliente].total += facturado;
+        clientesMap[cliente].ult = fechaStr;
+      }
+    }
+  }
+
+  // Sort pedidos by N° desc (más recientes primero)
+  pedidos.sort(function(a, b) {
+    var na = Number(a.n) || 0, nb = Number(b.n) || 0;
+    return nb - na;
+  });
+  pedidos = pedidos.slice(0, 20);
+
+  // Clientes: convertir map a array, sort por count desc
+  var clientes = Object.keys(clientesMap).map(function(k) { return clientesMap[k]; });
+  clientes.sort(function(a, b) { return b.count - a.count; });
+
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    stats: {
+      semana:   { facturado: semanaFacturado, pedidos: semanaPedidos },
+      mes:      { facturado: mesFacturado,    pedidos: mesPedidos,    nombre: nombreMesActual },
+      total:    { facturado: totalFacturado,  pedidos: totalPedidos },
+      comision: Math.round(totalFacturado * 17 / 100)
+    },
+    pedidos: pedidos,
+    clientes: clientes
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function _doGetBusqueda() {
@@ -1165,8 +1437,11 @@ function _doPostMarcarEntregado(data) {
     if (hProd) _homeStockFisicoMixto(sh, row, hProd, -1);
   }
 
-  // Marcar cobrado si se indicó
-  if (cobrado) sh.getRange(row, colEstadoPago).setValue('Cobrado');
+  // Marcar cobrado si se indicó + estampar fecha
+  if (cobrado) {
+    sh.getRange(row, colEstadoPago).setValue('Cobrado');
+    _stampFechaCobro(sh, row);
+  }
 
   // Escribir propina si existe
   var propina = Number(data.propina) || 0;
@@ -1199,6 +1474,8 @@ function doPost(e) {
     if (data.action === 'ingreso')         return _doPostIngreso(data);
     if (data.action === 'ajusteSaldo')     return _doPostAjusteSaldo(data);
     if (data.action === 'marcarCobrado')   return _doPostMarcarCobrado(data);
+    if (data.action === 'cancelarPedido')  return _doPostCancelarPedido(data);
+    if (data.action === 'cobrarVendedorRed') return _doPostCobrarVendedorRed(data);
     if (data.action === 'setOrigenProductos') return _doPostSetOrigenProductos(data);
     if (data.action === 'cambiarOrigen')     return _doPostCambiarOrigen(data);
     if (data.action === 'cambiarEstadoEntrega') return _doPostCambiarEstadoEntrega(data);
@@ -1206,6 +1483,7 @@ function doPost(e) {
     if (data.action === 'recibirMercaderia') return _doPostRecibirMercaderia(data);
     if (data.action === 'pagarProveedor')  return _doPostPagarProveedor(data);
     if (data.action === 'compraManual')    return _doPostCompraManual(data);
+    if (data.action === 'loginVendedor')   return _doPostLoginVendedor(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
@@ -1301,6 +1579,16 @@ const PAGE_ID_TO_ABBR = {
   11: 'ECaC',  12: 'EJyQ',  17: 'ECyQ', 18: 'EV',
   14: 'TG',    15: 'TLC',   16: 'TC',   13: 'F',
   19: 'PMu',  1:  'PMa',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
+  // Exclusivos de Pilar: sorrentinos adicionales
+  20: 'SQB',  21: 'SL',    22: 'SPyP', 23: 'SE',
+};
+
+// Columnas extras solo para hoja Pilar (BC, BD, BE, BF = 55, 56, 57, 58)
+const PILAR_EXTRA_PRODUCT_COLS = {
+  20: 55, // BC — SQB   Sorrentinos Queso Brie
+  21: 56, // BD — SL    Sorrentinos Langostinos al Azafrán
+  22: 57, // BE — SPyP  Sorrentinos Pollo y Puerro
+  23: 58, // BF — SE    Sorrentinos Espinaca
 };
 
 function _doPostHome(data, sheetName, prefix) {
@@ -1374,11 +1662,11 @@ function _doPostHome(data, sheetName, prefix) {
   row[5]  = semana;                             // F  Semana Pedido
   row[6]  = yyyy;                               // G  Año Pedido
   row[7]  = String(data.nombre || '');          // H  Cliente
-  row[8]  = 'Pendiente';                        // I  Origen (default)
+  row[8]  = String(data.origen || 'Pendiente');          // I  Origen (default o override)
   row[9]  = String(data.dia || '');             // J  Día de entrega elegido
-  row[10] = 'Pendiente';                        // K  Estado de Entrega (default)
+  row[10] = String(data.estadoEntrega || 'Pendiente');   // K  Estado de Entrega (default o override)
   row[11] = pago;                               // L  Forma de Pago
-  row[12] = 'No Cobrado';                       // M  Estado de Pago (default)
+  row[12] = (String(data.estadoPago || '') === 'Cobrado') ? 'Cobrado' : 'No Cobrado';  // M  Estado de Pago
   row[13] = total;                              // N  Total ($)
   row[14] = envio;                              // O  Envío ($)
   row[15] = efectivo;                           // P  Efectivo ($)
@@ -1424,6 +1712,14 @@ function _doPostHome(data, sheetName, prefix) {
   row[51] = Number(data.subtotalSinDescuento) || total; // AZ = Subtotal sin Descuento
   row[52] = Number(data.descuento) || 0;                // BA = Descuento ($)
 
+  // Columnas extras exclusivas de Pilar: BC-BF (SQB/SL/SPyP/SE)
+  if (sheetName === 'Pilar') {
+    while (row.length < 58) row.push('');
+    Object.keys(PILAR_EXTRA_PRODUCT_COLS).forEach(function(id) {
+      row[PILAR_EXTRA_PRODUCT_COLS[id] - 1] = qtys[Number(id)] || 0;
+    });
+  }
+
   sh.appendRow(row);
   var newRow = sh.getLastRow();
 
@@ -1437,6 +1733,22 @@ function _doPostHome(data, sheetName, prefix) {
   var telVal = String(data.telefono || '');
   if (telVal) sh.getRange(newRow, telCol).setNumberFormat('@').setValue(telVal);
 
+  // Si el pedido se crea directamente como Entregado:
+  // 1. Descontar Stock Fisico (si Deposito o Mixto)
+  // 2. Registrar fecha/hora de entrega en las columnas correspondientes
+  // (Reservado + Deposito se actualiza solo por formula SUMPRODUCT en col G de Productos)
+  var estadoEnt = String(data.estadoEntrega || 'Pendiente');
+  var origenFinal = String(data.origen || 'Pendiente');
+  if (estadoEnt === 'Entregado') {
+    var hProd = SS.getSheetByName('Productos');
+    if (hProd) {
+      if (origenFinal === 'Deposito') _homeStockFisico(sh, newRow, hProd, -1);
+      else if (origenFinal === 'Mixto') _homeStockFisicoMixto(sh, newRow, hProd, -1);
+    }
+    // Registrar fecha de entrega (Home=46, Pilar=45, CF=47)
+    var colEntrega = sheetName === 'Pilar' ? 45 : sheetName === 'Capital Federal' ? 47 : 46;
+    _registrarFechaEntrega(sh, newRow, colEntrega);
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2123,6 +2435,15 @@ function _onEditClubes(e) {
     return;
   }
 
+  // Col P (16) = Estado de Pago → estampar/limpiar Fecha de Cobro
+  if (col === 16) {
+    var nuevoPagoC = String(e.value || '').trim();
+    var anteriorPagoC = String(e.oldValue || '').trim();
+    if (nuevoPagoC === 'Cobrado' && anteriorPagoC !== 'Cobrado') _stampFechaCobro(sh, row);
+    else if (anteriorPagoC === 'Cobrado' && nuevoPagoC !== 'Cobrado') _clearFechaCobro(sh, row);
+    return;
+  }
+
   // Col N (14) = Estado de Entrega → stock solo si Deposito
   if (col === 14) {
     const origen = String(sh.getRange(row, 12).getValue()); // L = Origen
@@ -2436,6 +2757,15 @@ function _onEditHome(e) {
     return;
   }
 
+  // Estado de Pago (col M=13): estampar/limpiar Fecha de Cobro
+  if (col === 13) {
+    var nuevoPago = String(e.value || '').trim();
+    var anteriorPago = String(e.oldValue || '').trim();
+    if (nuevoPago === 'Cobrado' && anteriorPago !== 'Cobrado') _stampFechaCobro(sh, row);
+    else if (anteriorPago === 'Cobrado' && nuevoPago !== 'Cobrado') _clearFechaCobro(sh, row);
+    return;
+  }
+
   if (col !== 11) return; // solo col K (11) = Estado de Entrega
 
   const origen = String(sh.getRange(row, 9).getValue()); // col I (9) = Origen
@@ -2474,6 +2804,40 @@ function _onEditHome(e) {
 }
 
 // Llena 6 columnas de entrega desde colStart en zona Argentina
+/** Devuelve el índice 1-based de la col "Fecha de Cobro". La crea si no existe. */
+function _ensureFechaCobroCol(sh) {
+  var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  for (var h = 0; h < headers.length; h++) {
+    if (String(headers[h]).trim() === 'Fecha de Cobro') return h + 1;
+  }
+  var newCol = sh.getLastColumn() + 1;
+  sh.getRange(1, newCol).setValue('Fecha de Cobro')
+    .setBackground('#5D4037').setFontColor('#FFFFFF').setFontWeight('bold');
+  return newCol;
+}
+
+/** Estampa fecha+hora argentina en la col "Fecha de Cobro" de `row`. */
+function _stampFechaCobro(sh, row) {
+  var col = _ensureFechaCobroCol(sh);
+  // No sobreescribir si ya hay fecha (evita que una edición posterior pisé la original)
+  var actual = String(sh.getRange(row, col).getValue() || '').trim();
+  if (actual) return;
+  var ahora = new Date();
+  var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var dd = String(argDate.getDate()).padStart(2, '0');
+  var mm = String(argDate.getMonth() + 1).padStart(2, '0');
+  var yyyy = argDate.getFullYear();
+  var hh = String(argDate.getHours()).padStart(2, '0');
+  var mi = String(argDate.getMinutes()).padStart(2, '0');
+  sh.getRange(row, col).setValue(dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi);
+}
+
+/** Limpia la col "Fecha de Cobro" de `row` (cuando se revierte de Cobrado → No Cobrado). */
+function _clearFechaCobro(sh, row) {
+  var col = _ensureFechaCobroCol(sh);
+  sh.getRange(row, col).clearContent();
+}
+
 function _registrarFechaEntrega(sh, row, colStart) {
   colStart = colStart || 45;
   var ahora   = new Date();
@@ -4738,6 +5102,7 @@ function _doGetAdmin() {
     var stats = { nombre: hoja, pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
     if (!sh || sh.getLastRow() <= 1) { canales.push(stats); return; }
     var data = sh.getDataRange().getValues();
+    var headersH = data[0];
 
     for (var r = 1; r < data.length; r++) {
       var estado = String(data[r][10]).trim();
@@ -4781,11 +5146,50 @@ function _doGetAdmin() {
       var horaStr = hora instanceof Date ? Utilities.formatDate(hora, 'America/Argentina/Buenos_Aires', 'HH:mm') : String(hora || '');
       var diaPedido = String(data[r][2] || '').trim();
 
+      var efR  = Number(data[r][15]) || 0; // P = Efectivo
+      var trR  = Number(data[r][16]) || 0; // Q = Transferencia
+      var pefR = Number(data[r][17]) || 0; // R = Propina Ef
+      var ptrR = Number(data[r][18]) || 0; // S = Propina Trans
+
+      // Fecha Entrega real (se llena al marcar Entregado): Home col 48, Pilar col 47, CF col 49 (1-based)
+      var idxFechaEnt = hoja === 'Pilar' ? 46 : hoja === 'Capital Federal' ? 48 : 47;
+      var feRaw = data[r][idxFechaEnt];
+      var feStr = '', feDiaStr = '';
+      if (feRaw instanceof Date) {
+        feStr = Utilities.formatDate(feRaw, 'America/Argentina/Buenos_Aires', 'dd/MM');
+        var DIAS_FE = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        feDiaStr = DIAS_FE[feRaw.getDay()];
+      } else if (feRaw) {
+        var feParts = String(feRaw).split('/');
+        if (feParts.length >= 2) feStr = String(feParts[0]).padStart(2,'0') + '/' + String(feParts[1]).padStart(2,'0');
+      }
+
+      // Fecha de Cobro (col nueva dinámica, buscar por header)
+      var fcStr = '', fcDiaStr = '';
+      for (var hh = 0; hh < headersH.length; hh++) {
+        if (String(headersH[hh]).trim() === 'Fecha de Cobro') {
+          var fcRaw = data[r][hh];
+          if (fcRaw instanceof Date) {
+            fcStr = Utilities.formatDate(fcRaw, 'America/Argentina/Buenos_Aires', 'dd/MM');
+            var DIAS_FC = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+            fcDiaStr = DIAS_FC[fcRaw.getDay()];
+          } else if (fcRaw) {
+            var fcStr2 = String(fcRaw).split(' ')[0];
+            var fcParts = fcStr2.split('/');
+            if (fcParts.length >= 2) fcStr = String(fcParts[0]).padStart(2,'0') + '/' + String(fcParts[1]).padStart(2,'0');
+          }
+          break;
+        }
+      }
+
       pedidos.push({
         n: nPedido, h: hoja, c: cliente, f: fechaStr, de: diaEntrega,
         es: estado, o: origen, ep: estadoPago, fp: formaPago,
         $: facturado, co: costoPed, mg: margenPed, br: subBarrio, p: prods,
-        hr: horaStr, dia: diaPedido
+        hr: horaStr, dia: diaPedido,
+        ef: efR, tr: trR, pef: pefR, ptr: ptrR,
+        fe: feStr, fed: feDiaStr,
+        fc: fcStr, fcd: fcDiaStr
       });
     }
     canales.push(stats);
@@ -4796,6 +5200,7 @@ function _doGetAdmin() {
   var statsClubes = { nombre: 'Clubes', pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
   if (shClubes && shClubes.getLastRow() > 1) {
     var dataClubes = shClubes.getDataRange().getValues();
+    var headersClub = dataClubes[0];
     for (var rc = 1; rc < dataClubes.length; rc++) {
       var estadoC = String(dataClubes[rc][13]).trim();
       var estadoPagoC = String(dataClubes[rc][15]).trim();
@@ -4839,13 +5244,38 @@ function _doGetAdmin() {
       var horaStrC = horaC instanceof Date ? Utilities.formatDate(horaC, 'America/Argentina/Buenos_Aires', 'HH:mm') : String(horaC || '');
       var diaPedC = String(dataClubes[rc][2] || '').trim();
 
+      var efC  = Number(dataClubes[rc][18]) || 0; // S = Efectivo
+      var trC  = Number(dataClubes[rc][19]) || 0; // T = Transferencia
+      var pefC = Number(dataClubes[rc][20]) || 0; // U = Propina Ef
+      var ptrC = Number(dataClubes[rc][21]) || 0; // V = Propina Trans
+
+      // Fecha de Cobro (col dinámica)
+      var fcStrC = '', fcDiaStrC = '';
+      for (var hhC = 0; hhC < headersClub.length; hhC++) {
+        if (String(headersClub[hhC]).trim() === 'Fecha de Cobro') {
+          var fcRawC = dataClubes[rc][hhC];
+          if (fcRawC instanceof Date) {
+            fcStrC = Utilities.formatDate(fcRawC, 'America/Argentina/Buenos_Aires', 'dd/MM');
+            var DIAS_FCC = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+            fcDiaStrC = DIAS_FCC[fcRawC.getDay()];
+          } else if (fcRawC) {
+            var fcStr2C = String(fcRawC).split(' ')[0];
+            var fcPartsC = fcStr2C.split('/');
+            if (fcPartsC.length >= 2) fcStrC = String(fcPartsC[0]).padStart(2,'0') + '/' + String(fcPartsC[1]).padStart(2,'0');
+          }
+          break;
+        }
+      }
+
       pedidos.push({
         n: nPedidoC, h: 'Clubes',
         c: clienteC + (clubC ? ' (' + clubC + ')' : ''),
         f: fechaStrC, de: diaEntregaC, es: estadoC, o: origenC,
         ep: estadoPagoC, fp: formaPagoC, $: facturadoC,
         co: costoCl, mg: margenCl, br: clubC, p: prodsC,
-        hr: horaStrC, dia: diaPedC
+        hr: horaStrC, dia: diaPedC,
+        ef: efC, tr: trC, pef: pefC, ptr: ptrC,
+        fc: fcStrC, fcd: fcDiaStrC
       });
     }
   }
@@ -4891,13 +5321,19 @@ function _doGetAdmin() {
       var costoR = Number(dataRed[rr][44]) || 0;
       var margenR = Number(dataRed[rr][45]) || 0;
 
+      var efRd  = Number(dataRed[rr][16]) || 0; // Q = Efectivo
+      var trRd  = Number(dataRed[rr][17]) || 0; // R = Transferencia
+      var pefRd = Number(dataRed[rr][18]) || 0; // S = Propina Ef
+      var ptrRd = Number(dataRed[rr][19]) || 0; // T = Propina Trans
+
       pedidos.push({
         n: nPedidoR, h: 'Red',
         c: clienteR + (vendedorR ? ' (Red: ' + vendedorR + ')' : ''),
         f: fechaStrR, de: diaEntregaR, es: estadoR, o: origenR,
         ep: estadoPagoR, fp: formaPagoR, $: facturadoR,
         co: costoR, mg: margenR, br: vendedorR, p: prodsR,
-        hr: '', dia: ''
+        hr: '', dia: '',
+        ef: efRd, tr: trRd, pef: pefRd, ptr: ptrRd
       });
     }
   }
@@ -5395,14 +5831,35 @@ function _generarOCSelectiva(canal, row, abbrs) {
 
 /** POST action=marcarCobrado — marca un pedido como Cobrado desde el Panel.
  *  { action:'marcarCobrado', hoja:'Clubes', id:'C-005' } */
-function _doPostMarcarCobrado(data) {
+// Cobrar todos los pedidos de un Vendedor Red
+function _doPostCobrarVendedorRed(data) {
+  var vendedor = String(data.vendedor || '').trim();
+  if (!vendedor) return ContentService.createTextOutput(JSON.stringify({ok:false,err:'vendedor vacio'})).setMimeType(ContentService.MimeType.JSON);
+  var sh = SS.getSheetByName('Red');
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ok:false,err:'hoja'})).setMimeType(ContentService.MimeType.JSON);
+  var d = sh.getDataRange().getValues();
+  var updated = 0;
+  for (var r = 1; r < d.length; r++) {
+    var vend = String(d[r][7] || '').trim();      // col 8 Vendedor
+    var estado = String(d[r][11] || '').trim();   // col 12 Estado Entrega
+    var pago = String(d[r][13] || '').trim();     // col 14 Estado Pago
+    if (vend !== vendedor) continue;
+    if (estado !== 'Entregado') continue;
+    if (pago === 'Cobrado') continue;
+    sh.getRange(r+1, 14).setValue('Cobrado');     // col 14 = N
+    updated++;
+  }
+  return ContentService.createTextOutput(JSON.stringify({ok:true, updated:updated})).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Cancelar pedido: Estado Entrega = Cancelado + revertir stock si corresponde
+function _doPostCancelarPedido(data) {
   var hoja = String(data.hoja || '');
   var pedidoId = String(data.id || '');
 
   var sh = SS.getSheetByName(hoja);
   if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
 
-  // Buscar fila por N° Pedido (col B=2)
   var allData = sh.getDataRange().getValues();
   var row = -1;
   for (var r = 1; r < allData.length; r++) {
@@ -5410,24 +5867,77 @@ function _doPostMarcarCobrado(data) {
   }
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 
-  // Columna Estado de Pago según hoja
-  var colPago = hoja === 'Clubes' ? 16 : hoja === 'Red' ? 14 : 13; // Clubes=P(16), Red=N(14), Home/Pilar/CF=M(13)
-  sh.getRange(row, colPago).setValue('Cobrado');
+  // Columnas segun hoja
+  var colEst, colOrigen;
+  if (hoja === 'Clubes') { colEst = 14; colOrigen = 12; }
+  else if (hoja === 'Red') { colEst = 12; colOrigen = 10; }
+  else { colEst = 11; colOrigen = 9; } // Home/Pilar/CF
+
+  var estadoAnterior = String(sh.getRange(row, colEst).getValue()).trim();
+  var origen = String(sh.getRange(row, colOrigen).getValue()).trim();
+
+  // Si ya estaba cancelado, no hacer nada
+  if (estadoAnterior === 'Cancelado') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, ya: true })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Si estaba Entregado + Deposito → revertir stock fisico (+1)
+  // Solo aplica para Home/Pilar/CF (Clubes y Red tienen su propia logica)
+  if (estadoAnterior === 'Entregado' && (hoja === 'Home' || hoja === 'Pilar' || hoja === 'Capital Federal')) {
+    var hProd = SS.getSheetByName('Productos');
+    if (hProd) {
+      if (origen === 'Deposito') _homeStockFisico(sh, row, hProd, +1);
+      else if (origen === 'Mixto') _homeStockFisicoMixto(sh, row, hProd, +1);
+    }
+  }
+
+  // Marcar como Cancelado
+  sh.getRange(row, colEst).setValue('Cancelado');
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doPostMarcarCobrado(data) {
+  var hoja = String(data.hoja || '');
+  var pedidoId = String(data.id || '');
+
+  var sh = SS.getSheetByName(hoja);
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
+
+  var allData = sh.getDataRange().getValues();
+  var row = -1;
+  for (var r = 1; r < allData.length; r++) {
+    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  }
+  if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Columnas según hoja
+  var cols;
+  if (hoja === 'Clubes') cols = {fp:15, estPago:16, ef:19, tr:20, propEf:21, propTr:22};
+  else if (hoja === 'Red') cols = {fp:13, estPago:14, ef:17, tr:18, propEf:19, propTr:20};
+  else cols = {fp:12, estPago:13, ef:16, tr:17, propEf:18, propTr:19}; // Home/Pilar/CF
+
+  // Marcar Cobrado + estampar fecha de cobro
+  sh.getRange(row, cols.estPago).setValue('Cobrado');
+  _stampFechaCobro(sh, row);
+
+  // Cambiar Forma de Pago si viene
+  var formaPago = String(data.formaPago || '').trim();
+  if (formaPago) sh.getRange(row, cols.fp).setValue(formaPago);
+
+  // Montos Ef/Tr: si vienen, los escribe (override)
+  var ef = Number(data.ef) || 0;
+  var tr = Number(data.tr) || 0;
+  if (ef > 0 || tr > 0) {
+    sh.getRange(row, cols.ef).setValue(ef);
+    sh.getRange(row, cols.tr).setValue(tr);
+  }
 
   // Propina (opcional)
   var propina = Number(data.propina) || 0;
   var propMet = String(data.propMet || '').trim();
   if (propina > 0 && propMet) {
-    if (hoja === 'Clubes') {
-      // Clubes: Propina Ef=U(21), Propina Trans=V(22)
-      var colProp = propMet === 'Efectivo' ? 21 : 22;
-    } else if (hoja === 'Red') {
-      // Red: Propina Ef=S(19), Propina Trans=T(20)
-      var colProp = propMet === 'Efectivo' ? 19 : 20;
-    } else {
-      // Home/Pilar/CF: Propina Ef=R(18), Propina Trans=S(19)
-      var colProp = propMet === 'Efectivo' ? 18 : 19;
-    }
+    var colProp = propMet === 'Efectivo' ? cols.propEf : cols.propTr;
     var propActual = Number(sh.getRange(row, colProp).getValue()) || 0;
     sh.getRange(row, colProp).setValue(propActual + propina);
   }
