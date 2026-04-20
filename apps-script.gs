@@ -706,53 +706,8 @@ function _doGetEntregas(e) {
     }
   }
 
-  // ── Red (51 cols, orden productos nuevo 20/04/2026) ──
-  var ABBRS_RED = ['PPM','PPJyQ','PPCyQ','SQB','SL','SCo','SPyP','SJyQ','SE','SCa',
-                   'ECaC','EJyQ','ECyQ','EV','TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
-  var shRed = SS.getSheetByName('Red');
-  if (shRed && shRed.getLastRow() > 1) {
-    var redData = shRed.getDataRange().getValues();
-    for (var rr = 1; rr < redData.length; rr++) {
-      var estadoR = String(redData[rr][11]).trim(); // L = Estado de Entrega
-      if (estadoR === 'Entregado' || estadoR === 'Cancelado') continue;
-
-      var diaR = String(redData[rr][10]).trim(); // K = Día de Entrega
-      if (dia && diaR !== dia) continue;
-
-      var prodsR = [];
-      for (var pr = 0; pr < 23; pr++) {
-        var qtyR = Number(redData[rr][21 + pr]) || 0; // V-AR = cols 21-43 (0-based)
-        if (qtyR > 0) prodsR.push({ a: ABBRS_RED[pr], q: qtyR });
-      }
-      if (prodsR.length === 0) continue;
-
-      var vendedorR  = String(redData[rr][7] || '').trim();
-      var barrioR    = String(redData[rr][48] || '').trim(); // AW = Barrio Privado
-      var loteR      = String(redData[rr][49] || '').trim(); // AX = Lote
-      var telR       = String(redData[rr][50] || '').trim(); // AY = Teléfono
-      var dirRed = [vendedorR, barrioR, loteR ? 'Lote ' + loteR : ''].filter(Boolean).join(' · ');
-
-      entregas.push({
-        id: Number(redData[rr][1]) || 0,
-        h: 'Red',
-        r: rr + 1,
-        c: String(redData[rr][8] || '').trim(),
-        t: telR,
-        d: dirRed,
-        b: 'Red · ' + vendedorR,
-        sb: barrioR,
-        l: loteR,
-        de: diaR,
-        es: estadoR,
-        o: String(redData[rr][9] || '').trim(),
-        fp: String(redData[rr][12] || '').trim(),
-        ep: String(redData[rr][13] || '').trim(),
-        $: Number(redData[rr][14]) || 0,
-        p: prodsR,
-        v: vendedorR
-      });
-    }
-  }
+  // Red NO se incluye en entregas: los vendedores se ocupan de sus pedidos.
+  // Tadeo solo cobra al vendedor (ver cobrosPendientes).
 
   return ContentService
     .createTextOutput(JSON.stringify({ ts: Date.now(), e: entregas }))
@@ -836,6 +791,114 @@ function _doPostLoginVendedor(data) {
 
 /** GET ?action=dashboardVendedor&nombre=X — stats del vendedor
  *  Devuelve: { ok, stats: {semana, mes, comisionTotal, totalPedidos}, pedidos: [], clientes: [] } */
+/** POST action=updatePedidoRed — vendedor actualiza estado de UN pedido suyo
+ *  Recibe { action:'updatePedidoRed', pedidoId, vendedor, updates: {...} }
+ *  updates puede tener: entrega, cobroCliente, formaPagoCliente, propinaEf, propinaTr, formaPagoMaleu, estadoPagoMaleu
+ *  Valida que el pedido sea del vendedor (prevención cross-vendor). */
+function _doPostUpdatePedidoRed(data) {
+  var pedidoId = String(data.pedidoId || '').trim();
+  var vendedor = String(data.vendedor || '').trim();
+  var updates = data.updates || {};
+
+  if (!pedidoId || !vendedor) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'pedidoId y vendedor requeridos' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sh = SS.getSheetByName('Red');
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Hoja Red no encontrada' }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  // Buscar fila por N° Pedido (col B=2) — admite "R-001", "007", "7"
+  var pedidoNum = pedidoId.replace(/^R-/i, '').replace(/^0+/, '') || '0';
+  var allData = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues(); // A-H para buscar B (N°) y H (Vendedor)
+  var row = -1;
+  for (var r = 0; r < allData.length; r++) {
+    var n = String(allData[r][1]).trim().replace(/^R-/i, '').replace(/^0+/, '') || '0';
+    if (n === pedidoNum) {
+      // Validar que el vendedor sea el dueño
+      var v = String(allData[r][7]).trim();
+      if (v !== vendedor) {
+        return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'No autorizado' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      row = r + 2; // +2 porque allData empieza en fila 2 y r es 0-indexed
+      break;
+    }
+  }
+
+  if (row === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Pedido no encontrado' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Aplicar updates (cada acción tiene su col)
+  // L(12)=Estado Entrega, M(13)=Forma Pago, N(14)=Estado Pago, S(19)=Propina Ef, T(20)=Propina Tr
+  // AZ(52)=Forma Pago a Maleu, BA(53)=Estado Pago a Maleu, BB(54)=Fecha Pago a Maleu
+  var applied = [];
+  var origen = String(sh.getRange(row, 10).getValue() || '').trim(); // col J = Origen
+
+  if (updates.hasOwnProperty('entrega')) {
+    var estadoPrev = String(sh.getRange(row, 12).getValue() || '').trim();
+    var nuevoEstado = updates.entrega ? 'Entregado' : 'Pendiente';
+    sh.getRange(row, 12).setValue(nuevoEstado);
+    applied.push('entrega=' + nuevoEstado);
+    // Descontar stock si Origen=Depósito y pasa a Entregado
+    if (nuevoEstado === 'Entregado' && estadoPrev !== 'Entregado' && origen === 'Depósito') {
+      var hProd = SS.getSheetByName('Productos');
+      if (hProd) _redStockFisico(sh, row, hProd, -1);
+    }
+    if (nuevoEstado !== 'Entregado' && estadoPrev === 'Entregado' && origen === 'Depósito') {
+      var hProd2 = SS.getSheetByName('Productos');
+      if (hProd2) _redStockFisico(sh, row, hProd2, +1);
+    }
+  }
+
+  if (updates.hasOwnProperty('formaPagoCliente')) {
+    sh.getRange(row, 13).setValue(String(updates.formaPagoCliente || ''));
+    applied.push('formaPagoCliente=' + updates.formaPagoCliente);
+  }
+
+  if (updates.hasOwnProperty('cobroCliente')) {
+    sh.getRange(row, 14).setValue(updates.cobroCliente ? 'Cobrado' : 'No Cobrado');
+    applied.push('cobroCliente=' + (updates.cobroCliente ? 'Cobrado' : 'No Cobrado'));
+  }
+
+  if (updates.hasOwnProperty('propinaEf')) {
+    sh.getRange(row, 19).setValue(Number(updates.propinaEf) || 0);
+    applied.push('propinaEf=' + updates.propinaEf);
+  }
+
+  if (updates.hasOwnProperty('propinaTr')) {
+    sh.getRange(row, 20).setValue(Number(updates.propinaTr) || 0);
+    applied.push('propinaTr=' + updates.propinaTr);
+  }
+
+  if (updates.hasOwnProperty('formaPagoMaleu')) {
+    sh.getRange(row, 52).setValue(String(updates.formaPagoMaleu || ''));
+    applied.push('formaPagoMaleu=' + updates.formaPagoMaleu);
+  }
+
+  if (updates.hasOwnProperty('estadoPagoMaleu')) {
+    var nuevoEst = updates.estadoPagoMaleu ? 'Pagado' : 'Pendiente';
+    sh.getRange(row, 53).setValue(nuevoEst);
+    applied.push('estadoPagoMaleu=' + nuevoEst);
+    // Fecha automática cuando marca Pagado
+    if (updates.estadoPagoMaleu) {
+      var argDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+      var dd = String(argDate.getDate()).padStart(2, '0');
+      var mm = String(argDate.getMonth() + 1).padStart(2, '0');
+      var yyyy = argDate.getFullYear();
+      sh.getRange(row, 54).setValue(dd + '/' + mm + '/' + yyyy);
+    } else {
+      sh.getRange(row, 54).setValue('');
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, applied: applied }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function _doGetDashboardVendedor(e) {
   var nombre = String(e && e.parameter && e.parameter.nombre || '').trim();
   if (!nombre) {
@@ -860,27 +923,40 @@ function _doGetDashboardVendedor(e) {
   var semanaFacturado = 0, semanaPedidos = 0;
   var mesFacturado = 0, mesPedidos = 0;
   var totalFacturado = 0, totalPedidos = 0;
+  // Stats operativas viernes
+  var viernesHoy = 0, viernesEntregados = 0; // pedidos de este viernes
+  var pendCobrar = 0;       // plata sin cobrar al cliente
+  var pendLiquidar = 0;     // plata cobrada pero no liquidada a Maleu
 
   if (sh && sh.getLastRow() > 1) {
-    // Leer SOLO cols A-AU (1-47): pedido/fecha/mes/semana/año/vendedor/cliente/estado/día/total/facturado/comision
-    // Muchísimo más rápido que getDataRange() que lee las 51 cols
+    // Leer cols A-BB (54): todo lo que el portal necesita
     var numRows = sh.getLastRow() - 1;
-    var data = sh.getRange(2, 1, numRows, 47).getValues();
+    var data = sh.getRange(2, 1, numRows, 54).getValues();
     for (var r = 0; r < data.length; r++) {
       var vendedor = String(data[r][7] || '').trim();
       if (vendedor !== nombre) continue;
 
-      var nPedido    = String(data[r][1] || '').trim();
-      var fechaCell  = data[r][3];
-      var mes        = String(data[r][4] || '').trim();
-      var semana     = Number(data[r][5]) || 0;
-      var year       = Number(data[r][6]) || 0;
-      var cliente    = String(data[r][8] || '').trim();
-      var estado     = String(data[r][11] || '').trim();
-      var diaEntrega = String(data[r][10] || '').trim();
-      var total      = Number(data[r][14]) || 0;
-      var facturado  = Number(data[r][20]) || total;
-      var comision   = Number(data[r][46]) || Math.round(facturado * 17 / 100);
+      var nPedido      = String(data[r][1] || '').trim();
+      var fechaCell    = data[r][3];
+      var mes          = String(data[r][4] || '').trim();
+      var semana       = Number(data[r][5]) || 0;
+      var year         = Number(data[r][6]) || 0;
+      var cliente      = String(data[r][8] || '').trim();
+      var estado       = String(data[r][11] || '').trim();
+      var diaEntrega   = String(data[r][10] || '').trim();
+      var formaPago    = String(data[r][12] || '').trim();
+      var estadoPago   = String(data[r][13] || '').trim();
+      var total        = Number(data[r][14]) || 0;
+      var propinaEf    = Number(data[r][18]) || 0;
+      var propinaTr    = Number(data[r][19]) || 0;
+      var facturado    = Number(data[r][20]) || total;
+      var comision     = Number(data[r][46]) || Math.round(facturado * 17 / 100);
+      var barrio       = String(data[r][48] || '').trim();
+      var lote         = String(data[r][49] || '').trim();
+      var telefono     = String(data[r][50] || '').trim();
+      var formaPagoMaleu  = String(data[r][51] || '').trim();
+      var estadoPagoMaleu = String(data[r][52] || '').trim();
+      var fechaPagoMaleu  = String(data[r][53] || '').trim();
 
       var fechaStr = '';
       if (fechaCell instanceof Date) {
@@ -892,16 +968,49 @@ function _doGetDashboardVendedor(e) {
         totalFacturado += facturado; totalPedidos++;
         if (year === yearActual && semana === semanaActual) {
           semanaFacturado += facturado; semanaPedidos++;
+          if (diaEntrega === 'Viernes') {
+            viernesHoy++;
+            if (estado === 'Entregado') viernesEntregados++;
+          }
         }
         if (year === yearActual && mes === nombreMesActual) {
           mesFacturado += facturado; mesPedidos++;
         }
+        // Plata pendiente de cobrar al cliente (entregado pero no cobrado)
+        if (estado === 'Entregado' && estadoPago !== 'Cobrado') {
+          pendCobrar += facturado;
+        }
+        // Plata cobrada pero no liquidada a Maleu (cobrado y no pagado a Maleu)
+        // Marcos se queda con comisión 17%, el resto (83%) es para Maleu
+        if (estadoPago === 'Cobrado' && estadoPagoMaleu !== 'Pagado') {
+          pendLiquidar += Math.round(facturado * 83 / 100);
+        }
       }
 
-      // Pedidos recientes
+      // Productos del pedido (cols V-AR = 21-43)
+      var prods = [];
+      var ABBRS = ['PPM','PPJyQ','PPCyQ','SQB','SL','SCo','SPyP','SJyQ','SE','SCa',
+                   'ECaC','EJyQ','ECyQ','EV','TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
+      for (var p = 0; p < 23; p++) {
+        var qty = Number(data[r][21 + p]) || 0;
+        if (qty > 0) prods.push({ a: ABBRS[p], q: qty });
+      }
+
+      // Calcular si es "este viernes" (mismo año+semana y día=Viernes)
+      var esViernesActual = (year === yearActual && semana === semanaActual && diaEntrega === 'Viernes');
+
       pedidos.push({
         n: nPedido, c: cliente, f: fechaStr, de: diaEntrega,
-        $: facturado, com: comision, es: estado
+        $: facturado, com: comision, es: estado,
+        fp: formaPago,       // Efectivo/Transferencia
+        ep: estadoPago,      // Cobrado/No Cobrado
+        pEf: propinaEf, pTr: propinaTr,
+        fpm: formaPagoMaleu, // Forma Pago a Maleu
+        epm: estadoPagoMaleu,// Pagado/Pendiente
+        fpmF: fechaPagoMaleu,// Fecha Pago a Maleu
+        b: barrio, l: lote, t: telefono,
+        prods: prods,
+        vi: esViernesActual  // flag "es este viernes"
       });
 
       // Clientes agrupados
@@ -931,7 +1040,10 @@ function _doGetDashboardVendedor(e) {
       semana:   { facturado: semanaFacturado, pedidos: semanaPedidos },
       mes:      { facturado: mesFacturado,    pedidos: mesPedidos,    nombre: nombreMesActual },
       total:    { facturado: totalFacturado,  pedidos: totalPedidos },
-      comision: Math.round(totalFacturado * 17 / 100)
+      comision: Math.round(totalFacturado * 17 / 100),
+      viernes:      { total: viernesHoy, entregados: viernesEntregados },
+      pendCobrar:   pendCobrar,
+      pendLiquidar: pendLiquidar
     },
     pedidos: pedidos,
     clientes: clientes
@@ -1044,6 +1156,9 @@ function _doGetBusqueda() {
     if (estD !== 'Recibido') continue;
     var pagado = String(data[rd][23]).trim(); // X = Pagado Proveedor
     if (pagado === 'Sí' || pagado === 'Si') continue;
+    var origenD = String(data[rd][19]).trim();
+    // Excluir items que salieron del Depósito (no son deuda al proveedor)
+    if (origenD.indexOf('Dep') === 0) continue;
 
     var provD   = String(data[rd][9]).trim();
     var semD    = String(data[rd][2]).trim(); // C = Semana
@@ -1326,11 +1441,17 @@ function _doPostCompraManual(postData) {
   var mesNombre = MESES[argDate.getMonth()];
 
   var newRows = [];
+  var hProdCompra = SS.getSheetByName('Productos');
+  var prodDataCompra = hProdCompra ? hProdCompra.getDataRange().getValues() : [];
+
   itemsValidos.forEach(function(item) {
     var ocId = _nextId('OC-');
     var costo = Number(item.costo) || 0;
     var qty = Number(item.qty) || 0;
     var costoTotal = costo * qty;
+    var origenItem = String(item.origen || 'Orden de Compra');
+    var esDeposito = origenItem.indexOf('Dep') === 0;
+
     newRows.push([
       ocId,                                         // A  N° Orden
       fechaStr,                                     // B  Fecha Creación
@@ -1351,13 +1472,27 @@ function _doPostCompraManual(postData) {
       0,                                            // Q  Ingreso Total (fórmula)
       0,                                            // R  Margen Bruto $ (fórmula)
       0,                                            // S  Margen % (fórmula)
-      String(item.origen || 'Orden de Compra'),     // T  Origen
-      'Pedido',                                     // U  Estado OC
+      origenItem,                                   // T  Origen
+      esDeposito ? 'Recibido' : 'Pedido',           // U  Estado OC (Depósito → Recibido directo)
       dd + '/' + mm + '/' + yyyy,                   // V  Fecha Pedido Prov
-      '',                                           // W  Fecha Recibido
-      'No',                                         // X  Pagado Proveedor
+      esDeposito ? (dd + '/' + mm + '/' + yyyy) : '', // W  Fecha Recibido
+      esDeposito ? 'Sí' : 'No',                     // X  Pagado Proveedor (Depósito no debe al proveedor)
       'No',                                         // Y  Cobrado Cliente
     ]);
+
+    // Si sale del Depósito, descontar stock inmediatamente
+    if (esDeposito && item.abbr && qty > 0 && hProdCompra) {
+      for (var rp = 1; rp < prodDataCompra.length; rp++) {
+        if (String(prodDataCompra[rp][2]).trim() === item.abbr) {
+          var celdaFis = hProdCompra.getRange(rp + 1, 6);
+          var fisico = Number(celdaFis.getValue()) || 0;
+          var nuevoStock = Math.max(0, fisico - qty);
+          celdaFis.setValue(nuevoStock);
+          _logKardex(item.abbr, '-DEP', qty, fisico, nuevoStock, esMarcos ? 'Red' : 'Dep\u00f3sito', ocId);
+          break;
+        }
+      }
+    }
   });
 
   var startRow = shOC.getLastRow() + 1;
@@ -1489,6 +1624,7 @@ function doPost(e) {
     if (data.action === 'pagarProveedor')  return _doPostPagarProveedor(data);
     if (data.action === 'compraManual')    return _doPostCompraManual(data);
     if (data.action === 'loginVendedor')   return _doPostLoginVendedor(data);
+    if (data.action === 'updatePedidoRed') return _doPostUpdatePedidoRed(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
