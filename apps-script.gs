@@ -5340,7 +5340,8 @@ function _doGetAdmin() {
         hr: horaStr, dia: diaPedido,
         ef: efR, tr: trR, pef: pefR, ptr: ptrR,
         fe: feStr, fed: feDiaStr,
-        fc: fcStr, fcd: fcDiaStr
+        fc: fcStr, fcd: fcDiaStr,
+        r: r + 1
       });
     }
     canales.push(stats);
@@ -5426,7 +5427,8 @@ function _doGetAdmin() {
         co: costoCl, mg: margenCl, br: clubC, p: prodsC,
         hr: horaStrC, dia: diaPedC,
         ef: efC, tr: trC, pef: pefC, ptr: ptrC,
-        fc: fcStrC, fcd: fcDiaStrC
+        fc: fcStrC, fcd: fcDiaStrC,
+        r: rc + 1
       });
     }
   }
@@ -5484,7 +5486,8 @@ function _doGetAdmin() {
         ep: estadoPagoR, fp: formaPagoR, $: facturadoR,
         co: costoR, mg: margenR, br: vendedorR, p: prodsR,
         hr: '', dia: '',
-        ef: efRd, tr: trRd, pef: pefRd, ptr: ptrRd
+        ef: efRd, tr: trRd, pef: pefRd, ptr: ptrRd,
+        r: rr + 1
       });
     }
   }
@@ -5835,11 +5838,14 @@ function _doPostSetOrigenProductos(data) {
   var sh = SS.getSheetByName(hoja);
   if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
 
-  // Buscar fila
+  // Buscar fila (último match para manejar N° reseteados semanalmente)
   var allData = sh.getDataRange().getValues();
-  var row = -1;
-  for (var r = 1; r < allData.length; r++) {
-    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  var row = Number(data.row) || -1;
+  if (row < 2 || row > allData.length || String(allData[row - 1][1]).trim() !== pedidoId) {
+    row = -1;
+    for (var r = allData.length - 1; r >= 1; r--) {
+      if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+    }
   }
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 
@@ -5905,9 +5911,12 @@ function _doPostCambiarOrigen(data) {
   if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja no encontrada' })).setMimeType(ContentService.MimeType.JSON);
 
   var allData = sh.getDataRange().getValues();
-  var row = -1;
-  for (var r = 1; r < allData.length; r++) {
-    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  var row = Number(data.row) || -1;
+  if (row < 2 || row > allData.length || String(allData[row - 1][1]).trim() !== pedidoId) {
+    row = -1;
+    for (var r = allData.length - 1; r >= 1; r--) {
+      if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+    }
   }
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'pedido no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 
@@ -5933,9 +5942,12 @@ function _doPostCambiarEstadoEntrega(data) {
   if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja no encontrada' })).setMimeType(ContentService.MimeType.JSON);
 
   var allData = sh.getDataRange().getValues();
-  var row = -1;
-  for (var r = 1; r < allData.length; r++) {
-    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  var row = Number(data.row) || -1;
+  if (row < 2 || row > allData.length || String(allData[row - 1][1]).trim() !== pedidoId) {
+    row = -1;
+    for (var r = allData.length - 1; r >= 1; r--) {
+      if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+    }
   }
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'pedido no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 
@@ -6090,9 +6102,12 @@ function _doPostCancelarPedido(data) {
   if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
 
   var allData = sh.getDataRange().getValues();
-  var row = -1;
-  for (var r = 1; r < allData.length; r++) {
-    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  var row = Number(data.row) || -1;
+  if (row < 2 || row > allData.length || String(allData[row - 1][1]).trim() !== pedidoId) {
+    row = -1;
+    for (var r = allData.length - 1; r >= 1; r--) {
+      if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+    }
   }
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 
@@ -6134,9 +6149,12 @@ function _doPostMarcarCobrado(data) {
   if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
 
   var allData = sh.getDataRange().getValues();
-  var row = -1;
-  for (var r = 1; r < allData.length; r++) {
-    if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+  var row = Number(data.row) || -1;
+  if (row < 2 || row > allData.length || String(allData[row - 1][1]).trim() !== pedidoId) {
+    row = -1;
+    for (var r = allData.length - 1; r >= 1; r--) {
+      if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+    }
   }
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 

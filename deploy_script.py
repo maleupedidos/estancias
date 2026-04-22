@@ -3,7 +3,7 @@ import google.auth
 from googleapiclient.discovery import build
 
 SCRIPT_ID = "1wtfgJFESRbD1llGX39zOhWIWm0v047CGWqdYXkHJIlS0cDt3Ove3cSza"
-VERSION_DESC = "v55 - Fix shift-1 en COL_COSTO/MARGEN/BARRIO/SUBBAR/LOTE/TEL de Home y Pilar"
+VERSION_DESC = "v56 - Busqueda por fila + fallback ultimo match para N deduplicados; agrega r al payload"
 
 # Auth
 creds, project = google.auth.default(scopes=[
