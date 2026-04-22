@@ -31,7 +31,7 @@ const CREAM   = '#E8DFC4';
 function _nextId(prefix) {
   // Escanear la hoja real para encontrar el máximo ID existente
   // Esto previene saltos cuando se eliminan filas manualmente
-  const sheetMap = { 'H-': ['Home', 'B'], 'C-': ['Clubes', 'B'], 'OC-': ['Orden de Compra', 'A'], 'P-': ['Pilar', 'B'], 'CF-': ['Capital Federal', 'B'], 'R-': ['Red', 'B'] };
+  const sheetMap = { 'H-': ['Home', 'B'], 'C-': ['Clubes', 'B'], 'OC-': ['Orden de Compra', 'A'], 'P-': ['Pilar', 'B'], 'R-': ['Red', 'B'] };
   const info = sheetMap[prefix];
   if (!info) throw new Error('Prefix desconocido: ' + prefix);
 
@@ -49,19 +49,7 @@ function _nextId(prefix) {
     }
   }
 
-  // También revisar archivos por si el máximo está ahí
-  var archName = 'Archivo ' + info[0];
-  var shArch = SS.getSheetByName(archName);
-  if (shArch && shArch.getLastRow() > 1) {
-    var col2 = info[1];
-    var data2 = shArch.getRange(col2 + '2:' + col2 + shArch.getLastRow()).getValues();
-    for (var j = 0; j < data2.length; j++) {
-      var match2 = String(data2[j][0]).match(regex);
-      if (match2) { var n2 = parseInt(match2[1], 10); if (n2 > max) max = n2; }
-    }
-  }
-
-  // También comparar con Config para nunca retroceder
+  // Comparar con Config para nunca retroceder
   var shConfig = SS.getSheetByName('Config');
   if (shConfig) {
     var rowMap = { 'H-': 2, 'C-': 3, 'OC-': 4, 'P-': 5, 'CF-': 6, 'R-': 7 };
@@ -97,7 +85,6 @@ function setupConfig() {
     ['Último C-', _scanMax('Clubes', 'B', /^C-(\d+)$/)],
     ['Último OC-', _scanMax('Orden de Compra', 'A', /^OC-(\d+)$/)],
     ['Último P-', _scanMax('Pilar', 'B', /^P-(\d+)$/)],
-    ['Último CF-', _scanMax('Capital Federal', 'B', /^CF-(\d+)$/)],
   ];
   sh.getRange(2, 1, contadores.length, 2).setValues(contadores);
 
@@ -242,143 +229,6 @@ function setupKardex() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  ARCHIVO HISTÓRICO — reemplazo del limpiado manual
-//  Mueve pedidos cerrados a hojas de archivo
-// ════════════════════════════════════════════════════════════
-
-/** Archiva pedidos Entregados/Cancelados de Home y Clubes.
- *  Solo mueve filas cerradas, las pendientes/reservadas permanecen. */
-function archivarSemana() {
-  var ui = SpreadsheetApp.getUi();
-
-  // ── Contar filas archivables ──
-  var shHome   = SS.getSheetByName('Home');
-  var shPilar  = SS.getSheetByName('Pilar');
-  var shCaba   = SS.getSheetByName('Capital Federal');
-  var shClubes = SS.getSheetByName('Clubes');
-  var shRed    = SS.getSheetByName('Red');
-  var archHome = 0, archPilar = 0, archCaba = 0, archClubes = 0, archRed = 0;
-
-  function _countArchivable(sh, colEstado) {
-    if (!sh || sh.getLastRow() <= 1) return 0;
-    var data = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
-    var count = 0;
-    data.forEach(function(row) {
-      var estado = String(row[colEstado]).trim();
-      if (estado === 'Entregado' || estado === 'Cancelado') count++;
-    });
-    return count;
-  }
-
-  archHome   = _countArchivable(shHome, 10);
-  archPilar  = _countArchivable(shPilar, 10);
-  archCaba   = _countArchivable(shCaba, 10);
-  archClubes = _countArchivable(shClubes, 13);
-  archRed    = _countArchivable(shRed, 11); // Red: Estado Entrega en col L (index 11)
-
-  if (archHome === 0 && archPilar === 0 && archCaba === 0 && archClubes === 0 && archRed === 0) {
-    ui.alert('No hay pedidos para archivar', 'No se encontraron pedidos en estado "Entregado" o "Cancelado".', ui.ButtonSet.OK);
-    return;
-  }
-
-  // ── Confirmar ──
-  var resp = ui.alert(
-    'Archivar semana',
-    'Se van a mover:\n\n' +
-    '  Home: ' + archHome + ' pedido(s)\n' +
-    '  Pilar: ' + archPilar + ' pedido(s)\n' +
-    '  Capital Federal: ' + archCaba + ' pedido(s)\n' +
-    '  Clubes: ' + archClubes + ' pedido(s)\n' +
-    '  Red: ' + archRed + ' pedido(s)\n\n' +
-    'Las filas se copian a las hojas de archivo y se eliminan de las hojas operativas.\n' +
-    'Los pedidos Pendientes y Reservados NO se tocan.\n\n' +
-    '¿Confirmar?',
-    ui.ButtonSet.YES_NO
-  );
-  if (resp !== ui.Button.YES) return;
-
-  var totalMovidas = 0;
-
-  // ── Archivar Home ──
-  if (shHome && archHome > 0) {
-    totalMovidas += _archivarHoja(shHome, 'Archivo Home', 10);
-  }
-
-  // ── Archivar Pilar ──
-  if (shPilar && archPilar > 0) {
-    totalMovidas += _archivarHoja(shPilar, 'Archivo Pilar', 10);
-  }
-
-  // ── Archivar Capital Federal ──
-  if (shCaba && archCaba > 0) {
-    totalMovidas += _archivarHoja(shCaba, 'Archivo Capital Federal', 10);
-  }
-
-  // ── Archivar Clubes ──
-  if (shClubes && archClubes > 0) {
-    totalMovidas += _archivarHoja(shClubes, 'Archivo Clubes', 13);
-  }
-
-  // ── Archivar Red ──
-  if (shRed && archRed > 0) {
-    totalMovidas += _archivarHoja(shRed, 'Archivo Red', 11);
-  }
-
-  SS.toast(totalMovidas + ' pedidos archivados correctamente.', 'Archivo completado', 6);
-}
-
-/**
- * Mueve filas Entregado/Cancelado de una hoja operativa a su archivo.
- * @param {Sheet} shOrigen - Hoja operativa (Home o Clubes)
- * @param {string} archivoName - Nombre de la hoja de archivo
- * @param {number} colEstado - Índice 0-based de la columna Estado de Entrega
- * @returns {number} Cantidad de filas movidas
- */
-function _archivarHoja(shOrigen, archivoName, colEstado) {
-  // Crear hoja archivo si no existe (mismos headers que la operativa)
-  var shArchivo = SS.getSheetByName(archivoName);
-  if (!shArchivo) {
-    shArchivo = SS.insertSheet(archivoName);
-    // Copiar headers
-    var headers = shOrigen.getRange(1, 1, 1, shOrigen.getLastColumn()).getValues();
-    shArchivo.getRange(1, 1, 1, headers[0].length).setValues(headers)
-      .setBackground(BROWN).setFontColor('#FFFFFF')
-      .setFontWeight('bold').setFontSize(10)
-      .setHorizontalAlignment('center');
-    shArchivo.setFrozenRows(1);
-    shArchivo.setTabColor('#666666');
-  }
-
-  var lastRow = shOrigen.getLastRow();
-  if (lastRow <= 1) return 0;
-
-  var data = shOrigen.getRange(2, 1, lastRow - 1, shOrigen.getLastColumn()).getValues();
-  var filasArchivar = [];
-  var filasEliminar = []; // índices de fila 1-based para borrar
-
-  for (var i = 0; i < data.length; i++) {
-    var estado = String(data[i][colEstado]).trim();
-    if (estado === 'Entregado' || estado === 'Cancelado') {
-      filasArchivar.push(data[i]);
-      filasEliminar.push(i + 2); // +2 porque fila 1 = header, i es 0-based
-    }
-  }
-
-  if (filasArchivar.length === 0) return 0;
-
-  // Copiar al archivo
-  var destRow = shArchivo.getLastRow() + 1;
-  shArchivo.getRange(destRow, 1, filasArchivar.length, filasArchivar[0].length).setValues(filasArchivar);
-
-  // Eliminar de la hoja operativa (de abajo hacia arriba para no romper índices)
-  filasEliminar.reverse().forEach(function(rowNum) {
-    shOrigen.deleteRow(rowNum);
-  });
-
-  return filasArchivar.length;
-}
-
-// ════════════════════════════════════════════════════════════
 //  doGet — lectura de datos (compras)
 // ════════════════════════════════════════════════════════════
 function doGet(e) {
@@ -402,9 +252,8 @@ function doGet(e) {
 // Red: agrupado por Vendedor (aplica 17% de comision)
 function _doGetCobrosPendientes() {
   var hojas = [
-    {name:'Home', colCliente:7, colEst:10, colPago:12, colTotal:13, colTel:44, colFp:11, colDia:9, colFecha:3},
-    {name:'Pilar', colCliente:7, colEst:10, colPago:12, colTotal:13, colTel:43, colFp:11, colDia:9, colFecha:3},
-    {name:'Capital Federal', colCliente:7, colEst:10, colPago:12, colTotal:13, colTel:45, colFp:11, colDia:9, colFecha:3},
+    {name:'Home', colCliente:7, colEst:10, colPago:12, colTotal:21, colTel:46, colFp:11, colDia:9, colFecha:3},
+    {name:'Pilar', colCliente:7, colEst:10, colPago:12, colTotal:21, colTel:49, colFp:11, colDia:9, colFecha:3},
     {name:'Clubes', colCliente:7, colEst:13, colPago:15, colTotal:16, colTel:null, colFp:14, colDia:12, colFecha:3}
   ];
   var out = [];
@@ -588,7 +437,7 @@ function _doGetEgresos() {
 // ══════════════════════════════════════════════════════════════
 
 /** GET ?action=entregas[&dia=Viernes]
- *  Devuelve pedidos pendientes de entrega de Home, Pilar y Capital Federal.
+ *  Devuelve pedidos pendientes de entrega de Home, Pilar y Clubes.
  *  Formato compacto para señal floja. */
 function _doGetEntregas(e) {
   var dia = e && e.parameter && e.parameter.dia;
@@ -598,7 +447,7 @@ function _doGetEntregas(e) {
 
   var entregas = [];
 
-  // ── Home, Pilar (Capital Federal dado de baja abr/2026) ──
+  // ── Home, Pilar ──
   var ABBRS_PILAR = ['PPM','PPJyQ','PPCyQ','SQB','SL','SCo','SPyP','SJyQ','SE','SCa',
                      'ECaC','EJyQ','ECyQ','EV','TG','TLC','TC','F',
                      'PMu','PMa','PJyQ','PCC','PJyM'];
@@ -617,28 +466,33 @@ function _doGetEntregas(e) {
       var diaEntrega = String(data[r][9]).trim();
       if (dia && diaEntrega !== dia) continue;
 
+      var prodStart = isPilar ? 22 : 20; // Pilar v2: productos desde W(23=idx22); Home: U(21=idx20)
       var productos = [];
       for (var p = 0; p < prodCount; p++) {
-        var qty = Number(data[r][20 + p]) || 0;
+        var qty = Number(data[r][prodStart + p]) || 0;
         if (qty > 0) productos.push({ a: abbrsList[p], q: qty });
       }
       if (productos.length === 0) continue;
 
       var direccion = '', barrio = '', subBarrio = '', lote = '', telefono = '';
       if (hoja === 'Home') {
-        barrio = String(data[r][41] || '').trim();
-        subBarrio = String(data[r][42] || '').trim();
-        lote = String(data[r][43] || '').trim();
+        // Home v2: AR(43)=Barrio, AS(44)=Sub Barrio, AT(45)=Domicilio-Lote, AU(46)=Tel
+        barrio = String(data[r][43] || '').trim();
+        subBarrio = String(data[r][44] || '').trim();
+        lote = String(data[r][45] || '').trim();
         direccion = (subBarrio || barrio) + (lote ? ' · Lote ' + lote : '');
-        telefono = String(data[r][44] || '');
+        telefono = String(data[r][46] || '');
       } else {
-        // Pilar NEW: idx 45=Barrio/Dir, 46=Domic/Lote, 47=Tel
+        // Pilar v2: AV(47)=Barrio/Dirección, AW(48)=Domicilio/Lote, AX(49)=Tel
         barrio = 'Pilar';
-        subBarrio = String(data[r][45] || '').trim();
-        lote = String(data[r][46] || '').trim();
+        subBarrio = String(data[r][47] || '').trim();
+        lote = String(data[r][48] || '').trim();
         direccion = [subBarrio, lote].filter(Boolean).join(' · ');
-        telefono = String(data[r][47] || '');
+        telefono = String(data[r][49] || '');
       }
+
+      // Monto: ambas hojas usan Facturado V(21) con fallback a Total a cobrar Q(16)
+      var montoEnt = Number(data[r][21]) || Number(data[r][16]) || 0;
 
       entregas.push({
         id: Number(data[r][1]) || 0,
@@ -655,7 +509,7 @@ function _doGetEntregas(e) {
         o: String(data[r][8] || '').trim(),
         fp: String(data[r][11] || '').trim(),
         ep: String(data[r][12] || '').trim(),
-        $: Number(data[r][13]) || 0,
+        $: montoEnt,
         p: productos
       });
     }
@@ -1563,7 +1417,7 @@ function _doPostMarcarEntregado(data) {
 
   // Registrar fecha de entrega (solo Home/Pilar/CF tienen columnas de fecha entrega)
   if (!isClub && !isRed) {
-    var colEntrega = hoja === 'Pilar' ? 49 : 46; // Pilar nuevo layout, Home=46
+    var colEntrega = hoja === 'Pilar' ? 51 : 48; // v2 abr/2026: Home (AV), Pilar (AY)
     _registrarFechaEntrega(sh, row, colEntrega);
   }
 
@@ -1614,6 +1468,7 @@ function doPost(e) {
     if (data.action === 'ingreso')         return _doPostIngreso(data);
     if (data.action === 'ajusteSaldo')     return _doPostAjusteSaldo(data);
     if (data.action === 'marcarCobrado')   return _doPostMarcarCobrado(data);
+    if (data.action === 'pagarVendedor')   return _doPostPagarVendedor(data);
     if (data.action === 'cancelarPedido')  return _doPostCancelarPedido(data);
     if (data.action === 'cobrarVendedorRed') return _doPostCobrarVendedorRed(data);
     if (data.action === 'setOrigenProductos') return _doPostSetOrigenProductos(data);
@@ -1689,27 +1544,27 @@ function _doPostPedido(data) {
 // ════════════════════════════════════════════════════════════
 
 // Mapeo id de producto (página web) → columna 1-based de la hoja Home
-// Con col A=Hora, Envío en O (15), productos empiezan en col U (21) hasta AM (39)
+// Home v2 abr/2026: productos empiezan en W (23) hasta AO (41)
 const HOME_PRODUCT_COLS = {
-  5:  21,  // PPM   — Pack Muzarella x2
-  6:  22,  // PPJyQ — Pack Jamón y Queso x2
-  7:  23,  // PPCyQ — Pack Cebolla y Queso x2
-  8:  24,  // SCo   — Sorrentinos Cordero al Malbec
-  9:  25,  // SJyQ  — Sorrentinos Jamón y Queso
-  10: 26,  // SCa   — Sorrentinos Calabaza y Queso
-  11: 27,  // ECaC  — Empanadas Carne a Cuchillo x8
-  12: 28,  // EJyQ  — Empanadas Jamón y Queso x8
-  17: 29,  // ECyQ  — Empanadas Cebolla y Queso x8
-  18: 30,  // EV    — Empanadas Verdura x8
-  14: 31,  // TG    — Torta Golosa
-  15: 32,  // TLC   — Torta Lemon Crumble
-  16: 33,  // TC    — Torta Coco
-  13: 34,  // F     — Franui Leche
-  19: 35,  // PMu   — Pizza Muzzarella
-  1:  36,  // PMa   — Pizza Margarita
-  2:  37,  // PJyQ  — Pizza Jamón y Queso
-  3:  38,  // PCC   — Pizza Cebolla Caramelizada
-  4:  39,  // PJyM  — Pizza Jamón y Morrón
+  5:  23,  // W  — PPM   — Pack Muzarella x2
+  6:  24,  // X  — PPJyQ — Pack Jamón y Queso x2
+  7:  25,  // Y  — PPCyQ — Pack Cebolla y Queso x2
+  8:  26,  // Z  — SCo   — Sorrentinos Cordero al Malbec
+  9:  27,  // AA — SJyQ  — Sorrentinos Jamón y Queso
+  10: 28,  // AB — SCa   — Sorrentinos Calabaza y Queso
+  11: 29,  // AC — ECaC  — Empanadas Carne a Cuchillo x8
+  12: 30,  // AD — EJyQ  — Empanadas Jamón y Queso x8
+  17: 31,  // AE — ECyQ  — Empanadas Cebolla y Queso x8
+  18: 32,  // AF — EV    — Empanadas Verdura x8
+  14: 33,  // AG — TG    — Torta Golosa
+  15: 34,  // AH — TLC   — Torta Lemon Crumble
+  16: 35,  // AI — TC    — Torta Coco
+  13: 36,  // AJ — F     — Franui Leche
+  19: 37,  // AK — PMu   — Pizza Muzzarella
+  1:  38,  // AL — PMa   — Pizza Margarita
+  2:  39,  // AM — PJyQ  — Pizza Jamón y Queso
+  3:  40,  // AN — PCC   — Pizza Cebolla Caramelizada
+  4:  41,  // AO — PJyM  — Pizza Jamón y Morrón
 };
 
 // Mapeo id de producto (página web) → abreviatura en hoja Productos (col C)
@@ -1723,41 +1578,42 @@ const PAGE_ID_TO_ABBR = {
   20: 'SQB',  21: 'SL',    22: 'SPyP', 23: 'SE',
 };
 
-// ── Layout NUEVO de Pilar (reorganizado abr/2026): 23 productos en cols 21-43 ──
-// Orden en la hoja: PPM, PPJyQ, PPCyQ, SQB, SL, SCo, SPyP, SJyQ, SE, SCa, ECaC, EJyQ, ECyQ, EV, TG, TLC, TC, F, PMu, PMa, PJyQ, PCC, PJyM
+// ── Layout NUEVO de Pilar (abr/2026 v2): 58 cols. Bloque monetario ampliado con Descuento
+// y Total a cobrar en P/Q, productos en W(23)–AS(45), Facturado en V(22).
+// Orden productos: PPM, PPJyQ, PPCyQ, SQB, SL, SCo, SPyP, SJyQ, SE, SCa, ECaC, EJyQ, ECyQ, EV, TG, TLC, TC, F, PMu, PMa, PJyQ, PCC, PJyM
 const PILAR_PRODUCT_COLS = {
-  5:  21, // U  — PPM
-  6:  22, // V  — PPJyQ
-  7:  23, // W  — PPCyQ
-  20: 24, // X  — SQB   (exclusivo Pilar)
-  21: 25, // Y  — SL    (exclusivo Pilar)
-  8:  26, // Z  — SCo
-  22: 27, // AA — SPyP  (exclusivo Pilar)
-  9:  28, // AB — SJyQ
-  23: 29, // AC — SE    (exclusivo Pilar)
-  10: 30, // AD — SCa
-  11: 31, // AE — ECaC
-  12: 32, // AF — EJyQ
-  17: 33, // AG — ECyQ
-  18: 34, // AH — EV
-  14: 35, // AI — TG
-  15: 36, // AJ — TLC
-  16: 37, // AK — TC
-  13: 38, // AL — F
-  19: 39, // AM — PMu
-  1:  40, // AN — PMa
-  2:  41, // AO — PJyQ
-  3:  42, // AP — PCC
-  4:  43, // AQ — PJyM
+  5:  23, // W  — PPM
+  6:  24, // X  — PPJyQ
+  7:  25, // Y  — PPCyQ
+  20: 26, // Z  — SQB   (exclusivo Pilar)
+  21: 27, // AA — SL    (exclusivo Pilar)
+  8:  28, // AB — SCo
+  22: 29, // AC — SPyP  (exclusivo Pilar)
+  9:  30, // AD — SJyQ
+  23: 31, // AE — SE    (exclusivo Pilar)
+  10: 32, // AF — SCa
+  11: 33, // AG — ECaC
+  12: 34, // AH — EJyQ
+  17: 35, // AI — ECyQ
+  18: 36, // AJ — EV
+  14: 37, // AK — TG
+  15: 38, // AL — TLC
+  16: 39, // AM — TC
+  13: 40, // AN — F
+  19: 41, // AO — PMu
+  1:  42, // AP — PMa
+  2:  43, // AQ — PJyQ
+  3:  44, // AR — PCC
+  4:  45, // AS — PJyM
 };
 
 // Mapeo col → abreviatura para Pilar (inverso de PILAR_PRODUCT_COLS vía PAGE_ID_TO_ABBR)
 const PILAR_COL_TO_ABBR = {
-  21:'PPM', 22:'PPJyQ', 23:'PPCyQ',
-  24:'SQB', 25:'SL', 26:'SCo', 27:'SPyP', 28:'SJyQ', 29:'SE', 30:'SCa',
-  31:'ECaC', 32:'EJyQ', 33:'ECyQ', 34:'EV',
-  35:'TG', 36:'TLC', 37:'TC', 38:'F',
-  39:'PMu', 40:'PMa', 41:'PJyQ', 42:'PCC', 43:'PJyM',
+  23:'PPM', 24:'PPJyQ', 25:'PPCyQ',
+  26:'SQB', 27:'SL', 28:'SCo', 29:'SPyP', 30:'SJyQ', 31:'SE', 32:'SCa',
+  33:'ECaC', 34:'EJyQ', 35:'ECyQ', 36:'EV',
+  37:'TG', 38:'TLC', 39:'TC', 40:'F',
+  41:'PMu', 42:'PMa', 43:'PJyQ', 44:'PCC', 45:'PJyM',
 };
 
 function _doPostHome(data, sheetName, prefix) {
@@ -1766,8 +1622,8 @@ function _doPostHome(data, sheetName, prefix) {
   const sh = SS.getSheetByName(sheetName);
   if (!sh) return;
 
-  // ── N° de pedido = cantidad de pedidos existentes + 1 (simple: 1, 2, 3...)
-  const orderNum = sh.getLastRow(); // fila 2 = pedido 1, fila 3 = pedido 2, etc.
+  // ── N° de pedido: reinicia por semana ISO según fechaEntrega. Ignora cancelados ("-").
+  const orderNum = _nextWeeklyNum(sh, 2, 10, String(data.fechaEntrega || ''), prefix);
 
   // ── Fecha y hora en zona horaria Argentina ────────────────
   const ahora   = new Date();
@@ -1785,11 +1641,12 @@ function _doPostHome(data, sheetName, prefix) {
 
   // ── Pago ─────────────────────────────────────────────────
   const envio           = Number(data.envio) || 0;
-  const total           = Number(data.total) || 0;
+  const total           = Number(data.total) || 0; // total a cobrar = subtotal + envio - descuento
+  const descuento       = Number(data.descuento) || 0;
+  const subtotalProd    = Number(data.subtotalSinDescuento) || (total + descuento - envio);
   const pago            = String(data.pago || '');
-  const totalSinEnvio   = total - envio;
-  const efectivo        = pago === 'Efectivo'      ? totalSinEnvio : 0;
-  const transferencia   = pago === 'Transferencia' ? totalSinEnvio : 0;
+  const efectivo        = pago === 'Efectivo'      ? total : 0;
+  const transferencia   = pago === 'Transferencia' ? total : 0;
 
   // ── Cantidades de productos por id ────────────────────────
   const qtys = {};
@@ -1823,6 +1680,10 @@ function _doPostHome(data, sheetName, prefix) {
   const row = new Array(50).fill('');
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+  // ── Layout Home/Pilar v2 (abr/2026) ──────────────────────
+  // Ambas hojas comparten N..V; difieren en nº de productos (Home 19, Pilar 23)
+  var isPilar = (sheetName === 'Pilar');
+
   row[0]  = horaStr;                            // A  Hora Pedido
   row[1]  = orderNum;                           // B  N° Pedido
   row[2]  = diaNombre;                          // C  Día Pedido
@@ -1831,30 +1692,30 @@ function _doPostHome(data, sheetName, prefix) {
   row[5]  = semana;                             // F  Semana Pedido
   row[6]  = yyyy;                               // G  Año Pedido
   row[7]  = String(data.nombre || '');          // H  Cliente
-  row[8]  = String(data.origen || 'Pendiente');          // I  Origen (default o override)
+  row[8]  = String(data.origen || 'Pendiente');          // I  Origen
   row[9]  = String(data.dia || '');             // J  Día de entrega elegido
-  row[10] = String(data.estadoEntrega || 'Pendiente');   // K  Estado de Entrega (default o override)
+  row[10] = String(data.estadoEntrega || 'Pendiente');   // K  Estado de Entrega
   row[11] = pago;                               // L  Forma de Pago
   row[12] = (String(data.estadoPago || '') === 'Cobrado') ? 'Cobrado' : 'No Cobrado';  // M  Estado de Pago
-  row[13] = total;                              // N  Total ($)
-  row[14] = envio;                              // O  Envío ($)
-  row[15] = efectivo;                           // P  Efectivo ($)
-  row[16] = transferencia;                      // Q  Transferencia ($)
-  row[17] = 0;                                  // R  Propina Efectivo (default $0)
-  row[18] = 0;                                  // S  Propina Transferencia (default $0)
+  row[13] = subtotalProd;                       // N  Subtotal Producto
+  row[14] = envio;                              // O  Envío
+  row[15] = descuento;                          // P  Descuento
+  row[16] = total;                              // Q  Total a cobrar
+  row[17] = efectivo;                           // R  Efectivo
+  row[18] = transferencia;                      // S  Transferencia
+  row[19] = 0;                                  // T  Propina Efectivo
+  row[20] = 0;                                  // U  Propina Transferencia
+  // V (21) — Facturado: fórmula =Q+T+U (se setea post-append)
 
-  // ── Layout por hoja ──────────────────────────────────────
-  var isPilar = (sheetName === 'Pilar');
   var PRODUCT_COLS = isPilar ? PILAR_PRODUCT_COLS : HOME_PRODUCT_COLS;
-  var COL_COSTO    = isPilar ? 44 : 40;  // AR / AN
-  var COL_MARGEN   = isPilar ? 45 : 41;  // AS / AO
-  var COL_BARRIO   = isPilar ? 46 : 42;  // AT / AP
-  var COL_SUBBAR   = isPilar ? 0  : 43;  // --- / AQ (Pilar no tiene)
-  var COL_LOTE     = isPilar ? 47 : 44;  // AU / AR
-  var COL_TEL      = isPilar ? 48 : 45;  // AV / AS
-  var COL_ENTREGA  = isPilar ? 49 : 46;  // AW / AT (inicio bloque 6 cols)
-  var COL_SUBTOTAL = isPilar ? 55 : 52;  // BC / AZ
-  var COL_DESC     = isPilar ? 56 : 53;  // BD / BA
+  // Cols post-productos: Home productos W(23)–AO(41); Pilar W(23)–AS(45)
+  var COL_COSTO    = isPilar ? 46 : 42;  // AT / AP
+  var COL_MARGEN   = isPilar ? 47 : 43;  // AU / AQ
+  var COL_BARRIO   = isPilar ? 48 : 44;  // AV / AR
+  var COL_SUBBAR   = isPilar ? 0  : 45;  // ---- / AS  (Pilar no tiene)
+  var COL_LOTE     = isPilar ? 49 : 46;  // AW / AT
+  var COL_TEL      = isPilar ? 50 : 47;  // AX / AU
+  var COL_ENTREGA  = isPilar ? 51 : 48;  // AY / AV (inicio bloque 6 cols)
   var ROW_LEN      = isPilar ? 58 : 55;
 
   // Productos (variable por hoja)
@@ -1879,18 +1740,14 @@ function _doPostHome(data, sheetName, prefix) {
     row[COL_TEL - 1]    = String(data.telefono || '');
   }
 
-  // Subtotal y Descuento
-  row[COL_SUBTOTAL - 1] = Number(data.subtotalSinDescuento) || total;
-  row[COL_DESC - 1]     = Number(data.descuento) || 0;
-
   sh.appendRow(row);
   var newRow = sh.getLastRow();
 
-  // Fórmula Facturado en T (col 20) = Total + Propinas
-  sh.getRange(newRow, 20).setFormula('=N' + newRow + '+R' + newRow + '+S' + newRow);
-  // Fórmula Margen Bruto = Facturado - Costo
+  // Fórmula Facturado (V=22): V = Q (Total a cobrar) + T (Propina Ef) + U (Propina Tr)
+  sh.getRange(newRow, 22).setFormula('=Q' + newRow + '+T' + newRow + '+U' + newRow);
+  // Fórmula Margen Bruto = Facturado (V) - Costo
   var costoLetter = _colLetter(COL_COSTO);
-  sh.getRange(newRow, COL_MARGEN).setFormula('=T' + newRow + '-' + costoLetter + newRow);
+  sh.getRange(newRow, COL_MARGEN).setFormula('=V' + newRow + '-' + costoLetter + newRow);
 
   // Forzar teléfono como texto
   var telVal = String(data.telefono || '');
@@ -1953,8 +1810,8 @@ function _doPostClubes(data) {
   const sh = SS.getSheetByName('Clubes');
   if (!sh) return;
 
-  // ── N° de pedido = cantidad de pedidos existentes + 1
-  const orderNum = sh.getLastRow();
+  // ── N° de pedido: reinicia por semana ISO según fechaEntrega. Ignora cancelados ("-").
+  const orderNum = _nextWeeklyNum(sh, 2, 13, String(data.fechaEntrega || ''), 'C');
 
   // Fecha y hora Argentina
   const ahora   = new Date();
@@ -2095,7 +1952,8 @@ function _doPostRed(data) {
   const sh = SS.getSheetByName('Red');
   if (!sh) return;
 
-  const orderNum = _nextId('R-');
+  // ── N° de pedido: reinicia por semana ISO según fechaEntrega. Ignora cancelados ("-").
+  const orderNum = _nextWeeklyNum(sh, 2, 11, String(data.fechaEntrega || ''), 'R');
 
   // Fecha y hora Argentina
   const ahora   = new Date();
@@ -2204,6 +2062,46 @@ function _isoWeek(date) {
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+/**
+ * Próximo N° de pedido de la semana para una hoja.
+ * Reinicia cada semana ISO según la FECHA DE ENTREGA.
+ * Ignora filas con N° "-" (canceladas) y filas de otras semanas.
+ * @param {Sheet} sh
+ * @param {number} colN    - columna 1-based con N° (generalmente 2 = B)
+ * @param {number} colDia  - columna 1-based con "Día de Entrega" (contiene dd/mm/yyyy)
+ * @param {string} fechaEntregaISO - "YYYY-MM-DD" de la entrega del pedido nuevo
+ * @returns {number}
+ */
+function _nextWeeklyNum(sh, colN, colDia, fechaEntregaISO, prefix) {
+  function _fmt(n) { return prefix ? (prefix + '-' + String(n).padStart(3, '0')) : n; }
+  if (!fechaEntregaISO) return _fmt(1);
+  var fp = String(fechaEntregaISO).split('-');
+  if (fp.length !== 3) return _fmt(1);
+  var targetDate = new Date(Number(fp[0]), Number(fp[1]) - 1, Number(fp[2]));
+  var targetWeek = _isoWeek(targetDate);
+  var targetYear = targetDate.getFullYear();
+
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return _fmt(1);
+  var nValues = sh.getRange(2, colN,   lastRow - 1, 1).getValues();
+  var dValues = sh.getRange(2, colDia, lastRow - 1, 1).getValues();
+  var max = 0;
+  for (var i = 0; i < nValues.length; i++) {
+    var dStr = String(dValues[i][0] || '').trim();
+    var m = dStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (!m) continue;
+    var d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    if (_isoWeek(d) !== targetWeek || d.getFullYear() !== targetYear) continue;
+    // Extraer número del N° (acepta "H-001", "001", "1", 1)
+    var raw = String(nValues[i][0] || '').trim();
+    var mm = raw.match(/(\d+)\s*$/);
+    if (!mm) continue;
+    var nNum = Number(mm[1]);
+    if (nNum > max) max = nNum;
+  }
+  return _fmt(max + 1);
 }
 
 function _doPostCompra(data) {
@@ -2316,27 +2214,27 @@ function _actualizarStockFisico(nombreProducto, cantidad) {
 // ════════════════════════════════════════════════════════════
 
 // Mapeo inverso: columna Home (1-based) → Abreviatura en Productos (col C)
-// Con Envío en O(15), productos van de U(21) a AM(39)
+// Home v2 abr/2026: productos van de W(23) a AO(41)
 const HOME_COL_TO_ABBR = {
-  21: 'PPM',   // U
-  22: 'PPJyQ', // V
-  23: 'PPCyQ', // W
-  24: 'SCo',   // X
-  25: 'SJyQ',  // Y
-  26: 'SCa',   // Z
-  27: 'ECaC',  // AA
-  28: 'EJyQ',  // AB
-  29: 'ECyQ',  // AC
-  30: 'EV',    // AD
-  31: 'TG',    // AE
-  32: 'TLC',   // AF
-  33: 'TC',    // AG
-  34: 'F',     // AH
-  35: 'PMu',   // AI
-  36: 'PMa',   // AJ
-  37: 'PJyQ',  // AK
-  38: 'PCC',   // AL
-  39: 'PJyM',  // AM
+  23: 'PPM',   // W
+  24: 'PPJyQ', // X
+  25: 'PPCyQ', // Y
+  26: 'SCo',   // Z
+  27: 'SJyQ',  // AA
+  28: 'SCa',   // AB
+  29: 'ECaC',  // AC
+  30: 'EJyQ',  // AD
+  31: 'ECyQ',  // AE
+  32: 'EV',    // AF
+  33: 'TG',    // AG
+  34: 'TLC',   // AH
+  35: 'TC',    // AI
+  36: 'F',     // AJ
+  37: 'PMu',   // AK
+  38: 'PMa',   // AL
+  39: 'PJyQ',  // AM
+  40: 'PCC',   // AN
+  41: 'PJyM',  // AO
 };
 
 // Red: col V(22) a AR(44) = 23 productos (orden actualizado 20/04/2026)
@@ -2373,7 +2271,7 @@ function onEditHandler(e) {
   const sheet = e.range.getSheet();
   const sheetName = sheet.getName();
 
-  if (sheetName === 'Home' || sheetName === 'Pilar' || sheetName === 'Capital Federal') return _onEditHome(e);
+  if (sheetName === 'Home' || sheetName === 'Pilar') return _onEditHome(e);
   if (sheetName === 'Red')             return _onEditRed(e);
   if (sheetName === 'Clubes')          return _onEditClubes(e);
   if (sheetName === 'Orden de Compra') return _onEditOC(e);
@@ -2525,6 +2423,20 @@ function _onEditRed(e) {
   const nuevo    = String(e.value || '');
   const anterior = String(e.oldValue || '');
 
+  // → Cancelado: N° pasa a "-"
+  if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
+    sh.getRange(row, 2).setValue('-');
+  }
+  // ← Sale de Cancelado: re-asignar N° siguiente de la semana (Día Entrega en col K=11)
+  if (anterior === 'Cancelado' && nuevo !== 'Cancelado') {
+    var _diaStr = String(sh.getRange(row, 11).getValue() || '').trim();
+    var _m = _diaStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (_m) {
+      var _iso = _m[3] + '-' + _m[2].padStart(2, '0') + '-' + _m[1].padStart(2, '0');
+      sh.getRange(row, 2).setValue(_nextWeeklyNum(sh, 2, 11, _iso, 'R'));
+    }
+  }
+
   // → Entregado: descontar stock si Deposito (no hay columnas de fecha entrega en Red)
   if (nuevo === 'Entregado' && anterior !== 'Entregado') {
     if (origen === 'Deposito') {
@@ -2615,6 +2527,20 @@ function _onEditClubes(e) {
     const origen = String(sh.getRange(row, 12).getValue()); // L = Origen
     const nuevo    = String(e.value || '');
     const anterior = String(e.oldValue || '');
+
+    // → Cancelado: N° pasa a "-"
+    if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
+      sh.getRange(row, 2).setValue('-');
+    }
+    // ← Sale de Cancelado: re-asignar N° siguiente de la semana (Día Entrega en col M=13)
+    if (anterior === 'Cancelado' && nuevo !== 'Cancelado') {
+      var _diaStrC = String(sh.getRange(row, 13).getValue() || '').trim();
+      var _mC = _diaStrC.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (_mC) {
+        var _isoC = _mC[3] + '-' + _mC[2].padStart(2, '0') + '-' + _mC[1].padStart(2, '0');
+        sh.getRange(row, 2).setValue(_nextWeeklyNum(sh, 2, 13, _isoC, 'C'));
+      }
+    }
 
     // → Entregado: descontar Stock Físico solo si Deposito
     if (nuevo === 'Entregado' && anterior !== 'Entregado') {
@@ -2726,7 +2652,7 @@ function _getAbbrToPrecio() {
 
 /**
  * Genera filas en Orden de Compra para un pedido dado.
- * @param {string} canal - 'Home', 'Pilar', 'Capital Federal' o 'Clubes'
+ * @param {string} canal - 'Home', 'Pilar', 'Red' o 'Clubes'
  * @param {number} row - fila del pedido en la hoja de origen
  */
 function generarOrdenDeCompra(canal, row) {
@@ -2741,14 +2667,13 @@ function generarOrdenDeCompra(canal, row) {
   let direccion = '';
 
   if (canal === 'Home') {
-    colCliente = 7; colPedido = 1; colTelefono = 44; // AS(45) = Teléfono
-    direccion = [rowData[41], rowData[42], 'Lote ' + rowData[43]].filter(Boolean).join(' · '); // AP=Barrio, AQ=SubBarrio, AR=Lote
+    // Home v2: AR(43)=Barrio, AS(44)=Sub Barrio, AT(45)=Domicilio-Lote, AU(46)=Teléfono
+    colCliente = 7; colPedido = 1; colTelefono = 46;
+    direccion = [rowData[43], rowData[44], 'Lote ' + rowData[45]].filter(Boolean).join(' · ');
   } else if (canal === 'Pilar') {
-    colCliente = 7; colPedido = 1; colTelefono = 43; // AR(44) = Teléfono
-    direccion = [rowData[41], rowData[42]].filter(Boolean).join(' · '); // AP=Dirección, AQ=Lote
-  } else if (canal === 'Capital Federal') {
-    colCliente = 7; colPedido = 1; colTelefono = 45; // AT(46) = Teléfono
-    direccion = [rowData[41], rowData[42] + ' ' + rowData[43], rowData[44]].filter(Boolean).join(' · '); // AP=Barrio, AQ=Calle, AR=Número, AS=Piso
+    // Pilar v2: AV(47)=Barrio/Dirección, AW(48)=Domicilio/Lote, AX(49)=Teléfono
+    colCliente = 7; colPedido = 1; colTelefono = 49;
+    direccion = [rowData[47], rowData[48]].filter(Boolean).join(' · ');
   } else if (canal === 'Red') {
     colCliente = 8; colPedido = 1; colTelefono = 52; // BA(53) = Teléfono
     direccion = [rowData[48], rowData[49], rowData[50], rowData[51]].filter(Boolean).join(' · '); // AW=Partido, AX=Localidad, AY=Barrio, AZ=Domicilio
@@ -2938,9 +2863,24 @@ function _onEditHome(e) {
   const nuevo    = String(e.value || '');
   const anterior = String(e.oldValue || '');
 
-  // Columna donde empieza "Hora Entrega": Home=46, Pilar=49 (layout nuevo abr/2026)
+  // → Cancelado: N° pasa a "-" (no cuenta en la numeración semanal)
+  if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
+    sh.getRange(row, 2).setValue('-');
+  }
+  // ← Sale de Cancelado: re-asignar N° siguiente de la semana (prefix según hoja: H=Home, P=Pilar)
+  if (anterior === 'Cancelado' && nuevo !== 'Cancelado') {
+    var _diaStr = String(sh.getRange(row, 10).getValue() || '').trim();
+    var _m = _diaStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (_m) {
+      var _iso = _m[3] + '-' + _m[2].padStart(2, '0') + '-' + _m[1].padStart(2, '0');
+      var _pref = (sh.getName() === 'Pilar') ? 'P' : 'H';
+      sh.getRange(row, 2).setValue(_nextWeeklyNum(sh, 2, 10, _iso, _pref));
+    }
+  }
+
+  // Columna donde empieza "Hora Entrega": Home=48 (AV), Pilar=51 (AY) — layout v2 abr/2026
   const sheetName = sh.getName();
-  const colEntrega = sheetName === 'Pilar' ? 49 : 46;
+  const colEntrega = sheetName === 'Pilar' ? 51 : 48;
 
   // → Entregado: registrar fecha SIEMPRE + descontar stock según origen
   if (nuevo === 'Entregado' && anterior !== 'Entregado') {
@@ -3100,14 +3040,13 @@ function _homeStockFisicoMixto(shHome, row, hProductos, signo) {
 // ── Fórmulas en Productos: Reservado (E) y Disponible (F) ───
 // Ejecutar UNA vez — pone fórmulas SUMPRODUCT que se auto-actualizan.
 // Abreviatura (col C de Productos) → letra de columna en Home
-// FIX: Columnas corregidas (+1) para coincidir con HOME_PRODUCT_COLS
-// Productos van de U(21) a AM(39), NO de T a AL
+// Home v2 abr/2026: productos van de W(23) a AO(41)
 const ABBR_TO_HOME_COL = {
-  'PPM':'U', 'PPJyQ':'V', 'PPCyQ':'W',
-  'SCo':'X', 'SJyQ':'Y', 'SCa':'Z',
-  'ECaC':'AA', 'EJyQ':'AB', 'ECyQ':'AC', 'EV':'AD',
-  'TG':'AE', 'TLC':'AF', 'TC':'AG', 'F':'AH',
-  'PMu':'AI', 'PMa':'AJ', 'PJyQ':'AK', 'PCC':'AL', 'PJyM':'AM',
+  'PPM':'W', 'PPJyQ':'X', 'PPCyQ':'Y',
+  'SCo':'Z', 'SJyQ':'AA', 'SCa':'AB',
+  'ECaC':'AC', 'EJyQ':'AD', 'ECyQ':'AE', 'EV':'AF',
+  'TG':'AG', 'TLC':'AH', 'TC':'AI', 'F':'AJ',
+  'PMu':'AK', 'PMa':'AL', 'PJyQ':'AM', 'PCC':'AN', 'PJyM':'AO',
 };
 
 // Mapeo para Clubes: abreviatura → letra de columna en Clubes
@@ -3117,13 +3056,13 @@ const ABBR_TO_CLUBES_COL = {
   'PPM':'AC', 'PPJyQ':'AD', 'PPCyQ':'AE',
 };
 
-// Pilar (layout nuevo abr/2026): 23 productos en cols U(21)–AQ(43)
+// Pilar (layout nuevo abr/2026 v2): 23 productos en cols W(23)–AS(45)
 const ABBR_TO_PILAR_COL = {
-  'PPM':'U', 'PPJyQ':'V', 'PPCyQ':'W',
-  'SQB':'X', 'SL':'Y', 'SCo':'Z', 'SPyP':'AA', 'SJyQ':'AB', 'SE':'AC', 'SCa':'AD',
-  'ECaC':'AE', 'EJyQ':'AF', 'ECyQ':'AG', 'EV':'AH',
-  'TG':'AI', 'TLC':'AJ', 'TC':'AK', 'F':'AL',
-  'PMu':'AM', 'PMa':'AN', 'PJyQ':'AO', 'PCC':'AP', 'PJyM':'AQ',
+  'PPM':'W', 'PPJyQ':'X', 'PPCyQ':'Y',
+  'SQB':'Z', 'SL':'AA', 'SCo':'AB', 'SPyP':'AC', 'SJyQ':'AD', 'SE':'AE', 'SCa':'AF',
+  'ECaC':'AG', 'EJyQ':'AH', 'ECyQ':'AI', 'EV':'AJ',
+  'TG':'AK', 'TLC':'AL', 'TC':'AM', 'F':'AN',
+  'PMu':'AO', 'PMa':'AP', 'PJyQ':'AQ', 'PCC':'AR', 'PJyM':'AS',
 };
 
 function setupProductosFormulas() {
@@ -3146,17 +3085,17 @@ function setupProductosFormulas() {
     var dep = 'Dep' + '\u00F3sito';
 
     // Col E (Vendidos Semana) = SUMPRODUCT: Entregados por semana de ENTREGA
-    // Home: Semana Entrega=AX(50), Año=AY(51)
-    // Pilar NEW: Semana Entrega=BA(53), Año=BB(54), cols producto distintas
+    // Home v2: Semana Entrega=AZ, Año=BA, cols producto W–AO
+    // Pilar v2: Semana Entrega=BC, Año=BD, cols producto W–AS
     var pilarCol = ABBR_TO_PILAR_COL[abbr];
     var vendidosFormula =
       'SUMPRODUCT((Home!$I$2:$I$10000="' + dep + '")*(Home!$K$2:$K$10000="Entregado")' +
-      '*(Home!$AX$2:$AX$10000=' + semanaActual + ')*(Home!$AY$2:$AY$10000=' + anioActual + ')' +
+      '*(Home!$AZ$2:$AZ$10000=' + semanaActual + ')*(Home!$BA$2:$BA$10000=' + anioActual + ')' +
       '*(Home!' + homeCol + '$2:' + homeCol + '$10000))';
     if (pilarCol) {
       vendidosFormula +=
         '+SUMPRODUCT((Pilar!$I$2:$I$10000="' + dep + '")*(Pilar!$K$2:$K$10000="Entregado")' +
-        '*(Pilar!$BA$2:$BA$10000=' + semanaActual + ')*(Pilar!$BB$2:$BB$10000=' + anioActual + ')' +
+        '*(Pilar!$BC$2:$BC$10000=' + semanaActual + ')*(Pilar!$BD$2:$BD$10000=' + anioActual + ')' +
         '*(Pilar!' + pilarCol + '$2:' + pilarCol + '$10000))';
     }
 
@@ -3414,8 +3353,6 @@ function onOpen() {
     .addItem('Hoja de Ruta (búsqueda)', 'generarHojaDeRuta')
     .addItem('Recibir mercadería (por proveedor)', 'abrirRecibirMercaderia')
     .addItem('Marcar TODAS las OC como Recibidas', 'marcarOCRecibidas')
-    .addSeparator()
-    .addItem('Archivar semana (Home + Clubes)', 'archivarSemana')
     .addSeparator()
     .addItem('Actualizar fórmulas Productos', 'setupProductosFormulas')
     .addItem('Reset stock semanal', 'resetStockSemanal')
@@ -5268,6 +5205,27 @@ function _doGetAdmin() {
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
 
+  // ── Saldo Base (último ajuste manual) — leído al principio para filtrar cobros/ingresos/gastos ──
+  var saldoBase = { ef: 0, mp: 0, fecha: '', fechaDate: null };
+  var shSaldoSnap = SS.getSheetByName('Saldo Base');
+  if (shSaldoSnap && shSaldoSnap.getLastRow() > 1) {
+    var lastRowSB = shSaldoSnap.getLastRow();
+    saldoBase.ef = Number(shSaldoSnap.getRange(lastRowSB, 2).getValue()) || 0;
+    saldoBase.mp = Number(shSaldoSnap.getRange(lastRowSB, 3).getValue()) || 0;
+    var fSB = shSaldoSnap.getRange(lastRowSB, 1).getValue();
+    if (fSB instanceof Date) {
+      saldoBase.fechaDate = fSB;
+      saldoBase.fecha = Utilities.formatDate(fSB, 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm');
+    }
+  }
+  // Helper: movimiento cuenta solo si ocurrió DESPUÉS del último ajuste de saldo.
+  // Si no hay ajuste previo, todo cuenta. Si la fecha es ilegible, se asume anterior (conservador).
+  function _afterSaldo(v) {
+    if (!saldoBase.fechaDate) return true;
+    if (v instanceof Date) return v > saldoBase.fechaDate;
+    return false;
+  }
+
   // ── Leer pedidos de las 4 hojas operativas ──
   var ABBRS_HOME = ['PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ','ECyQ','EV',
                     'TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
@@ -5276,7 +5234,7 @@ function _doGetAdmin() {
   var canales = [];
   var pedidos = [];
 
-  // Home, Pilar (Capital Federal dado de baja abr/2026)
+  // Home, Pilar
   ['Home', 'Pilar'].forEach(function(hoja) {
     var sh = SS.getSheetByName(hoja);
     var stats = { nombre: hoja, pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
@@ -5284,11 +5242,19 @@ function _doGetAdmin() {
     var data = sh.getDataRange().getValues();
     var headersH = data[0];
 
+    // Índices comunes Home/Pilar v2 (abr/2026). Difieren solo en nº de productos y cols post-productos.
+    var isPilarAdm = (hoja === 'Pilar');
+    var IX = isPilarAdm
+      ? { total:13, fact:21, ef:17, tr:18, pef:19, ptr:20, costo:45, margen:46,
+          prodStart:22, prodCount:23, barrio:47, lote:48, tel:49, idxFechaEnt:52 }
+      : { total:13, fact:21, ef:17, tr:18, pef:19, ptr:20, costo:41, margen:42,
+          prodStart:22, prodCount:19, barrio:43, subBarrio:44, lote:45, tel:46, idxFechaEnt:49 };
+
     for (var r = 1; r < data.length; r++) {
       var estado = String(data[r][10]).trim();
       var estadoPago = String(data[r][12]).trim();
-      var total = Number(data[r][13]) || 0;
-      var facturado = Number(data[r][19]) || total;
+      var total = Number(data[r][IX.total]) || 0;
+      var facturado = Number(data[r][IX.fact]) || total;
       var origen = String(data[r][8]).trim();
       var cliente = String(data[r][7]).trim();
       var nPedido = String(data[r][1]).trim();
@@ -5311,34 +5277,33 @@ function _doGetAdmin() {
       if (estadoPago === 'Cobrado') stats.cobrado += facturado;
       else stats.noCobrado += facturado;
 
-      // Productos del pedido (Pilar tiene 23, Home 19, y layouts distintos)
       var ABBRS_PILAR_ADMIN = ['PPM','PPJyQ','PPCyQ','SQB','SL','SCo','SPyP','SJyQ','SE','SCa',
                                'ECaC','EJyQ','ECyQ','EV','TG','TLC','TC','F',
                                'PMu','PMa','PJyQ','PCC','PJyM'];
-      var isPilarAdm = (hoja === 'Pilar');
       var abbrsAdm   = isPilarAdm ? ABBRS_PILAR_ADMIN : ABBRS_HOME;
-      var prodCountAdm = isPilarAdm ? 23 : 19;
       var prods = [];
-      for (var p = 0; p < prodCountAdm; p++) {
-        var qty = Number(data[r][20 + p]) || 0;
+      for (var p = 0; p < IX.prodCount; p++) {
+        var qty = Number(data[r][IX.prodStart + p]) || 0;
         if (qty > 0) prods.push({ a: abbrsAdm[p], q: qty });
       }
 
       var formaPago = String(data[r][11] || '').trim();
-      var costoPed = Number(data[r][isPilarAdm ? 43 : 39]) || 0;
-      var margenPed = Number(data[r][isPilarAdm ? 44 : 40]) || 0;
-      var subBarrio = hoja === 'Home' ? String(data[r][42] || '').trim() : '';
+      var costoPed = Number(data[r][IX.costo]) || 0;
+      var margenPed = Number(data[r][IX.margen]) || 0;
+      // Sub-barrio / dirección: Home usa Sub Barrio (idx 42); Pilar usa "Barrio Privado/Dirección" (idx 47) + "Domicilio/Lote" (idx 48)
+      var subBarrio = isPilarAdm
+        ? [String(data[r][IX.barrio] || '').trim(), String(data[r][IX.lote] || '').trim()].filter(Boolean).join(' · ')
+        : String(data[r][IX.subBarrio] || '').trim();
       var hora = data[r][0];
       var horaStr = hora instanceof Date ? Utilities.formatDate(hora, 'America/Argentina/Buenos_Aires', 'HH:mm') : String(hora || '');
       var diaPedido = String(data[r][2] || '').trim();
 
-      var efR  = Number(data[r][15]) || 0; // P = Efectivo
-      var trR  = Number(data[r][16]) || 0; // Q = Transferencia
-      var pefR = Number(data[r][17]) || 0; // R = Propina Ef
-      var ptrR = Number(data[r][18]) || 0; // S = Propina Trans
+      var efR  = Number(data[r][IX.ef]) || 0;
+      var trR  = Number(data[r][IX.tr]) || 0;
+      var pefR = Number(data[r][IX.pef]) || 0;
+      var ptrR = Number(data[r][IX.ptr]) || 0;
 
-      // Fecha Entrega real: Home col 48 (idx 47), Pilar col 51 (idx 50) — layout nuevo abr/2026
-      var idxFechaEnt = hoja === 'Pilar' ? 50 : 47;
+      var idxFechaEnt = IX.idxFechaEnt;
       var feRaw = data[r][idxFechaEnt];
       var feStr = '', feDiaStr = '';
       if (feRaw instanceof Date) {
@@ -5525,6 +5490,81 @@ function _doGetAdmin() {
   }
   canales.push(statsRed);
 
+  // ── Vendedores Red: deuda pendiente a Maleu ──
+  // Lee la hoja Red. Por cada pedido NO pagado a Maleu, acumula
+  // deuda = Total × (1 - comision/100) según la comisión del vendedor.
+  var vendedoresDeuda = {};
+  var comisionPorVendedor = {};
+  var shVend = SS.getSheetByName('Vendedores');
+  if (shVend && shVend.getLastRow() > 1) {
+    var dV = shVend.getDataRange().getValues();
+    for (var rv = 1; rv < dV.length; rv++) {
+      var nombreV = String(dV[rv][0] || '').trim();
+      if (!nombreV) continue;
+      var comV = Number(dV[rv][9]) || 17;
+      var estadoV = String(dV[rv][6] || '').trim();
+      comisionPorVendedor[nombreV] = comV;
+      if (estadoV === 'Activo') {
+        vendedoresDeuda[nombreV] = { nombre: nombreV, com: comV, estado: estadoV, deuda: 0, pedidos: [] };
+      }
+    }
+  }
+
+  function _procesarRedPedidos(sh, origen) {
+    if (!sh || sh.getLastRow() <= 1) return;
+    var d = sh.getDataRange().getValues();
+    var headersR = d[0];
+    // Buscar índices por header (para ser robusto)
+    var idxVendedor = -1, idxPedido = -1, idxFecha = -1, idxCliente = -1, idxTotal = -1;
+    var idxEstadoPagoMaleu = -1, idxFechaPagoMaleu = -1, idxFormaPagoMaleu = -1;
+    for (var hx = 0; hx < headersR.length; hx++) {
+      var nm = String(headersR[hx]).trim();
+      if (nm === 'Vendedor') idxVendedor = hx;
+      else if (nm === 'N° Pedido' || nm === 'N°') idxPedido = hx;
+      else if (nm === 'Fecha') idxFecha = hx;
+      else if (nm === 'Cliente') idxCliente = hx;
+      else if (nm === 'Total ($)' || nm === 'Total') idxTotal = hx;
+      else if (nm === 'Estado Pago a Maleu') idxEstadoPagoMaleu = hx;
+      else if (nm === 'Fecha Pago a Maleu') idxFechaPagoMaleu = hx;
+      else if (nm === 'Forma Pago a Maleu') idxFormaPagoMaleu = hx;
+    }
+    if (idxVendedor < 0 || idxTotal < 0 || idxEstadoPagoMaleu < 0) return;
+
+    for (var ri = 1; ri < d.length; ri++) {
+      var row = d[ri];
+      var vend = String(row[idxVendedor] || '').trim();
+      if (!vend) continue;
+      var estPagoM = String(row[idxEstadoPagoMaleu] || '').trim();
+      if (estPagoM === 'Sí' || estPagoM === 'Si') continue;
+      var totP = Number(row[idxTotal]) || 0;
+      if (totP <= 0) continue;
+      var comPct = comisionPorVendedor[vend] !== undefined ? comisionPorVendedor[vend] : 17;
+      var deudaP = totP * (1 - comPct/100);
+      if (!vendedoresDeuda[vend]) {
+        vendedoresDeuda[vend] = { nombre: vend, com: comPct, estado: 'Inactivo', deuda: 0, pedidos: [] };
+      }
+      vendedoresDeuda[vend].deuda += deudaP;
+      var fR = row[idxFecha];
+      var fechaStrR = '';
+      if (fR instanceof Date) fechaStrR = Utilities.formatDate(fR, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+      else fechaStrR = String(fR || '');
+      vendedoresDeuda[vend].pedidos.push({
+        n: String(row[idxPedido] || '').trim(),
+        f: fechaStrR,
+        c: String(row[idxCliente] || '').trim(),
+        total: totP,
+        deuda: deudaP,
+        origen: origen,
+        row: ri + 1
+      });
+    }
+  }
+  _procesarRedPedidos(SS.getSheetByName('Red'), 'Red');
+
+  var vendedoresArr = Object.keys(vendedoresDeuda).map(function(k) {
+    return vendedoresDeuda[k];
+  }).sort(function(a, b) { return b.deuda - a.deuda; });
+
   // ── Totales ──
   var totales = { pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0, ticket: 0 };
   canales.forEach(function(c) {
@@ -5582,6 +5622,8 @@ function _doGetAdmin() {
   }
 
   // ── Egresos (gastos) ──
+  // gastos[] y totalGastos incluyen TODO (para listados históricos/P&L).
+  // gastosEf/gastosMP incluyen SOLO los posteriores al último Saldo Base (para el saldo vivo).
   var gastos = [];
   var totalGastos = 0;
   var gastosEf = 0;
@@ -5589,7 +5631,6 @@ function _doGetAdmin() {
   var shEgr = SS.getSheetByName('Egresos');
   if (shEgr && shEgr.getLastRow() > 1) {
     var dataEgr = shEgr.getDataRange().getValues();
-    var hdrE = dataEgr[0];
     for (var re = 1; re < dataEgr.length; re++) {
       if (!dataEgr[re][0]) continue;
       var fechaE = dataEgr[re][0];
@@ -5602,8 +5643,10 @@ function _doGetAdmin() {
       var montoE = Number(dataEgr[re][6]) || 0;
       var metodoE = String(dataEgr[re][5] || '').trim();
       totalGastos += montoE;
-      if (metodoE === 'Efectivo') gastosEf += montoE;
-      else gastosMP += montoE;
+      if (_afterSaldo(fechaE)) {
+        if (metodoE === 'Efectivo') gastosEf += montoE;
+        else gastosMP += montoE;
+      }
 
       gastos.push({
         f: fechaStrE,
@@ -5618,28 +5661,38 @@ function _doGetAdmin() {
     }
   }
 
-  // ── Cobrado por método de pago ──
+  // ── Cobrado por método de pago — SOLO registros posteriores al último Saldo Base ──
+  // (Los cobros anteriores ya están reflejados en el monto del ajuste; contarlos dos veces desfasa el saldo.)
   var cobradoEf = 0;
   var cobradoMP = 0;
-  pedidos.forEach(function(p) {
-    if (p.ep === 'Cobrado') {
-      if (p.fp === 'Efectivo') cobradoEf += p.$;
-      else cobradoMP += p.$;
+  function _sumarCobrado(hojaName, colsC) {
+    var shC = SS.getSheetByName(hojaName);
+    if (!shC || shC.getLastRow() <= 1) return;
+    var dC = shC.getDataRange().getValues();
+    var hdrs = dC[0];
+    var idxFc = -1;
+    for (var hh = 0; hh < hdrs.length; hh++) {
+      if (String(hdrs[hh]).trim() === 'Fecha de Cobro') { idxFc = hh; break; }
     }
-  });
-
-  // ── Saldo Base (último ajuste manual) ──
-  var saldoBase = { ef: 0, mp: 0, fecha: '' };
-  var shSaldo = SS.getSheetByName('Saldo Base');
-  if (shSaldo && shSaldo.getLastRow() > 1) {
-    var lastRow = shSaldo.getLastRow();
-    saldoBase.ef = Number(shSaldo.getRange(lastRow, 2).getValue()) || 0;
-    saldoBase.mp = Number(shSaldo.getRange(lastRow, 3).getValue()) || 0;
-    var fSaldo = shSaldo.getRange(lastRow, 1).getValue();
-    saldoBase.fecha = fSaldo instanceof Date ? Utilities.formatDate(fSaldo, 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm') : '';
+    for (var rc2 = 1; rc2 < dC.length; rc2++) {
+      if (String(dC[rc2][colsC.ep]).trim() !== 'Cobrado') continue;
+      // Si existe Saldo Base, exigir Fecha de Cobro posterior
+      if (saldoBase.fechaDate) {
+        if (idxFc < 0) continue; // hoja sin columna Fecha de Cobro: asumir viejo
+        if (!_afterSaldo(dC[rc2][idxFc])) continue;
+      }
+      var facC2 = Number(dC[rc2][colsC.fact]) || Number(dC[rc2][colsC.factAlt]) || 0;
+      if (String(dC[rc2][colsC.fp]).trim() === 'Efectivo') cobradoEf += facC2;
+      else cobradoMP += facC2;
+    }
   }
+  _sumarCobrado('Home',   { ep: 12, fp: 11, fact: 21, factAlt: 16 });
+  _sumarCobrado('Pilar',  { ep: 12, fp: 11, fact: 21, factAlt: 16 });
+  _sumarCobrado('Clubes', { ep: 15, fp: 14, fact: 22, factAlt: 16 });
+  _sumarCobrado('Red',    { ep: 13, fp: 12, fact: 20, factAlt: 14 });
 
   // ── Ingresos manuales ──
+  // ingresos[] incluye TODO. ingresosEf/MP solo los posteriores al Saldo Base (para el saldo vivo).
   var ingresos = [];
   var ingresosEf = 0;
   var ingresosMP = 0;
@@ -5652,8 +5705,10 @@ function _doGetAdmin() {
       var fechaStrI = fechaI instanceof Date ? Utilities.formatDate(fechaI, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fechaI || '');
       var montoI = Number(dataIng[ri][6]) || 0;
       var metodoI = String(dataIng[ri][5] || '').trim();
-      if (metodoI === 'Efectivo') ingresosEf += montoI;
-      else ingresosMP += montoI;
+      if (_afterSaldo(fechaI)) {
+        if (metodoI === 'Efectivo') ingresosEf += montoI;
+        else ingresosMP += montoI;
+      }
       ingresos.push({
         f: fechaStrI, cat: String(dataIng[ri][3] || '').trim(),
         con: String(dataIng[ri][4] || '').trim(), met: metodoI,
@@ -5662,21 +5717,8 @@ function _doGetAdmin() {
     }
   }
 
-  // ── Gastos Historicos (por mes, para P&L) ──
+  // ── Gastos por mes (para P&L) — fuente única: hoja Egresos ──
   var gastosHist = {};
-  var shGH = SS.getSheetByName('Gastos Historicos');
-  if (shGH && shGH.getLastRow() > 1) {
-    var dGH = shGH.getDataRange().getValues();
-    for (var rg = 1; rg < dGH.length; rg++) {
-      if (!dGH[rg][0]) continue;
-      var mesGH = String(dGH[rg][1] || '').trim();
-      if (!mesGH) continue;
-      var montoGH = Number(dGH[rg][6]) || 0;
-      if (!gastosHist[mesGH]) gastosHist[mesGH] = 0;
-      gastosHist[mesGH] += montoGH;
-    }
-  }
-  // Also add current Egresos to gastosHist
   gastos.forEach(function(g) {
     var m = g.mes || '';
     if (m) { if (!gastosHist[m]) gastosHist[m] = 0; gastosHist[m] += g.$; }
@@ -5691,6 +5733,7 @@ function _doGetAdmin() {
       stock: stock,
       oc: { pendientes: ocPend, costo: ocTotal },
       caja: { cobradoEf: cobradoEf, cobradoMP: cobradoMP, gastosEf: gastosEf, gastosMP: gastosMP, totalGastos: totalGastos, ingresosEf: ingresosEf, ingresosMP: ingresosMP },
+      vendedores: vendedoresArr,
       saldoBase: saldoBase,
       gastos: gastos,
       ingresos: ingresos,
@@ -5914,12 +5957,13 @@ function _generarOCSelectiva(canal, row, abbrs) {
   var direccion = '';
 
   if (canal === 'Home') {
-    colCliente = 7; colPedido = 1; colTelefono = 44;
-    direccion = [rowData[41], rowData[42], 'Lote ' + rowData[43]].filter(Boolean).join(' · ');
+    // Home v2: AR(43)=Barrio, AS(44)=Sub Barrio, AT(45)=Lote, AU(46)=Teléfono
+    colCliente = 7; colPedido = 1; colTelefono = 46;
+    direccion = [rowData[43], rowData[44], 'Lote ' + rowData[45]].filter(Boolean).join(' · ');
   } else if (canal === 'Pilar') {
-    // Pilar NEW layout: idx 45=Barrio/Dir, 46=Lote, 47=Tel
-    colCliente = 7; colPedido = 1; colTelefono = 47;
-    direccion = [rowData[45], 'Lote ' + rowData[46]].filter(Boolean).join(' · ');
+    // Pilar v2: idx 47=Barrio/Dirección, 48=Domicilio/Lote, 49=Teléfono
+    colCliente = 7; colPedido = 1; colTelefono = 49;
+    direccion = [rowData[47], 'Lote ' + rowData[48]].filter(Boolean).join(' · ');
   } else if (canal === 'Clubes') {
     colCliente = 7; colPedido = 1; colTelefono = 33;
     direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · ');
@@ -6067,8 +6111,8 @@ function _doPostCancelarPedido(data) {
   }
 
   // Si estaba Entregado + Deposito → revertir stock fisico (+1)
-  // Solo aplica para Home/Pilar/CF (Clubes y Red tienen su propia logica)
-  if (estadoAnterior === 'Entregado' && (hoja === 'Home' || hoja === 'Pilar' || hoja === 'Capital Federal')) {
+  // Solo aplica para Home/Pilar (Clubes y Red tienen su propia logica)
+  if (estadoAnterior === 'Entregado' && (hoja === 'Home' || hoja === 'Pilar')) {
     var hProd = SS.getSheetByName('Productos');
     if (hProd) {
       if (origen === 'Deposito') _homeStockFisico(sh, row, hProd, +1);
@@ -6096,11 +6140,11 @@ function _doPostMarcarCobrado(data) {
   }
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 
-  // Columnas según hoja
+  // Columnas según hoja (1-based)
   var cols;
   if (hoja === 'Clubes') cols = {fp:15, estPago:16, ef:19, tr:20, propEf:21, propTr:22};
   else if (hoja === 'Red') cols = {fp:13, estPago:14, ef:17, tr:18, propEf:19, propTr:20};
-  else cols = {fp:12, estPago:13, ef:16, tr:17, propEf:18, propTr:19}; // Home/Pilar/CF
+  else cols = {fp:12, estPago:13, ef:18, tr:19, propEf:20, propTr:21}; // Home/Pilar v2
 
   // Marcar Cobrado + estampar fecha de cobro
   sh.getRange(row, cols.estPago).setValue('Cobrado');
@@ -6130,67 +6174,13 @@ function _doPostMarcarCobrado(data) {
   return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** POST action=ajusteSaldo — guarda el saldo real como snapshot.
+ *  El Panel calcula el saldo vivo como: SaldoBase + cobrado/ingreso/gasto DESPUÉS de la fecha del snapshot.
+ *  Así, cobros históricos ya reflejados en el monto ajustado no cuentan dos veces. */
 function _doPostAjusteSaldo(data) {
   var deseadoEf = Number(data.efectivo) || 0;
   var deseadoMP = Number(data.mp) || 0;
 
-  // ── Calcular cobrados actuales (pedidos operativos cobrados) ──
-  var cobradoEf = 0, cobradoMP = 0;
-  ['Home', 'Pilar', 'Capital Federal'].forEach(function(hoja) {
-    var sh = SS.getSheetByName(hoja);
-    if (!sh || sh.getLastRow() <= 1) return;
-    var d = sh.getDataRange().getValues();
-    for (var r = 1; r < d.length; r++) {
-      if (String(d[r][12]).trim() === 'Cobrado') {
-        var fac = Number(d[r][19]) || Number(d[r][13]) || 0;
-        if (String(d[r][11]).trim() === 'Efectivo') cobradoEf += fac;
-        else cobradoMP += fac;
-      }
-    }
-  });
-  var shCl = SS.getSheetByName('Clubes');
-  if (shCl && shCl.getLastRow() > 1) {
-    var dCl = shCl.getDataRange().getValues();
-    for (var rc = 1; rc < dCl.length; rc++) {
-      if (String(dCl[rc][15]).trim() === 'Cobrado') {
-        var facC = Number(dCl[rc][22]) || Number(dCl[rc][16]) || 0;
-        if (String(dCl[rc][14]).trim() === 'Efectivo') cobradoEf += facC;
-        else cobradoMP += facC;
-      }
-    }
-  }
-
-  // ── Calcular gastos actuales ──
-  var gastosEf = 0, gastosMP = 0;
-  var shEgr = SS.getSheetByName('Egresos');
-  if (shEgr && shEgr.getLastRow() > 1) {
-    var dE = shEgr.getDataRange().getValues();
-    for (var re = 1; re < dE.length; re++) {
-      if (!dE[re][0]) continue;
-      var mE = Number(dE[re][6]) || 0;
-      if (String(dE[re][5]).trim() === 'Efectivo') gastosEf += mE;
-      else gastosMP += mE;
-    }
-  }
-
-  // ── Calcular ingresos actuales ──
-  var ingresosEf = 0, ingresosMP = 0;
-  var shIng = SS.getSheetByName('Ingresos');
-  if (shIng && shIng.getLastRow() > 1) {
-    var dI = shIng.getDataRange().getValues();
-    for (var ri = 1; ri < dI.length; ri++) {
-      if (!dI[ri][0]) continue;
-      var mI = Number(dI[ri][6]) || 0;
-      if (String(dI[ri][5]).trim() === 'Efectivo') ingresosEf += mI;
-      else ingresosMP += mI;
-    }
-  }
-
-  // ── Back-calculate base so that: base + cobrado + ingresos - gastos = deseado ──
-  var baseEf = deseadoEf - cobradoEf - ingresosEf + gastosEf;
-  var baseMP = deseadoMP - cobradoMP - ingresosMP + gastosMP;
-
-  // ── Guardar ──
   var shSaldo = SS.getSheetByName('Saldo Base');
   if (!shSaldo) {
     shSaldo = SS.insertSheet('Saldo Base');
@@ -6200,34 +6190,40 @@ function _doPostAjusteSaldo(data) {
   }
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  shSaldo.appendRow([argNow, baseEf, baseMP]);
+  shSaldo.appendRow([argNow, deseadoEf, deseadoMP]);
   shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ══════════════════════════════════════════════════════════════
-//  VENTAS — Lee Archivo + Operativas (entregados) + Historico
+//  VENTAS — Lee hojas operativas acumulativas (solo Entregados)
 // ══════════════════════════════════════════════════════════════
 
 /** GET ?action=ventas
- *  Devuelve TODAS las ventas: archivadas + semana actual (entregados) + histórico legacy.
+ *  Devuelve TODAS las ventas Entregadas de las hojas acumulativas.
  *  Canales: Venta Directa (Home+Pilar+CF), Clubes, Red, B2B, Catering. */
 function _doGetVentas() {
   var ventas = [];
   var MVAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-  // ── Helper: parsear fila VD (Home/Pilar/CF) — misma estructura en operativa, archivo e historico ──
+  // ── Helper: parsear fila VD (Home, Pilar) — v2 abr/2026 ──
+  // Home v2: Facturado V(21), Ef R(17), Tr S(18), Costo AP(41), Margen AQ(42), FechaEnt AX(49), MesEnt AY(50), SemEnt AZ(51)
+  // Pilar v2: Facturado V(21), Ef R(17), Tr S(18), Costo AT(45), Margen AU(46), FechaEnt BA(52), MesEnt BB(53), SemEnt BC(54)
   function parseVD(data, r, zona) {
     var cliente = String(data[r][7] || '').trim();
     if (!cliente) return null;
-    var facturado = Number(data[r][19]) || Number(data[r][13]) || 0;
+    var isP = (zona === 'Pilar');
+    var IDX = isP
+      ? { fact:21, totalAlt:16, ef:17, tr:18, costo:45, margen:46, fechaEnt:52, mesEnt:53, semEnt:54 }
+      : { fact:21, totalAlt:16, ef:17, tr:18, costo:41, margen:42, fechaEnt:49, mesEnt:50, semEnt:51 };
+    var facturado = Number(data[r][IDX.fact]) || Number(data[r][IDX.totalAlt]) || 0;
     if (facturado === 0) return null;
-    var fechaEnt = data[r][47];
+    var fechaEnt = data[r][IDX.fechaEnt];
     var fecha = fechaEnt instanceof Date ? fechaEnt : data[r][3];
     var fechaStr = fecha instanceof Date ? Utilities.formatDate(fecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fecha || '');
-    var mesEnt = String(data[r][48] || '').trim();
-    var semEnt = Number(data[r][49]) || 0;
+    var mesEnt = String(data[r][IDX.mesEnt] || '').trim();
+    var semEnt = Number(data[r][IDX.semEnt]) || 0;
     var mesPed = String(data[r][4] || '').trim();
     var semPed = Number(data[r][5]) || 0;
     var mes = MVAL.indexOf(mesEnt) >= 0 ? mesEnt : mesPed;
@@ -6236,8 +6232,8 @@ function _doGetVentas() {
       canal: 'Venta Directa', zona: zona, fecha: fechaStr, mes: mes, sem: sem,
       cliente: cliente, estado: String(data[r][10] || '').trim(),
       fp: String(data[r][11] || '').trim(), ep: String(data[r][12] || '').trim(),
-      $: facturado, ef: Number(data[r][15]) || 0, tr: Number(data[r][16]) || 0,
-      costo: Number(data[r][39]) || 0, margen: Number(data[r][40]) || 0
+      $: facturado, ef: Number(data[r][IDX.ef]) || 0, tr: Number(data[r][IDX.tr]) || 0,
+      costo: Number(data[r][IDX.costo]) || 0, margen: Number(data[r][IDX.margen]) || 0
     };
   }
 
@@ -6285,47 +6281,48 @@ function _doGetVentas() {
     }
   }
 
-  // ── Venta Directa: Archivo + Operativa (entregados) + Historico legacy ──
+  // ── Venta Directa: operativa acumulativa, solo Entregados ──
   var vdCfg = [
     { zona: 'Home' },
-    { zona: 'Pilar' },
-    { zona: 'Capital Federal' }
+    { zona: 'Pilar' }
   ];
   vdCfg.forEach(function(cfg) {
-    readSheet('Archivo ' + cfg.zona, parseVD, cfg.zona);
     readOperativa(cfg.zona, parseVD, cfg.zona, 10);
-    readSheet('Historico ' + cfg.zona, parseVD, cfg.zona);
   });
 
-  // ── Clubes: Archivo + Operativa (entregados) + Historico legacy ──
-  readSheet('Archivo Clubes', parseClubes);
+  // ── Clubes: operativa acumulativa, solo Entregados ──
   readOperativa('Clubes', parseClubes, null, 13);
-  readSheet('Historico Clubes', parseClubes);
 
-  // ── Red (headers row 1, data from row 2) ──
-  var shRd = SS.getSheetByName('Historico Red');
+  // ── Red (55 cols). Facturación Red = "A Pagar" (AW, idx 48) = lo que le queda
+  // a Maleu después de la comisión del vendedor. Costo = idx 44, Margen Neto = idx 47.
+  var shRd = SS.getSheetByName('Red');
   if (shRd && shRd.getLastRow() > 1) {
     var dRd = shRd.getDataRange().getValues();
     for (var rr = 1; rr < dRd.length; rr++) {
-      var cliR = String(dRd[rr][5] || '').trim();
+      var estadoR = String(dRd[rr][11] || '').trim();
+      if (estadoR !== 'Entregado') continue;
+      var cliR = String(dRd[rr][8] || '').trim();
       if (!cliR) continue;
-      var facR = Number(dRd[rr][12]) || 0;
-      if (facR === 0) continue;
-      var fR = dRd[rr][1];
+      var aPagarR = Number(dRd[rr][48]) || 0;
+      if (aPagarR === 0) continue;
+      var fR = dRd[rr][3];
       var fRS = fR instanceof Date ? Utilities.formatDate(fR, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fR || '');
       ventas.push({
         canal: 'Red', zona: String(dRd[rr][7] || '').trim(), fecha: fRS,
-        mes: String(dRd[rr][2] || '').trim(), sem: Number(dRd[rr][3]) || 0,
-        cliente: cliR, estado: 'Entregado',
-        fp: Number(dRd[rr][14]) > 0 ? 'Transferencia' : 'Efectivo', ep: 'Cobrado',
-        $: facR, ef: Number(dRd[rr][13]) || 0, tr: Number(dRd[rr][14]) || 0,
-        costo: 0, margen: 0
+        mes: String(dRd[rr][4] || '').trim(), sem: Number(dRd[rr][5]) || 0,
+        cliente: cliR, estado: estadoR,
+        fp: String(dRd[rr][12] || '').trim(),
+        ep: String(dRd[rr][13] || '').trim(),
+        $: aPagarR,
+        ef: Number(dRd[rr][16]) || 0, tr: Number(dRd[rr][17]) || 0,
+        costo: Number(dRd[rr][44]) || 0,
+        margen: Number(dRd[rr][47]) || 0
       });
     }
   }
 
-  // ── B2B (headers row 1, data from row 2) ──
-  var shB = SS.getSheetByName('Historico B2B');
+  // ── B2B (hoja operativa manual) ──
+  var shB = SS.getSheetByName('B2B');
   if (shB && shB.getLastRow() > 1) {
     var dB = shB.getDataRange().getValues();
     for (var rb = 1; rb < dB.length; rb++) {
@@ -6346,8 +6343,8 @@ function _doGetVentas() {
     }
   }
 
-  // ── Catering (headers row 1, data from row 2) ──
-  var shCt = SS.getSheetByName('Historico Catering');
+  // ── Catering (hoja operativa manual) ──
+  var shCt = SS.getSheetByName('Catering');
   if (shCt && shCt.getLastRow() > 1) {
     var dCt = shCt.getDataRange().getValues();
     for (var rt = 1; rt < dCt.length; rt++) {
@@ -6380,4 +6377,121 @@ function _doGetVentas() {
   return ContentService
     .createTextOutput(JSON.stringify({ ts: Date.now(), v: ventas }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=pagarVendedor — registra pago de un vendedor Red a Maleu.
+ *  { action:'pagarVendedor', vendedor:'Marcos Bottcher', monto:230408, metodo:'Mercado Pago', fecha:'2026-04-21', notas:'' }
+ *  - Crea 1 fila en Ingresos (categoría 'Liquidación Red')
+ *  - Marca pedidos Red con Estado Pago a Maleu = 'Sí' en FIFO hasta cubrir el monto
+ *  - Guarda Fecha Pago a Maleu y Forma Pago a Maleu en cada pedido marcado */
+function _doPostPagarVendedor(data) {
+  var vendedor = String(data.vendedor || '').trim();
+  var monto = Number(data.monto) || 0;
+  var metodo = String(data.metodo || 'Mercado Pago').trim();
+  var fechaStr = String(data.fecha || '').trim();
+  var notas = String(data.notas || '').trim();
+
+  if (!vendedor || monto <= 0) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Faltan datos' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Leer comisión del vendedor
+  var shVend = SS.getSheetByName('Vendedores');
+  var comPct = 17;
+  if (shVend && shVend.getLastRow() > 1) {
+    var dV = shVend.getDataRange().getValues();
+    for (var rv = 1; rv < dV.length; rv++) {
+      if (String(dV[rv][0]).trim() === vendedor) { comPct = Number(dV[rv][9]) || 17; break; }
+    }
+  }
+
+  // Fecha para registros
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var dd = String(argNow.getDate()).padStart(2, '0');
+  var mm = String(argNow.getMonth() + 1).padStart(2, '0');
+  var yyyy = argNow.getFullYear();
+  var fechaHoy = dd + '/' + mm + '/' + yyyy;
+  var MESES_V = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var mesNombre = MESES_V[argNow.getMonth()];
+  var semana = _isoWeek(argNow);
+
+  // Fecha elegida por Tadeo (opcional) — si viene en formato yyyy-MM-dd, convertir
+  var fechaPagoStr = fechaHoy;
+  if (fechaStr && fechaStr.indexOf('-') >= 0) {
+    var fp = fechaStr.split('-');
+    if (fp.length === 3) fechaPagoStr = fp[2] + '/' + fp[1] + '/' + fp[0];
+  }
+
+  // Recorrer Red y marcar FIFO
+  var restante = monto;
+  var pedidosMarcados = 0;
+
+  function _marcarEnHoja(nombre) {
+    if (restante <= 0) return;
+    var sh = SS.getSheetByName(nombre);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var data = sh.getDataRange().getValues();
+    var headers = data[0];
+    var idxVendedor=-1, idxTotal=-1, idxFecha=-1, idxEstPago=-1, idxFechaPago=-1, idxFormaPago=-1;
+    for (var h = 0; h < headers.length; h++) {
+      var nm = String(headers[h]).trim();
+      if (nm === 'Vendedor') idxVendedor = h;
+      else if (nm === 'Total ($)' || nm === 'Total') idxTotal = h;
+      else if (nm === 'Fecha') idxFecha = h;
+      else if (nm === 'Estado Pago a Maleu') idxEstPago = h;
+      else if (nm === 'Fecha Pago a Maleu') idxFechaPago = h;
+      else if (nm === 'Forma Pago a Maleu') idxFormaPago = h;
+    }
+    if (idxVendedor < 0 || idxEstPago < 0) return;
+    // Ordenar filas candidatas por fecha ASC (FIFO)
+    var candidatos = [];
+    for (var r = 1; r < data.length; r++) {
+      var v = String(data[r][idxVendedor] || '').trim();
+      if (v !== vendedor) continue;
+      var ep = String(data[r][idxEstPago] || '').trim();
+      if (ep === 'Sí' || ep === 'Si') continue;
+      var tot = Number(data[r][idxTotal]) || 0;
+      if (tot <= 0) continue;
+      var fRow = data[r][idxFecha];
+      var dFila = null;
+      if (fRow instanceof Date) dFila = fRow;
+      else if (fRow) {
+        var fp2 = String(fRow).split('/');
+        if (fp2.length >= 3) {
+          var yy = Number(fp2[2]); if (yy < 100) yy += 2000;
+          dFila = new Date(yy, Number(fp2[1])-1, Number(fp2[0]));
+        }
+      }
+      candidatos.push({ rowIdx: r + 1, total: tot, fecha: dFila || new Date(0) });
+    }
+    candidatos.sort(function(a, b) { return a.fecha - b.fecha; });
+    candidatos.forEach(function(c) {
+      if (restante <= 0.01) return;
+      var deudaP = c.total * (1 - comPct/100);
+      sh.getRange(c.rowIdx, idxEstPago + 1).setValue('Sí');
+      if (idxFechaPago >= 0) sh.getRange(c.rowIdx, idxFechaPago + 1).setValue(fechaPagoStr);
+      if (idxFormaPago >= 0) sh.getRange(c.rowIdx, idxFormaPago + 1).setValue(metodo);
+      restante -= deudaP;
+      pedidosMarcados++;
+    });
+  }
+
+  _marcarEnHoja('Red');
+
+  // Registrar Ingreso en caja
+  var shIng = SS.getSheetByName('Ingresos');
+  if (!shIng) {
+    shIng = SS.insertSheet('Ingresos');
+    shIng.getRange(1, 1, 1, 8).setValues([['Fecha','Mes','Semana','Categoría','Concepto / Detalle','Método','Monto','Nota']])
+      .setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
+    shIng.setFrozenRows(1);
+  }
+  var concepto = 'Liquidación ' + vendedor;
+  shIng.appendRow([fechaPagoStr, mesNombre, semana, 'Liquidación Red', concepto, metodo, monto, notas]);
+
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true, pedidosMarcados: pedidosMarcados, sobrante: Math.max(0, restante),
+    mensaje: pedidosMarcados + ' pedido(s) marcados como pagados. Sobrante: $' + Math.round(restante)
+  })).setMimeType(ContentService.MimeType.JSON);
 }
