@@ -264,14 +264,29 @@ function _doGetCobrosPendientes() {
     for (var r = 1; r < data.length; r++) {
       var estado = String(data[r][cfg.colEst] || '').trim();
       var pago = String(data[r][cfg.colPago] || '').trim();
-      if (estado !== 'Entregado') continue;
+      if (estado === 'Cancelado') continue;
       if (pago === 'Cobrado') continue;
       var id = data[r][1];
-      if (!id) continue;
+      if (!id || String(id).trim() === '-') continue;
       var fecha = data[r][cfg.colFecha];
       var fechaStr = '';
       if (fecha instanceof Date) fechaStr = Utilities.formatDate(fecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
       else fechaStr = String(fecha || '').trim();
+      // Día de entrega: convertir Date/fecha texto a nombre del día
+      var diaRawCob = data[r][cfg.colDia];
+      var diaCob;
+      if (diaRawCob instanceof Date) {
+        var DIAS_COB = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        diaCob = DIAS_COB[diaRawCob.getDay()];
+      } else {
+        diaCob = String(diaRawCob || '').trim();
+        var mCob = diaCob.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (mCob) {
+          var dCob = new Date(Number(mCob[3]), Number(mCob[2]) - 1, Number(mCob[1]));
+          var DIAS_COB2 = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+          diaCob = DIAS_COB2[dCob.getDay()];
+        }
+      }
       out.push({
         key: cfg.name + '|' + id,
         h: cfg.name,
@@ -281,8 +296,9 @@ function _doGetCobrosPendientes() {
         t: cfg.colTel !== null ? String(data[r][cfg.colTel] || '').trim() : '',
         '$': Number(data[r][cfg.colTotal]) || 0,
         fp: String(data[r][cfg.colFp] || '').trim(),
-        de: String(data[r][cfg.colDia] || '').trim(),
-        fe: fechaStr
+        de: diaCob,
+        fe: fechaStr,
+        es: estado
       });
     }
   });
