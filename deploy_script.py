@@ -3,7 +3,7 @@ import google.auth
 from googleapiclient.discovery import build
 
 SCRIPT_ID = "1wtfgJFESRbD1llGX39zOhWIWm0v047CGWqdYXkHJIlS0cDt3Ove3cSza"
-VERSION_DESC = "v61 - cobrosPendientes incluye Pendiente/Reservado no cobrados + estado en payload"
+VERSION_DESC = "v62 - onEdit Home/Pilar/Clubes/Red: check OC duplicada usa Canal+N+Cliente"
 
 # Auth
 creds, project = google.auth.default(scopes=[

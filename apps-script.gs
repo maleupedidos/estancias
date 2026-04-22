@@ -2432,12 +2432,15 @@ function _onEditRed(e) {
       if (lock.tryLock(100)) {
         try {
           var pedidoNum = String(sh.getRange(row, 2).getValue());
+          var clienteOrig = String(sh.getRange(row, 9).getValue() || '').trim(); // Red: col 9 = Cliente
           var shOC = SS.getSheetByName('Orden de Compra');
           if (shOC && shOC.getLastRow() > 1) {
-            var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+            var existentes = shOC.getRange(2, 5, shOC.getLastRow() - 1, 3).getValues();
             for (var i = 0; i < existentes.length; i++) {
-              if (String(existentes[i][0]).trim() === pedidoNum) {
-                SS.toast('OC ya existe para ' + pedidoNum, 'Duplicado evitado', 4);
+              if (String(existentes[i][0]).trim() === 'Red' &&
+                  String(existentes[i][1]).trim() === pedidoNum &&
+                  String(existentes[i][2]).trim() === clienteOrig) {
+                SS.toast('OC ya existe para ' + clienteOrig + ' (' + pedidoNum + ')', 'Duplicado evitado', 4);
                 return;
               }
             }
@@ -2528,12 +2531,15 @@ function _onEditClubes(e) {
       if (lock.tryLock(100)) {
         try {
           var pedidoNum = String(sh.getRange(row, 2).getValue());
+          var clienteOrig = String(sh.getRange(row, 8).getValue() || '').trim();
           var shOC = SS.getSheetByName('Orden de Compra');
           if (shOC && shOC.getLastRow() > 1) {
-            var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+            var existentes = shOC.getRange(2, 5, shOC.getLastRow() - 1, 3).getValues();
             for (var i = 0; i < existentes.length; i++) {
-              if (String(existentes[i][0]).trim() === pedidoNum) {
-                SS.toast('OC ya existe para ' + pedidoNum, 'Duplicado evitado', 4);
+              if (String(existentes[i][0]).trim() === 'Clubes' &&
+                  String(existentes[i][1]).trim() === pedidoNum &&
+                  String(existentes[i][2]).trim() === clienteOrig) {
+                SS.toast('OC ya existe para ' + clienteOrig + ' (' + pedidoNum + ')', 'Duplicado evitado', 4);
                 return;
               }
             }
@@ -2859,14 +2865,18 @@ function _onEditHome(e) {
       var lock = LockService.getScriptLock();
       if (lock.tryLock(100)) {
         try {
-          // Verificar si ya existen OC para este pedido DENTRO del lock
+          // Verificar si ya existen OC para este pedido (Canal+N°+Cliente, no solo N°)
           var pedidoNum = String(sh.getRange(row, 2).getValue());
+          var clienteOrig = String(sh.getRange(row, 8).getValue() || '').trim();
+          var canalActual = sh.getName();
           var shOC = SS.getSheetByName('Orden de Compra');
           if (shOC && shOC.getLastRow() > 1) {
-            var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+            var existentes = shOC.getRange(2, 5, shOC.getLastRow() - 1, 3).getValues(); // E=Canal, F=N°, G=Cliente
             for (var i = 0; i < existentes.length; i++) {
-              if (String(existentes[i][0]).trim() === pedidoNum) {
-                SS.toast('OC ya existe para ' + pedidoNum, 'Duplicado evitado', 4);
+              if (String(existentes[i][0]).trim() === canalActual &&
+                  String(existentes[i][1]).trim() === pedidoNum &&
+                  String(existentes[i][2]).trim() === clienteOrig) {
+                SS.toast('OC ya existe para ' + clienteOrig + ' (' + pedidoNum + ')', 'Duplicado evitado', 4);
                 return;
               }
             }
