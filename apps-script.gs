@@ -5878,13 +5878,16 @@ function _doPostSetOrigenProductos(data) {
   // Generar OC solo para productos con origen OC
   var ocProds = prods.filter(function(p) { return p.o === 'OC'; });
   if (ocProds.length > 0) {
-    // Verificar que no existan OC previas para este pedido
+    // Verificar que no existan OC previas para este pedido (Canal + N° + Cliente para manejar N° reseteados)
+    var clienteOrig = String(sh.getRange(row, 8).getValue() || '').trim();
     var shOC = SS.getSheetByName('Orden de Compra');
     var yaExiste = false;
     if (shOC && shOC.getLastRow() > 1) {
-      var existentes = shOC.getRange(2, 6, shOC.getLastRow() - 1, 1).getValues();
+      var existentes = shOC.getRange(2, 5, shOC.getLastRow() - 1, 3).getValues(); // E=Canal, F=N°, G=Cliente
       for (var i = 0; i < existentes.length; i++) {
-        if (String(existentes[i][0]).trim() === pedidoId) { yaExiste = true; break; }
+        if (String(existentes[i][0]).trim() === hoja &&
+            String(existentes[i][1]).trim() === pedidoId &&
+            String(existentes[i][2]).trim() === clienteOrig) { yaExiste = true; break; }
       }
     }
     if (!yaExiste) {
