@@ -3,7 +3,7 @@ import google.auth
 from googleapiclient.discovery import build
 
 SCRIPT_ID = "1wtfgJFESRbD1llGX39zOhWIWm0v047CGWqdYXkHJIlS0cDt3Ove3cSza"
-VERSION_DESC = "v59 - cobrosPendientes devuelve r (fila); marcarEntregado fallback busca ultimo match"
+VERSION_DESC = "v60 - fix entregas: prodStart Home=22 (no 20) + diaEntrega convierte Date/fecha a nombre dia"
 
 # Auth
 creds, project = google.auth.default(scopes=[

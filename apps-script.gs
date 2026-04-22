@@ -464,10 +464,26 @@ function _doGetEntregas(e) {
       var estado = String(data[r][10]).trim();
       if (estado === 'Entregado' || estado === 'Cancelado') continue;
 
-      var diaEntrega = String(data[r][9]).trim();
+      // Día de entrega: si es Date, convertir a nombre del día de la semana
+      var diaRaw = data[r][9];
+      var diaEntrega;
+      if (diaRaw instanceof Date) {
+        var DIAS_E = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        diaEntrega = DIAS_E[diaRaw.getDay()];
+      } else {
+        diaEntrega = String(diaRaw || '').trim();
+        // Si viene "dd/MM/yyyy" como texto, también convertir a nombre del día
+        var m = diaEntrega.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) {
+          var d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+          var DIAS_E2 = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+          diaEntrega = DIAS_E2[d.getDay()];
+        }
+      }
       if (dia && diaEntrega !== dia) continue;
 
-      var prodStart = isPilar ? 22 : 20; // Pilar v2: productos desde W(23=idx22); Home: U(21=idx20)
+      // Productos: Home y Pilar ambos comienzan en col W (23 = idx 22)
+      var prodStart = 22;
       var productos = [];
       for (var p = 0; p < prodCount; p++) {
         var qty = Number(data[r][prodStart + p]) || 0;
