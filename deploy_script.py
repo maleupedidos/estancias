@@ -3,7 +3,7 @@ import google.auth
 from googleapiclient.discovery import build
 
 SCRIPT_ID = "1wtfgJFESRbD1llGX39zOhWIWm0v047CGWqdYXkHJIlS0cDt3Ove3cSza"
-VERSION_DESC = "v58 - N pedido sin prefijo (solo numero semanal) + cancelarPedido desde Panel pone N='-'"
+VERSION_DESC = "v59 - cobrosPendientes devuelve r (fila); marcarEntregado fallback busca ultimo match"
 
 # Auth
 creds, project = google.auth.default(scopes=[

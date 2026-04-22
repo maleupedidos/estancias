@@ -276,6 +276,7 @@ function _doGetCobrosPendientes() {
         key: cfg.name + '|' + id,
         h: cfg.name,
         id: String(id),
+        r: r + 1,
         c: String(data[r][cfg.colCliente] || '').trim(),
         t: cfg.colTel !== null ? String(data[r][cfg.colTel] || '').trim() : '',
         '$': Number(data[r][cfg.colTotal]) || 0,
@@ -1383,14 +1384,15 @@ function _doPostMarcarEntregado(data) {
   var sh = SS.getSheetByName(hoja);
   if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false })).setMimeType(ContentService.MimeType.JSON);
 
-  // Buscar fila por N° Pedido (col B=2). Usar row hint si coincide, sino buscar.
+  // Buscar fila por N° Pedido (col B=2). Usar row hint si coincide, sino buscar último match.
   var row = Number(data.row) || 0;
   if (row > 1 && String(sh.getRange(row, 2).getValue()) === pedidoId) {
     // row hint es correcto
   } else {
     var allData = sh.getDataRange().getValues();
     row = -1;
-    for (var r = 1; r < allData.length; r++) {
+    // Buscar último match (en caso de N° reseteados semanalmente)
+    for (var r = allData.length - 1; r >= 1; r--) {
       if (String(allData[r][1]) === pedidoId) { row = r + 1; break; }
     }
     if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false })).setMimeType(ContentService.MimeType.JSON);
