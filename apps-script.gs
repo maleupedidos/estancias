@@ -2075,7 +2075,8 @@ function _isoWeek(date) {
  * @returns {number}
  */
 function _nextWeeklyNum(sh, colN, colDia, fechaEntregaISO, prefix) {
-  function _fmt(n) { return prefix ? (prefix + '-' + String(n).padStart(3, '0')) : n; }
+  // N° simple semanal (1, 2, 3...). El prefix se ignora — el N° se resetea por semana ISO.
+  function _fmt(n) { return n; }
   if (!fechaEntregaISO) return _fmt(1);
   var fp = String(fechaEntregaISO).split('-');
   if (fp.length !== 3) return _fmt(1);
@@ -6138,8 +6139,9 @@ function _doPostCancelarPedido(data) {
     }
   }
 
-  // Marcar como Cancelado
+  // Marcar como Cancelado y poner N° = "-" (no cuenta en numeración semanal)
   sh.getRange(row, colEst).setValue('Cancelado');
+  sh.getRange(row, 2).setValue('-');
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
 }
