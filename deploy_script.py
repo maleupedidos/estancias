@@ -3,7 +3,7 @@ import google.auth
 from googleapiclient.discovery import build
 
 SCRIPT_ID = "1wtfgJFESRbD1llGX39zOhWIWm0v047CGWqdYXkHJIlS0cDt3Ove3cSza"
-VERSION_DESC = "v62 - onEdit Home/Pilar/Clubes/Red: check OC duplicada usa Canal+N+Cliente"
+VERSION_DESC = "Ruta robusta: fix propina cols 20/21 Home/Pilar + skip-flag onEdit para evitar doble trabajo + lock 30s con retry + SpreadsheetApp.flush()"
 
 # Auth
 creds, project = google.auth.default(scopes=[

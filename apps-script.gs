@@ -18,6 +18,34 @@ const BROWN   = '#3D1C0A';
 const ORANGE  = '#F97035';
 const CREAM   = '#E8DFC4';
 
+const DIAS_SEMANA_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+/** Parsea un valor "Día de Entrega Elegido" a Date local (Date o null).
+ *  Acepta: Date, "yyyy-MM-dd", "dd/MM/yyyy", "dd/MM/yy". */
+function _parseDiaEntregaDate(v) {
+  if (v instanceof Date) return v;
+  var s = String(v == null ? '' : v).trim();
+  if (!s) return null;
+  var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (m) { var y = Number(m[3]); if (y < 100) y += 2000; return new Date(y, Number(m[2]) - 1, Number(m[1])); }
+  return null;
+}
+/** Convierte un valor de celda "Día de Entrega" al nombre del día en español. */
+function _fechaADiaSemana(v) {
+  var d = _parseDiaEntregaDate(v);
+  if (d) return DIAS_SEMANA_ES[d.getDay()];
+  return String(v == null ? '' : v).trim();
+}
+/** Devuelve fecha ISO "yyyy-MM-dd" del valor o '' si no se puede parsear. */
+function _fechaAISO(v) {
+  var d = _parseDiaEntregaDate(v);
+  if (!d) return '';
+  var y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dd;
+}
+
 // ════════════════════════════════════════════════════════════
 //  CONFIG — Contadores globales persistentes (hoja oculta)
 //  Fila 1=headers, Fila 2=H-, Fila 3=C-, Fila 4=OC-
@@ -480,22 +508,8 @@ function _doGetEntregas(e) {
       var estado = String(data[r][10]).trim();
       if (estado === 'Entregado' || estado === 'Cancelado') continue;
 
-      // Día de entrega: si es Date, convertir a nombre del día de la semana
-      var diaRaw = data[r][9];
-      var diaEntrega;
-      if (diaRaw instanceof Date) {
-        var DIAS_E = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-        diaEntrega = DIAS_E[diaRaw.getDay()];
-      } else {
-        diaEntrega = String(diaRaw || '').trim();
-        // Si viene "dd/MM/yyyy" como texto, también convertir a nombre del día
-        var m = diaEntrega.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (m) {
-          var d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-          var DIAS_E2 = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-          diaEntrega = DIAS_E2[d.getDay()];
-        }
-      }
+      var diaEntrega = _fechaADiaSemana(data[r][9]);
+      var feISO = _fechaAISO(data[r][9]);
       if (dia && diaEntrega !== dia) continue;
 
       // Productos: Home y Pilar ambos comienzan en col W (23 = idx 22)
@@ -538,6 +552,7 @@ function _doGetEntregas(e) {
         sb: subBarrio || barrio,
         l: lote,
         de: diaEntrega,
+        fe: feISO,
         es: estado,
         o: String(data[r][8] || '').trim(),
         fp: String(data[r][11] || '').trim(),
@@ -557,7 +572,8 @@ function _doGetEntregas(e) {
       var estadoC = String(clubData[rc][13]).trim(); // N = Estado de Entrega
       if (estadoC === 'Entregado' || estadoC === 'Cancelado') continue;
 
-      var diaC = String(clubData[rc][12]).trim(); // M = Día de Entrega
+      var diaC = _fechaADiaSemana(clubData[rc][12]); // M = Día de Entrega
+      var feISOc = _fechaAISO(clubData[rc][12]);
       if (dia && diaC !== dia) continue;
 
       var prodsC = [];
@@ -583,6 +599,7 @@ function _doGetEntregas(e) {
         sb: club,
         l: '',
         de: diaC,
+        fe: feISOc,
         es: estadoC,
         o: String(clubData[rc][11] || '').trim(), // L = Origen
         fp: String(clubData[rc][14] || '').trim(), // O = Forma de Pago
@@ -1431,58 +1448,81 @@ function _doPostMarcarEntregado(data) {
   }
 
   // Columnas según hoja (Clubes y Red tienen layout diferente)
+  // Home/Pilar v2 (abr/2026): I=9 Origen, K=11 EstEntrega, L=12 FormaPago, M=13 EstPago,
+  //                           R=18 Efectivo, S=19 Transferencia, T=20 PropEf, U=21 PropTr
   var isClub = (hoja === 'Clubes');
   var isRed  = (hoja === 'Red');
   var colEstadoEntrega = isClub ? 14 : isRed ? 12 : 11;   // N / L / K
   var colOrigen        = isClub ? 12 : isRed ? 10 : 9;    // L / J / I
   var colEstadoPago    = isClub ? 16 : isRed ? 14 : 13;   // P / N / M
   var colFormaPago     = isClub ? 15 : isRed ? 13 : 12;   // O / M / L
-  var colPropinaEf     = isClub ? 21 : isRed ? 19 : 18;   // U / S / R
-  var colPropinaTr     = isClub ? 22 : isRed ? 20 : 19;   // V / T / S
+  var colPropinaEf     = isClub ? 21 : isRed ? 19 : 20;   // U / S / T
+  var colPropinaTr     = isClub ? 22 : isRed ? 20 : 21;   // V / T / U
 
-  // Verificar que no esté ya Entregado
+  // Verificar que no esté ya Entregado (idempotente)
   var estadoActual = String(sh.getRange(row, colEstadoEntrega).getValue()).trim();
   if (estadoActual === 'Entregado') {
+    // Si el POST trae cobrado=true y el pedido aún no está cobrado, al menos marcar pago.
+    if (cobrado && String(sh.getRange(row, colEstadoPago).getValue()).trim() !== 'Cobrado') {
+      sh.getRange(row, colEstadoPago).setValue('Cobrado');
+      _stampFechaCobro(sh, row);
+    }
     return ContentService.createTextOutput(JSON.stringify({ ok: true, ya: true })).setMimeType(ContentService.MimeType.JSON);
   }
 
-  // Marcar Entregado
-  sh.getRange(row, colEstadoEntrega).setValue('Entregado');
+  // Flag skip-onedit para que el trigger onEdit NO duplique fecha/stock.
+  // El POST va a hacer TODO el trabajo (más confiable que depender del trigger).
+  var props = PropertiesService.getScriptProperties();
+  var skipKey = 'skip_onedit_' + hoja + '_' + row;
+  props.setProperty(skipKey, String(Date.now()));
 
-  // Registrar fecha de entrega (solo Home/Pilar/CF tienen columnas de fecha entrega)
-  if (!isClub && !isRed) {
-    var colEntrega = hoja === 'Pilar' ? 51 : 48; // v2 abr/2026: Home (AV), Pilar (AY)
-    _registrarFechaEntrega(sh, row, colEntrega);
-  }
+  try {
+    // Marcar Entregado (el trigger se dispara pero saldrá por el flag)
+    sh.getRange(row, colEstadoEntrega).setValue('Entregado');
+    SpreadsheetApp.flush();  // asegurar que el setValue persista antes de seguir
 
-  // Descontar stock según Origen
-  var origen = String(sh.getRange(row, colOrigen).getValue()).trim();
-  if (origen === 'Deposito') {
-    var hProd = SS.getSheetByName('Productos');
-    if (hProd) _homeStockFisico(sh, row, hProd, -1);
-  } else if (origen === 'Mixto') {
-    var hProd = SS.getSheetByName('Productos');
-    if (hProd) _homeStockFisicoMixto(sh, row, hProd, -1);
-  }
-
-  // Marcar cobrado si se indicó + estampar fecha
-  if (cobrado) {
-    sh.getRange(row, colEstadoPago).setValue('Cobrado');
-    _stampFechaCobro(sh, row);
-  }
-
-  // Escribir propina si existe
-  var propina = Number(data.propina) || 0;
-  if (propina > 0) {
-    var formaPago = String(sh.getRange(row, colFormaPago).getValue()).trim();
-    if (formaPago === 'Efectivo') {
-      sh.getRange(row, colPropinaEf).setValue(propina);
-    } else {
-      sh.getRange(row, colPropinaTr).setValue(propina);
+    // Registrar fecha de entrega (solo Home/Pilar/CF)
+    if (!isClub && !isRed) {
+      var colEntrega = hoja === 'Pilar' ? 51 : 48; // Home (AV=48), Pilar (AY=51)
+      _registrarFechaEntrega(sh, row, colEntrega);
     }
-  }
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+    // Descontar stock según Origen (con skip-flag el trigger onEdit no lo hará, así que lo hace el POST)
+    var origen = String(sh.getRange(row, colOrigen).getValue()).trim();
+    if (origen === 'Deposito') {
+      var hProd = SS.getSheetByName('Productos');
+      if (hProd) {
+        if (isClub)      _clubesStockFisico(sh, row, hProd, -1);
+        else if (isRed)  _redStockFisico(sh, row, hProd, -1);
+        else             _homeStockFisico(sh, row, hProd, -1); // Home/Pilar
+      }
+    } else if (origen === 'Mixto' && !isClub && !isRed) {
+      var hProd2 = SS.getSheetByName('Productos');
+      if (hProd2) _homeStockFisicoMixto(sh, row, hProd2, -1);
+    }
+
+    // Marcar cobrado si se indicó + estampar fecha (idempotente)
+    if (cobrado) {
+      if (String(sh.getRange(row, colEstadoPago).getValue()).trim() !== 'Cobrado') {
+        sh.getRange(row, colEstadoPago).setValue('Cobrado');
+        _stampFechaCobro(sh, row);
+      }
+    }
+
+    // Escribir propina si existe
+    var propina = Number(data.propina) || 0;
+    if (propina > 0) {
+      var formaPago = String(sh.getRange(row, colFormaPago).getValue()).trim();
+      if (formaPago === 'Efectivo') sh.getRange(row, colPropinaEf).setValue(propina);
+      else                          sh.getRange(row, colPropinaTr).setValue(propina);
+    }
+
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, row: row })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    // Limpiar flag aunque haya excepción
+    props.deleteProperty(skipKey);
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1490,7 +1530,13 @@ function _doPostMarcarEntregado(data) {
 // ════════════════════════════════════════════════════════════
 function doPost(e) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  // Timeout generoso (30s). Si no consigue el lock, respondemos ok:false con err para que el cliente reintente.
+  if (!lock.tryLock(30000)) {
+    _logPedidoFallido(e, new Error('LockTimeout 30s'));
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: 'LockTimeout', retry: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
   try {
     const data = JSON.parse(e.postData.contents);
@@ -1508,6 +1554,7 @@ function doPost(e) {
     if (data.action === 'setOrigenProductos') return _doPostSetOrigenProductos(data);
     if (data.action === 'cambiarOrigen')     return _doPostCambiarOrigen(data);
     if (data.action === 'cambiarEstadoEntrega') return _doPostCambiarEstadoEntrega(data);
+    if (data.action === 'updateDiaEntrega')  return _doPostUpdateDiaEntrega(data);
     if (data.action === 'marcarOC')        return _doPostMarcarOC(data);
     if (data.action === 'recibirMercaderia') return _doPostRecibirMercaderia(data);
     if (data.action === 'pagarProveedor')  return _doPostPagarProveedor(data);
@@ -1778,6 +1825,7 @@ function _doPostHome(data, sheetName, prefix) {
   var newRow = sh.getLastRow();
 
   // Fórmula Facturado (V=22): V = Q (Total a cobrar) + T (Propina Ef) + U (Propina Tr)
+  // Refleja la venta realizada (no depende de si ya se cobró). La caja usa R/S aparte.
   sh.getRange(newRow, 22).setFormula('=Q' + newRow + '+T' + newRow + '+U' + newRow);
   // Fórmula Margen Bruto = Facturado (V) - Costo
   var costoLetter = _colLetter(COL_COSTO);
@@ -1941,7 +1989,7 @@ function _doPostClubes(data) {
 
 // ════════════════════════════════════════════════════════════
 //  _doPostRed — escribe en la hoja "Red" (canal vendedores independientes)
-//  51 columnas A–AY: Vendedor, 23 productos, comisión 17%, Barrio+Lote+Teléfono
+//  55 columnas A–BC: Vendedor, 23 productos, comisión 17%, A Pagar, Barrio+Lote+Teléfono, Pago a Maleu
 // ════════════════════════════════════════════════════════════
 
 // Mapeo ID producto (web) → columna 1-based hoja Red (20/04/2026: orden actualizado)
@@ -2035,8 +2083,8 @@ function _doPostRed(data) {
     });
   }
 
-  // Construir fila de 51 columnas (A a AY)
-  const row = new Array(51).fill('');
+  // Construir fila de 55 columnas (A a BC)
+  const row = new Array(55).fill('');
   row[0]  = horaStr;                                // A  Hora
   row[1]  = orderNum;                               // B  N° Pedido
   row[2]  = diaNombre;                              // C  Día
@@ -2068,10 +2116,15 @@ function _doPostRed(data) {
   // AT (col 46) = Margen Bruto → fórmula después
   // AU (col 47) = Comisión 17% → fórmula después
   // AV (col 48) = Margen Neto → fórmula después
+  // AW (col 49) = A Pagar (a Maleu) → fórmula después = Facturado * 83%
   // Soporta ambos nombres: nuevos (barrioPrivado/lote) y viejos (barrioRed/domicilioRed) por retrocompatibilidad
-  row[48] = String(data.barrioPrivado || data.barrioRed || '');   // AW  Barrio Privado
-  row[49] = String(data.lote || data.domicilioRed || '');          // AX  Lote
-  row[50] = String(data.telefono || '');                           // AY  Teléfono
+  row[49] = String(data.barrioPrivado || data.barrioRed || '');   // AX  Barrio Privado (col 50)
+  row[50] = String(data.lote || data.domicilioRed || '');          // AY  Lote (col 51)
+  row[51] = String(data.telefono || '');                           // AZ  Teléfono (col 52)
+  // BA (col 53) = Forma Pago a Maleu (vacío hasta que el vendedor marque)
+  // BB (col 54) = Estado Pago a Maleu → default "Pendiente"
+  // BC (col 55) = Fecha Pago a Maleu (vacío)
+  row[53] = 'Pendiente';                                           // BB Estado Pago a Maleu
 
   sh.appendRow(row);
   var newRow = sh.getLastRow();
@@ -2084,9 +2137,11 @@ function _doPostRed(data) {
   sh.getRange(newRow, 47).setFormula('=U' + newRow + '*17/100');
   // Fórmula Margen Neto en AV (col 48) = Margen Bruto - Comisión
   sh.getRange(newRow, 48).setFormula('=AT' + newRow + '-AU' + newRow);
-  // Forzar teléfono como texto (col AY = 51)
+  // Fórmula A Pagar en AW (col 49) = Facturado * 83/100 (lo que queda para Maleu)
+  sh.getRange(newRow, 49).setFormula('=U' + newRow + '*83/100');
+  // Forzar teléfono como texto (col AZ = 52)
   var telRed = String(data.telefono || '');
-  if (telRed) sh.getRange(newRow, 51).setNumberFormat('@').setValue(telRed);
+  if (telRed) sh.getRange(newRow, 52).setNumberFormat('@').setValue(telRed);
 }
 
 // Número de semana ISO (lunes = primer día de la semana)
@@ -2424,6 +2479,16 @@ function _onEditRed(e) {
 
   const sh = e.range.getSheet();
 
+  // Skip si el edit viene de un POST que ya hizo todo el trabajo
+  if (col === 12) {  // Estado de Entrega
+    var _skipKeyR = 'skip_onedit_Red_' + row;
+    var _propsR = PropertiesService.getScriptProperties();
+    if (_propsR.getProperty(_skipKeyR)) {
+      _propsR.deleteProperty(_skipKeyR);
+      return;
+    }
+  }
+
   // Si cambió Origen (col J=10) a "Orden de Compra" → generar OC
   if (col === 10) {
     const nuevoOrigen = String(e.value || '');
@@ -2522,6 +2587,16 @@ function _onEditClubes(e) {
   if (row <= 1) return;
 
   const sh = e.range.getSheet();
+
+  // Skip si el edit viene de un POST que ya hizo todo el trabajo
+  if (col === 14) {  // Estado de Entrega
+    var _skipKeyC = 'skip_onedit_Clubes_' + row;
+    var _propsC = PropertiesService.getScriptProperties();
+    if (_propsC.getProperty(_skipKeyC)) {
+      _propsC.deleteProperty(_skipKeyC);
+      return;
+    }
+  }
 
   // Col L (12) = Origen → generar OC con lock
   if (col === 12) {
@@ -2716,8 +2791,11 @@ function generarOrdenDeCompra(canal, row) {
     colCliente = 7; colPedido = 1; colTelefono = 49;
     direccion = [rowData[47], rowData[48]].filter(Boolean).join(' · ');
   } else if (canal === 'Red') {
-    colCliente = 8; colPedido = 1; colTelefono = 52; // BA(53) = Teléfono
-    direccion = [rowData[48], rowData[49], rowData[50], rowData[51]].filter(Boolean).join(' · '); // AW=Partido, AX=Localidad, AY=Barrio, AZ=Domicilio
+    // Red v3 (55 cols): I(9)=Cliente, B(2)=N°, AZ(52)=Teléfono, AX(50)=Barrio, AY(51)=Lote
+    colCliente = 8; colPedido = 1; colTelefono = 51;
+    var _barrioR = String(rowData[49] || '').trim();
+    var _loteR   = String(rowData[50] || '').trim();
+    direccion = [_barrioR, _loteR ? 'Lote ' + _loteR : ''].filter(Boolean).join(' · ');
   } else if (canal === 'Clubes') {
     colCliente = 7; colPedido = 1; colTelefono = 33; // AH(34) = Teléfono
     direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · ');
@@ -2759,9 +2837,17 @@ function generarOrdenDeCompra(canal, row) {
     : (canal === 'Red') ? RED_COL_TO_ABBR
     : HOME_COL_TO_ABBR;
 
-  const cliente    = String(rowData[colCliente] || '');
-  const numPedido  = String(rowData[colPedido] || '');
-  const telefono   = String(rowData[colTelefono] || '');
+  const cliente    = String(rowData[colCliente] || '').trim();
+  const numPedido  = String(rowData[colPedido] || '').trim();
+  const telefono   = String(rowData[colTelefono] || '').trim();
+
+  // Diagnóstico: si cliente o numPedido vienen vacíos, abortar antes de ensuciar OC
+  Logger.log('generarOC canal=' + canal + ' row=' + row + ' cliente="' + cliente + '" nPed="' + numPedido + '" tel="' + telefono + '" dir="' + direccion + '" rowDataLen=' + rowData.length);
+  if (!cliente || !numPedido) {
+    SS.toast('OC abortada: fila ' + row + ' sin cliente/N° — revisá el pedido', 'OC error', 8);
+    Logger.log('OC abortada: datos insuficientes en fila ' + row);
+    return;
+  }
 
   // Fecha, hora, semana y mes en zona Argentina
   const ahora   = new Date();
@@ -2857,6 +2943,16 @@ function _onEditHome(e) {
   if (row <= 1) return;
 
   const sh = e.range.getSheet();
+
+  // Skip si el edit viene de un POST que ya hizo todo el trabajo (evita doble descuento de stock/fecha)
+  if (col === 11) {  // solo aplicable para Estado de Entrega
+    var _skipKey = 'skip_onedit_' + sh.getName() + '_' + row;
+    var _props = PropertiesService.getScriptProperties();
+    if (_props.getProperty(_skipKey)) {
+      _props.deleteProperty(_skipKey);
+      return;
+    }
+  }
 
   // Si cambió Origen (col I=9) a "Orden de Compra" → generar OC con lock
   if (col === 9) {
@@ -5250,6 +5346,19 @@ function _doGetAdmin() {
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
 
+  // Helper: parsea Date o string "dd/MM/yyyy" o "dd/MM/yyyy HH:mm" → Date (o null)
+  function _parseDateAny(v) {
+    if (!v) return null;
+    if (v instanceof Date) return v;
+    var s = String(v).trim();
+    var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    if (!m) return null;
+    var yr = Number(m[3]), mo = Number(m[2]) - 1, dd = Number(m[1]);
+    var hh = m[4] ? Number(m[4]) : 0;
+    var mi = m[5] ? Number(m[5]) : 0;
+    return new Date(yr, mo, dd, hh, mi);
+  }
+
   // ── Saldo Base (último ajuste manual) — leído al principio para filtrar cobros/ingresos/gastos ──
   var saldoBase = { ef: 0, mp: 0, fecha: '', fechaDate: null };
   var shSaldoSnap = SS.getSheetByName('Saldo Base');
@@ -5258,17 +5367,19 @@ function _doGetAdmin() {
     saldoBase.ef = Number(shSaldoSnap.getRange(lastRowSB, 2).getValue()) || 0;
     saldoBase.mp = Number(shSaldoSnap.getRange(lastRowSB, 3).getValue()) || 0;
     var fSB = shSaldoSnap.getRange(lastRowSB, 1).getValue();
-    if (fSB instanceof Date) {
-      saldoBase.fechaDate = fSB;
-      saldoBase.fecha = Utilities.formatDate(fSB, 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm');
+    var fSBd = _parseDateAny(fSB);
+    if (fSBd) {
+      saldoBase.fechaDate = fSBd;
+      saldoBase.fecha = Utilities.formatDate(fSBd, 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm');
     }
   }
   // Helper: movimiento cuenta solo si ocurrió DESPUÉS del último ajuste de saldo.
   // Si no hay ajuste previo, todo cuenta. Si la fecha es ilegible, se asume anterior (conservador).
   function _afterSaldo(v) {
     if (!saldoBase.fechaDate) return true;
-    if (v instanceof Date) return v > saldoBase.fechaDate;
-    return false;
+    var d = _parseDateAny(v);
+    if (!d) return false;
+    return d > saldoBase.fechaDate;
   }
 
   // ── Leer pedidos de las 4 hojas operativas ──
@@ -5303,7 +5414,8 @@ function _doGetAdmin() {
       var origen = String(data[r][8]).trim();
       var cliente = String(data[r][7]).trim();
       var nPedido = String(data[r][1]).trim();
-      var diaEntrega = String(data[r][9]).trim();
+      var diaEntrega = _fechaADiaSemana(data[r][9]);
+      var diaEntregaISO = _fechaAISO(data[r][9]);
       var fecha = data[r][3];
       var fechaStr = '';
       if (fecha instanceof Date) {
@@ -5379,7 +5491,7 @@ function _doGetAdmin() {
       }
 
       pedidos.push({
-        n: nPedido, h: hoja, c: cliente, f: fechaStr, de: diaEntrega,
+        n: nPedido, h: hoja, c: cliente, f: fechaStr, de: diaEntrega, dee: diaEntregaISO,
         es: estado, o: origen, ep: estadoPago, fp: formaPago,
         $: facturado, co: costoPed, mg: margenPed, br: subBarrio, p: prods,
         hr: horaStr, dia: diaPedido,
@@ -5407,7 +5519,8 @@ function _doGetAdmin() {
       var clienteC = String(dataClubes[rc][7]).trim();
       var clubC = String(dataClubes[rc][8]).trim();
       var nPedidoC = String(dataClubes[rc][1]).trim();
-      var diaEntregaC = String(dataClubes[rc][12]).trim();
+      var diaEntregaC = _fechaADiaSemana(dataClubes[rc][12]);
+      var diaEntregaISOC = _fechaAISO(dataClubes[rc][12]);
       var fechaC = dataClubes[rc][3];
       var fechaStrC = '';
       if (fechaC instanceof Date) {
@@ -5467,7 +5580,7 @@ function _doGetAdmin() {
       pedidos.push({
         n: nPedidoC, h: 'Clubes',
         c: clienteC + (clubC ? ' (' + clubC + ')' : ''),
-        f: fechaStrC, de: diaEntregaC, es: estadoC, o: origenC,
+        f: fechaStrC, de: diaEntregaC, dee: diaEntregaISOC, es: estadoC, o: origenC,
         ep: estadoPagoC, fp: formaPagoC, $: facturadoC,
         co: costoCl, mg: margenCl, br: clubC, p: prodsC,
         hr: horaStrC, dia: diaPedC,
@@ -5479,9 +5592,9 @@ function _doGetAdmin() {
   }
   canales.push(statsClubes);
 
-  // Red (55 cols, estructura propia)
-  var ABBRS_RED_DASH = ['PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ','ECyQ','EV',
-                        'TG','TLC','TC','F','SQB','SL','SPyP','SE','PMu','PMa','PJyQ','PCC','PJyM'];
+  // Red (55 cols, estructura propia). Layout V(22)→AR(44): debe coincidir con RED_COL_TO_ABBR.
+  var ABBRS_RED_DASH = ['PPM','PPJyQ','PPCyQ','SQB','SL','SCo','SPyP','SJyQ','SE','SCa',
+                        'ECaC','EJyQ','ECyQ','EV','TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
   var shRedDash = SS.getSheetByName('Red');
   var statsRed = { nombre: 'Red', pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
   if (shRedDash && shRedDash.getLastRow() > 1) {
@@ -5495,7 +5608,7 @@ function _doGetAdmin() {
       var clienteR = String(dataRed[rr][8]).trim(); // I = Cliente
       var vendedorR = String(dataRed[rr][7]).trim(); // H = Vendedor
       var nPedidoR = String(dataRed[rr][1]).trim();
-      var diaEntregaR = String(dataRed[rr][10]).trim(); // K
+      var diaEntregaR = _fechaADiaSemana(dataRed[rr][10]); // K
       var fechaR = dataRed[rr][3];
       var fechaStrR = fechaR instanceof Date ? Utilities.formatDate(fechaR, 'America/Argentina/Buenos_Aires', 'dd/MM') : String(fechaR || '');
 
@@ -5524,13 +5637,17 @@ function _doGetAdmin() {
       var pefRd = Number(dataRed[rr][18]) || 0; // S = Propina Ef
       var ptrRd = Number(dataRed[rr][19]) || 0; // T = Propina Trans
 
+      var horaRd = dataRed[rr][0]; // A = Hora
+      var horaStrRd = horaRd instanceof Date ? Utilities.formatDate(horaRd, 'America/Argentina/Buenos_Aires', 'HH:mm') : String(horaRd || '');
+      var diaPedRd = String(dataRed[rr][2] || '').trim(); // C = Día
+
       pedidos.push({
         n: nPedidoR, h: 'Red',
         c: clienteR + (vendedorR ? ' (Red: ' + vendedorR + ')' : ''),
         f: fechaStrR, de: diaEntregaR, es: estadoR, o: origenR,
         ep: estadoPagoR, fp: formaPagoR, $: facturadoR,
         co: costoR, mg: margenR, br: vendedorR, p: prodsR,
-        hr: '', dia: '',
+        hr: horaStrRd, dia: diaPedRd,
         ef: efRd, tr: trRd, pef: pefRd, ptr: ptrRd,
         r: rr + 1
       });
@@ -5710,7 +5827,8 @@ function _doGetAdmin() {
   }
 
   // ── Cobrado por método de pago — SOLO registros posteriores al último Saldo Base ──
-  // (Los cobros anteriores ya están reflejados en el monto del ajuste; contarlos dos veces desfasa el saldo.)
+  // Usa los montos REALES en R (Efectivo) y S (Transferencia) en vez de asumir por forma de pago.
+  // Así lo cargado en cada columna es lo que entra a caja — si las cols están vacías, no suma.
   var cobradoEf = 0;
   var cobradoMP = 0;
   function _sumarCobrado(hojaName, colsC) {
@@ -5724,20 +5842,26 @@ function _doGetAdmin() {
     }
     for (var rc2 = 1; rc2 < dC.length; rc2++) {
       if (String(dC[rc2][colsC.ep]).trim() !== 'Cobrado') continue;
-      // Si existe Saldo Base, exigir Fecha de Cobro posterior
       if (saldoBase.fechaDate) {
-        if (idxFc < 0) continue; // hoja sin columna Fecha de Cobro: asumir viejo
+        if (idxFc < 0) continue;
         if (!_afterSaldo(dC[rc2][idxFc])) continue;
       }
-      var facC2 = Number(dC[rc2][colsC.fact]) || Number(dC[rc2][colsC.factAlt]) || 0;
-      if (String(dC[rc2][colsC.fp]).trim() === 'Efectivo') cobradoEf += facC2;
-      else cobradoMP += facC2;
+      // Sumar desde R (Efectivo) y S (Transferencia) + propinas
+      var ef = Number(dC[rc2][colsC.ef]) || 0;
+      var tr = Number(dC[rc2][colsC.tr]) || 0;
+      var pef = Number(dC[rc2][colsC.pef]) || 0;
+      var ptr = Number(dC[rc2][colsC.ptr]) || 0;
+      cobradoEf += ef + pef;
+      cobradoMP += tr + ptr;
     }
   }
-  _sumarCobrado('Home',   { ep: 12, fp: 11, fact: 21, factAlt: 16 });
-  _sumarCobrado('Pilar',  { ep: 12, fp: 11, fact: 21, factAlt: 16 });
-  _sumarCobrado('Clubes', { ep: 15, fp: 14, fact: 22, factAlt: 16 });
-  _sumarCobrado('Red',    { ep: 13, fp: 12, fact: 20, factAlt: 14 });
+  // Home/Pilar v2: R=18=Efectivo, S=19=Transferencia, T=20=PropEf, U=21=PropTr
+  _sumarCobrado('Home',   { ep: 12, fp: 11, ef: 17, tr: 18, pef: 19, ptr: 20 });
+  _sumarCobrado('Pilar',  { ep: 12, fp: 11, ef: 17, tr: 18, pef: 19, ptr: 20 });
+  // Clubes: Efectivo=19, Transferencia=20, PropEf=21, PropTr=22
+  _sumarCobrado('Clubes', { ep: 15, fp: 14, ef: 18, tr: 19, pef: 20, ptr: 21 });
+  // Red: Efectivo=17, Transferencia=18, PropEf=19, PropTr=20
+  _sumarCobrado('Red',    { ep: 13, fp: 12, ef: 16, tr: 17, pef: 18, ptr: 19 });
 
   // ── Ingresos manuales ──
   // ingresos[] incluye TODO. ingresosEf/MP solo los posteriores al Saldo Base (para el saldo vivo).
@@ -5803,8 +5927,16 @@ function _doPostGasto(data) {
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
 
-  // Parse fecha or use today
-  var fecha = data.fecha ? new Date(data.fecha + 'T12:00:00') : argNow;
+  // Si la fecha pasada es hoy (o no viene), usar timestamp actual con hora
+  // para que quede DESPUÉS del último Saldo Base y se refleje en caja.
+  var fecha;
+  if (!data.fecha) {
+    fecha = argNow;
+  } else {
+    var hoyISO = argNow.getFullYear() + '-' + String(argNow.getMonth()+1).padStart(2,'0') + '-' + String(argNow.getDate()).padStart(2,'0');
+    if (data.fecha === hoyISO) fecha = argNow;
+    else fecha = new Date(data.fecha + 'T12:00:00');
+  }
   var semana = _getWeekNumber(fecha);
   var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var mes = meses[fecha.getMonth()];
@@ -5816,7 +5948,7 @@ function _doPostGasto(data) {
   var notas = String(data.notas || '').trim();
 
   shEgr.appendRow([fecha, semana, mes, cat, con, met, monto, notas]);
-  shEgr.getRange(shEgr.getLastRow(), 1).setNumberFormat('dd/MM/yyyy');
+  shEgr.getRange(shEgr.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
 
   // Copiar a Movimientos Historicos
   _appendMovHistorico(fecha, mes, semana, cat, con, met, monto, notas);
@@ -5851,7 +5983,16 @@ function _doPostIngreso(data) {
   }
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  var fecha = data.fecha ? new Date(data.fecha + 'T12:00:00') : argNow;
+  // Si la fecha pasada es hoy (o no viene), usar el timestamp actual (con hora real)
+  // para que quede DESPUÉS del último Saldo Base y sume en caja.
+  var fecha;
+  if (!data.fecha) {
+    fecha = argNow;
+  } else {
+    var hoyISO = argNow.getFullYear() + '-' + String(argNow.getMonth()+1).padStart(2,'0') + '-' + String(argNow.getDate()).padStart(2,'0');
+    if (data.fecha === hoyISO) fecha = argNow;
+    else fecha = new Date(data.fecha + 'T12:00:00');
+  }
   var semana = _getWeekNumber(fecha);
   var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var mes = meses[fecha.getMonth()];
@@ -5862,7 +6003,7 @@ function _doPostIngreso(data) {
   var notas = String(data.notas||'').trim();
 
   sh.appendRow([fecha, semana, mes, cat, con, met, monto, notas]);
-  sh.getRange(sh.getLastRow(), 1).setNumberFormat('dd/MM/yyyy');
+  sh.getRange(sh.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
 
   // Copiar a Movimientos Historicos (como ingreso)
   _appendMovHistorico(fecha, mes, semana, 'INGRESO: '+cat, con, met, monto, notas);
@@ -5974,6 +6115,38 @@ function _doPostCambiarOrigen(data) {
   return ContentService.createTextOutput(JSON.stringify({ ok: true, origen: origen })).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** POST action=updateDiaEntrega — cambia "Día de Entrega Elegido" del pedido.
+ *  { action:'updateDiaEntrega', hoja:'Home', id:'H-001', fecha:'YYYY-MM-DD' }
+ *  Escribe "dd/mm/yyyy" en la col correspondiente:
+ *    Home/Pilar: J (10) · Clubes: M (13) · Red: K (11) */
+function _doPostUpdateDiaEntrega(data) {
+  var hoja = String(data.hoja || '');
+  var pedidoId = String(data.id || '');
+  var fechaISO = String(data.fecha || '').trim();
+
+  var m = fechaISO.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'fecha YYYY-MM-DD requerida' })).setMimeType(ContentService.MimeType.JSON);
+  var fechaStr = m[3] + '/' + m[2] + '/' + m[1];
+
+  var sh = SS.getSheetByName(hoja);
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
+
+  var allData = sh.getDataRange().getValues();
+  var row = Number(data.row) || -1;
+  if (row < 2 || row > allData.length || String(allData[row - 1][1]).trim() !== pedidoId) {
+    row = -1;
+    for (var r = allData.length - 1; r >= 1; r--) {
+      if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+    }
+  }
+  if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'pedido no encontrado' })).setMimeType(ContentService.MimeType.JSON);
+
+  var colDia = (hoja === 'Clubes') ? 13 : (hoja === 'Red') ? 11 : 10;
+  sh.getRange(row, colDia).setValue(fechaStr);
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, fecha: fechaStr })).setMimeType(ContentService.MimeType.JSON);
+}
+
 /** POST action=cambiarEstadoEntrega — cambia Estado de Entrega (Pendiente ↔ Reservado).
  *  { action:'cambiarEstadoEntrega', hoja:'Pilar', id:'P-001', estado:'Reservado' } */
 function _doPostCambiarEstadoEntrega(data) {
@@ -6000,9 +6173,20 @@ function _doPostCambiarEstadoEntrega(data) {
   if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'pedido no encontrado' })).setMimeType(ContentService.MimeType.JSON);
 
   var colEstado = hoja === 'Clubes' ? 14 : hoja === 'Red' ? 12 : 11;
-  sh.getRange(row, colEstado).setValue(nuevoEstado);
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, estado: nuevoEstado })).setMimeType(ContentService.MimeType.JSON);
+  // Pendiente/Reservado no disparan fecha ni stock — safe, pero igualmente ponemos skip-flag
+  // para ser consistentes y evitar que el trigger se confunda con lógica futura.
+  var propsCE = PropertiesService.getScriptProperties();
+  var skipKeyCE = 'skip_onedit_' + hoja + '_' + row;
+  propsCE.setProperty(skipKeyCE, String(Date.now()));
+  try {
+    sh.getRange(row, colEstado).setValue(nuevoEstado);
+    SpreadsheetApp.flush();
+  } finally {
+    propsCE.deleteProperty(skipKeyCE);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, estado: nuevoEstado, row: row })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** Genera OC solo para un subconjunto de productos (abreviaturas).
@@ -6027,6 +6211,13 @@ function _generarOCSelectiva(canal, row, abbrs) {
   } else if (canal === 'Clubes') {
     colCliente = 7; colPedido = 1; colTelefono = 33;
     direccion = [rowData[8], rowData[9], rowData[10]].filter(Boolean).join(' · ');
+  } else if (canal === 'Red') {
+    // Red v3 (55 cols): I(9)=Cliente → idx 8, B(2)=N° → idx 1, AZ(52)=Teléfono → idx 51
+    // Dirección: AX(50)=Barrio → idx 49, AY(51)=Lote → idx 50
+    colCliente = 8; colPedido = 1; colTelefono = 51;
+    var _bR = String(rowData[49] || '').trim();
+    var _lR = String(rowData[50] || '').trim();
+    direccion = [_bR, _lR ? 'Lote ' + _lR : ''].filter(Boolean).join(' · ');
   }
 
   // Lookups
@@ -6058,11 +6249,18 @@ function _generarOCSelectiva(canal, row, abbrs) {
   var colToAbbrMap = (canal === 'Clubes')
     ? {24:'PMu',25:'PMa',26:'PJyQ',27:'PCC',28:'PJyM',29:'PPM',30:'PPJyQ',31:'PPCyQ'}
     : (canal === 'Pilar') ? PILAR_COL_TO_ABBR
+    : (canal === 'Red')   ? RED_COL_TO_ABBR
     : HOME_COL_TO_ABBR;
 
-  var cliente = String(rowData[colCliente] || '');
-  var numPedido = String(rowData[colPedido] || '');
-  var telefono = String(rowData[colTelefono] || '');
+  var cliente = String(rowData[colCliente] || '').trim();
+  var numPedido = String(rowData[colPedido] || '').trim();
+  var telefono = String(rowData[colTelefono] || '').trim();
+
+  Logger.log('OCSelectiva canal=' + canal + ' row=' + row + ' abbrs=' + JSON.stringify(abbrs) + ' cliente="' + cliente + '" nPed="' + numPedido + '" tel="' + telefono + '" dir="' + direccion + '"');
+  if (!cliente || !numPedido) {
+    SS.toast('OC abortada: fila ' + row + ' sin cliente/N° — revisá el pedido', 'OC error', 8);
+    return;
+  }
 
   var ahora = new Date();
   var argDate = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
@@ -6555,7 +6753,8 @@ function _doPostPagarVendedor(data) {
     shIng.setFrozenRows(1);
   }
   var concepto = 'Liquidación ' + vendedor;
-  shIng.appendRow([fechaPagoStr, mesNombre, semana, 'Liquidación Red', concepto, metodo, monto, notas]);
+  // Headers reales de Ingresos: [Fecha, Semana, Mes, Categoría, Concepto, Método, Monto, Notas]
+  shIng.appendRow([fechaPagoStr, semana, mesNombre, 'Liquidación Red', concepto, metodo, monto, notas]);
 
   return ContentService.createTextOutput(JSON.stringify({
     ok: true, pedidosMarcados: pedidosMarcados, sobrante: Math.max(0, restante),
