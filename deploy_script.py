@@ -1,15 +1,20 @@
 import json
-import google.auth
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 SCRIPT_ID = "1wtfgJFESRbD1llGX39zOhWIWm0v047CGWqdYXkHJIlS0cDt3Ove3cSza"
-VERSION_DESC = "Ruta robusta: fix propina cols 20/21 Home/Pilar + skip-flag onEdit para evitar doble trabajo + lock 30s con retry + SpreadsheetApp.flush()"
+VERSION_DESC = "v208: admin endpoint expone oc.lista (cada OC con canal+pedido+abbr+q+proveedor+estado). Habilita badge 'Listo p/entregar' / 'N OC esperando' en cards del Panel y seccion 'Por orden de compra' del nuevo Detalle de Pedido (drawer unificado)."
 
-# Auth
-creds, project = google.auth.default(scopes=[
-    "https://www.googleapis.com/auth/script.projects",
-    "https://www.googleapis.com/auth/script.deployments",
-])
+# Auth via service account (no requiere usuario; evita el bloqueo OAuth de Google
+# para los scopes script.* en cuentas externas).
+SA_KEY = r"C:\Users\tadeu\maleu-service-account.json"
+creds = service_account.Credentials.from_service_account_file(
+    SA_KEY,
+    scopes=[
+        "https://www.googleapis.com/auth/script.projects",
+        "https://www.googleapis.com/auth/script.deployments",
+    ],
+)
 service = build("script", "v1", credentials=creds)
 
 # 1. Read current project to get appsscript.json
