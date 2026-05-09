@@ -8038,16 +8038,20 @@ function _doPostEditarPedido(data) {
     colEnvio = 16; colFacturado = 21;
   } else { // Home / Pilar
     var isPilar = (hoja === 'Pilar');
+    // Layout v2 (abr/2026): N=14 Subtotal, O=15 Envío, P=16 Descuento, Q=17 Total
+    // Estado/Pago: K=11 EstEntrega, L=12 FormaPago, M=13 EstPago
     colEst = 11; colOrigen = 9; colPago = 13;
-    colTotal = 14;
+    colTotal = 17;            // Q = Total a cobrar (antes apuntaba a 14 = Subtotal — bug)
+    colSubtotal = 14;         // N = Subtotal Producto
     colCosto = isPilar ? 46 : 42;
     colMargen = isPilar ? 47 : 43;
     COL_MAP = isPilar ? PILAR_COL_TO_ABBR : HOME_COL_TO_ABBR;
     prodStartCol = 23;
     prodEndCol = isPilar ? 45 : 41;
-    colEnvio = 15; // O = Envio
+    colEnvio = 15;            // O = Envío
     colFacturado = 22;
-    colDescuento = isPilar ? 53 : 53; // BA = Descuento (Home y Pilar)
+    colDescuento = 16;        // P = Descuento (antes apuntaba a 53 = Año Entrega — bug)
+    colFormaPago = 12;        // L = Forma de Pago (para recalcular descuento por efectivo)
   }
 
   var est = String(sh.getRange(row, colEst).getValue()).trim();
@@ -8221,17 +8225,44 @@ function _doPostEditarPedido(data) {
   // Escribir cantidades en batch
   sh.getRange(row, prodStartCol, 1, nProds).setValues([newQty]);
 
-  // Recalcular Total y Facturado
+  // ── Recalcular subtotal / descuento / total / facturado ──
+  // Antes, el código leía descuento de col 53 (Año Entrega — bug) y escribía total
+  // en col 14 (Subtotal Producto — bug en Home/Pilar). Ahora apunta correcto.
+  // Reglas de descuento: Home/Pilar 10% si nuevo subtotal >= 100k O pago = Efectivo.
+  // Clubes/Red: sin descuento (colDescuento undefined).
   var envio = Number(sh.getRange(row, colEnvio).getValue()) || 0;
-  var descuento = colDescuento ? (Number(sh.getRange(row, colDescuento).getValue()) || 0) : 0;
-  var totalNuevo = subtotal + envio - descuento;
+  var descuentoNuevo = 0;
+  if (colDescuento && (hoja === 'Home' || hoja === 'Pilar')) {
+    var formaPago = String(sh.getRange(row, colFormaPago).getValue()).trim();
+    var aplicaBulk = subtotal >= 100000;
+    var aplicaCash = (formaPago === 'Efectivo');
+    descuentoNuevo = (aplicaBulk || aplicaCash) ? Math.round(subtotal * 0.10) : 0;
+    sh.getRange(row, colDescuento).setValue(descuentoNuevo);
+  }
+  var totalNuevo = subtotal + envio - descuentoNuevo;
+
+  // Subtotal Producto (solo Home/Pilar tienen col separada)
+  if (typeof colSubtotal !== 'undefined' && colSubtotal) {
+    sh.getRange(row, colSubtotal).setValue(subtotal);
+  }
   sh.getRange(row, colTotal).setValue(totalNuevo);
   sh.getRange(row, colCosto).setValue(costo);
   sh.getRange(row, colMargen).setValue(totalNuevo - costo);
 
+  // Recalcular Facturado = Total + Propinas. Cols por hoja:
+  //   Home/Pilar T(20)=PropEf, U(21)=PropTr · Clubes U(21)/V(22) · Red S(19)/T(20)
+  if (colFacturado) {
+    var colPropEf = (hoja === 'Clubes') ? 21 : (hoja === 'Red') ? 19 : 20;
+    var colPropTr = (hoja === 'Clubes') ? 22 : (hoja === 'Red') ? 20 : 21;
+    var propEf = Number(sh.getRange(row, colPropEf).getValue()) || 0;
+    var propTr = Number(sh.getRange(row, colPropTr).getValue()) || 0;
+    sh.getRange(row, colFacturado).setValue(totalNuevo + propEf + propTr);
+  }
+
   SpreadsheetApp.flush();
   return ContentService.createTextOutput(JSON.stringify({
-    ok: true, total: totalNuevo, costo: costo, margen: totalNuevo - costo,
+    ok: true, total: totalNuevo, descuento: descuentoNuevo, subtotal: subtotal,
+    costo: costo, margen: totalNuevo - costo,
     origenReseteado: origenReseteado
   })).setMimeType(ContentService.MimeType.JSON);
 }
