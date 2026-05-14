@@ -277,6 +277,7 @@ function doGet(e) {
   if (action === 'cajaLight') return _doGetAdmin({ mode: 'caja' });
   if (action === 'ventas') return _doGetVentas();
   if (action === 'stock') return _doGetStock();
+  if (action === 'stock_full') return _doGetStockFull();
   if (action === 'precios') return _doGetPrecios();
   if (action === 'cobrosPendientes') return _doGetCobrosPendientes();
   if (action === 'pendientesGuardarStock') return _doGetPendientesGuardarStock();
@@ -526,6 +527,44 @@ function _doGetStock() {
       if (!abbr) continue;
       var disp = Number(data[r][7]);
       out[abbr] = isNaN(disp) ? 0 : disp;
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify(out))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* Devuelve para cada abreviatura de producto: f = stock físico actual,
+   p = stock proyectado (físico + Σ cantidad de OCs en estado "Pedido"
+   pendientes de recibir). Se usa cuando la tienda quiere mostrar al
+   cliente "lo que hay + lo que viene en camino" — modo proyectado, que
+   aplica los Jueves después de las 12hs (cuando ya cerramos la OC con
+   el proveedor para el fin de semana). */
+function _doGetStockFull() {
+  var hProd = SS.getSheetByName('Productos');
+  var out = {};
+  if (hProd) {
+    var data = hProd.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var abbr = String(data[r][2]).trim();
+      if (!abbr) continue;
+      var disp = Number(data[r][7]);
+      var f = isNaN(disp) ? 0 : disp;
+      out[abbr] = { f: f, p: f };
+    }
+  }
+  var hOC = SS.getSheetByName('Orden de Compra');
+  if (hOC) {
+    var ocData = hOC.getDataRange().getValues();
+    // L (idx 11) = Abbr, M (idx 12) = Cantidad, U (idx 20) = Estado OC
+    for (var r = 1; r < ocData.length; r++) {
+      var estado = String(ocData[r][20] || '').trim();
+      if (estado !== 'Pedido') continue;
+      var abbr = String(ocData[r][11] || '').trim();
+      if (!abbr) continue;
+      var qty = Number(ocData[r][12]);
+      if (isNaN(qty) || qty <= 0) continue;
+      if (!out[abbr]) out[abbr] = { f: 0, p: 0 };
+      out[abbr].p += qty;
     }
   }
   return ContentService.createTextOutput(JSON.stringify(out))
@@ -2718,9 +2757,10 @@ function _doPostMarcarEntregado(data) {
       }
     }
 
-    // Escribir propina si existe
+    // Escribir propina si existe. Puede ser negativa (ajuste de redondeo:
+    // ej. cobre $10.550 de un pedido de $10.580 → propina = -30).
     var propina = Number(data.propina) || 0;
-    if (propina > 0) {
+    if (propina !== 0) {
       var formaPago = String(sh.getRange(row, colFormaPago).getValue()).trim();
       if (formaPago === 'Efectivo') sh.getRange(row, colPropinaEf).setValue(propina);
       else                          sh.getRange(row, colPropinaTr).setValue(propina);
@@ -2762,6 +2802,7 @@ function doPost(e) {
     if (data.action === 'gasto')           return _doPostGasto(data);
     if (data.action === 'ingreso')         return _doPostIngreso(data);
     if (data.action === 'ajusteSaldo')     return _doPostAjusteSaldo(data);
+    if (data.action === 'moverBilletera')  return _doPostMoverBilletera(data);
     if (data.action === 'marcarCobrado')   return _doPostMarcarCobrado(data);
     if (data.action === 'cobrarParcial')   return _doPostCobrarParcial(data);
     if (data.action === 'pagarVendedor')   return _doPostPagarVendedor(data);
@@ -3048,8 +3089,8 @@ function _doPostHome(data, sheetName, prefix) {
   // Propina: el frontend (PWA Ruta tab "+") puede mandar data.propina. Va a la col T si pago=Efectivo,
   // a la col U si pago=Transferencia. Si pago=Mixto u otro, no se asume nada.
   var propinaNueva = Number(data.propina) || 0;
-  row[19] = (pago === 'Efectivo'      && propinaNueva > 0) ? propinaNueva : 0;  // T  Propina Efectivo
-  row[20] = (pago === 'Transferencia' && propinaNueva > 0) ? propinaNueva : 0;  // U  Propina Transferencia
+  row[19] = (pago === 'Efectivo'      && propinaNueva !== 0) ? propinaNueva : 0;  // T  Propina Efectivo (puede ser negativa = ajuste)
+  row[20] = (pago === 'Transferencia' && propinaNueva !== 0) ? propinaNueva : 0;  // U  Propina Transferencia
   // V (21) — Facturado: fórmula =Q+T+U (se setea post-append)
 
   var PRODUCT_COLS = isPilar ? PILAR_PRODUCT_COLS : HOME_PRODUCT_COLS;
@@ -3262,8 +3303,8 @@ function _doPostClubes(data) {
   row[19] = transferencia;                     // T  Transferencia
   // Propina: si pago=Efectivo va en U, si pago=Transferencia va en V
   var propinaC = Number(data.propina) || 0;
-  row[20] = (pago === 'Efectivo'      && propinaC > 0) ? propinaC : 0;  // U  Propina Efectivo
-  row[21] = (pago === 'Transferencia' && propinaC > 0) ? propinaC : 0;  // V  Propina Transferencia
+  row[20] = (pago === 'Efectivo'      && propinaC !== 0) ? propinaC : 0;  // U  Propina Efectivo (puede ser negativa = ajuste)
+  row[21] = (pago === 'Transferencia' && propinaC !== 0) ? propinaC : 0;  // V  Propina Transferencia
   // W  Facturado → fórmula se pone después del appendRow
 
   // Productos: cols X–AE (índices 23–30 en base-0)
@@ -6842,12 +6883,19 @@ function _doGetAdmin(opt) {
   // ── Saldo Base (último ajuste manual) — leído al principio para filtrar cobros/ingresos/gastos ──
   // En modo light skipeamos esto: Saldo Base solo se usa para los cálculos de
   // caja, no para armar pedidos[]. Ahorra una lectura.
-  var saldoBase = { ef: 0, mp: 0, fecha: '', fechaDate: null };
+  // bil = sub-saldo "Billetera" (lo que llevas encima para cambio). Es subconjunto
+  // del Efectivo total — caja fuerte se deriva como ef - bil. Default 0 si la col
+  // todavía no se llenó.
+  var saldoBase = { ef: 0, mp: 0, bil: 0, fecha: '', fechaDate: null };
   var shSaldoSnap = (!_lightOnly) ? SS.getSheetByName('Saldo Base') : null;
   if (shSaldoSnap && shSaldoSnap.getLastRow() > 1) {
     var lastRowSB = shSaldoSnap.getLastRow();
     saldoBase.ef = Number(shSaldoSnap.getRange(lastRowSB, 2).getValue()) || 0;
     saldoBase.mp = Number(shSaldoSnap.getRange(lastRowSB, 3).getValue()) || 0;
+    // Lectura defensiva de col D: puede no existir en hojas viejas
+    if (shSaldoSnap.getLastColumn() >= 4) {
+      saldoBase.bil = Number(shSaldoSnap.getRange(lastRowSB, 4).getValue()) || 0;
+    }
     var fSB = shSaldoSnap.getRange(lastRowSB, 1).getValue();
     var fSBd = _parseDateAny(fSB);
     if (fSBd) {
@@ -8147,6 +8195,13 @@ function _doPostEditarPedido(data) {
     }
     sh.getRange(row, colOrigen).setValue('Pendiente');
     if (colOrigenDetalle) sh.getRange(row, colOrigenDetalle).setValue('');
+    // Si estaba Reservado, bajar a Pendiente. Reservado solo tiene sentido con stock comprometido;
+    // al perder el Origen confirmado, queda inconsistente y el SUMPRODUCT de Productos deja de
+    // contar este pedido como reservado (riesgo: tienda muestra stock que en realidad está comprometido).
+    if (est === 'Reservado') {
+      sh.getRange(row, colEst).setValue('Pendiente');
+      est = 'Pendiente';
+    }
     origenReseteado = true;
   } else if (hadOrigen && canPreserve) {
     // PRESERVAR: ajustar OCs por línea (borrar las que quedaron en 0, actualizar qty
@@ -8185,6 +8240,11 @@ function _doPostEditarPedido(data) {
     var nuevoOrigen = (hasD && hasOC) ? 'Mixto' : (hasOC ? 'Orden de Compra' : 'Deposito');
     sh.getRange(row, colOrigen).setValue(nuevoOrigen);
     if (colOrigenDetalle) sh.getRange(row, colOrigenDetalle).setValue(JSON.stringify(newDetalle));
+    // Si quedó 100% OC y el pedido estaba Reservado, bajar Estado: no hay stock comprometido.
+    if (nuevoOrigen === 'Orden de Compra' && est === 'Reservado') {
+      sh.getRange(row, colEst).setValue('Pendiente');
+      est = 'Pendiente';
+    }
   }
 
   // Catálogo de Productos: precio retail + costo por abbr
@@ -8225,11 +8285,12 @@ function _doPostEditarPedido(data) {
   // Escribir cantidades en batch
   sh.getRange(row, prodStartCol, 1, nProds).setValues([newQty]);
 
-  // ── Recalcular subtotal / descuento / total / facturado ──
-  // Antes, el código leía descuento de col 53 (Año Entrega — bug) y escribía total
-  // en col 14 (Subtotal Producto — bug en Home/Pilar). Ahora apunta correcto.
+  // ── Recalcular subtotal / descuento / total / facturado / margen ──
   // Reglas de descuento: Home/Pilar 10% si nuevo subtotal >= 100k O pago = Efectivo.
   // Clubes/Red: sin descuento (colDescuento undefined).
+  // IMPORTANTE: Total/Facturado/Margen tienen FÓRMULA en el Sheets — se escriben con
+  // setFormula para preservar la convención. Si se pisaran con setValue, una edición
+  // posterior de envío/descuento/propinas no recalcularía.
   var envio = Number(sh.getRange(row, colEnvio).getValue()) || 0;
   var descuentoNuevo = 0;
   if (colDescuento && (hoja === 'Home' || hoja === 'Pilar')) {
@@ -8241,22 +8302,43 @@ function _doPostEditarPedido(data) {
   }
   var totalNuevo = subtotal + envio - descuentoNuevo;
 
-  // Subtotal Producto (solo Home/Pilar tienen col separada)
+  // Subtotal Producto (solo Home/Pilar tienen col separada N=14)
   if (typeof colSubtotal !== 'undefined' && colSubtotal) {
     sh.getRange(row, colSubtotal).setValue(subtotal);
   }
-  sh.getRange(row, colTotal).setValue(totalNuevo);
+  // Total a cobrar: Home/Pilar tienen fórmula =N+O-P; Clubes/Red NO tienen fórmula.
+  if (hoja === 'Home' || hoja === 'Pilar') {
+    // colSubtotal=N=14, colEnvio=O=15, colDescuento=P=16
+    sh.getRange(row, colTotal).setFormula('=N' + row + '+O' + row + '-P' + row);
+  } else {
+    sh.getRange(row, colTotal).setValue(totalNuevo);
+  }
   sh.getRange(row, colCosto).setValue(costo);
-  sh.getRange(row, colMargen).setValue(totalNuevo - costo);
 
-  // Recalcular Facturado = Total + Propinas. Cols por hoja:
-  //   Home/Pilar T(20)=PropEf, U(21)=PropTr · Clubes U(21)/V(22) · Red S(19)/T(20)
+  // Facturado = Total + PropEf + PropTr. Cols por hoja:
+  //   Home/Pilar V(22) = =Q+T+U  · Clubes W(23) = =Q+U+V  · Red U(21) = =O+S+T
+  // Margen Bruto = Facturado − Costo:
+  //   Home AQ(43) = =V-AP · Pilar AU(47) = =V-AT · Clubes AG(33) = =W-AF · Red AT(46) = =U-AS
   if (colFacturado) {
-    var colPropEf = (hoja === 'Clubes') ? 21 : (hoja === 'Red') ? 19 : 20;
-    var colPropTr = (hoja === 'Clubes') ? 22 : (hoja === 'Red') ? 20 : 21;
-    var propEf = Number(sh.getRange(row, colPropEf).getValue()) || 0;
-    var propTr = Number(sh.getRange(row, colPropTr).getValue()) || 0;
-    sh.getRange(row, colFacturado).setValue(totalNuevo + propEf + propTr);
+    var fFacturado, fMargen;
+    if (hoja === 'Clubes') {
+      fFacturado = '=Q' + row + '+U' + row + '+V' + row;
+      fMargen    = '=W' + row + '-AF' + row;
+    } else if (hoja === 'Red') {
+      fFacturado = '=O' + row + '+S' + row + '+T' + row;
+      fMargen    = '=U' + row + '-AS' + row;
+    } else if (hoja === 'Pilar') {
+      fFacturado = '=Q' + row + '+T' + row + '+U' + row;
+      fMargen    = '=V' + row + '-AT' + row;
+    } else { // Home
+      fFacturado = '=Q' + row + '+T' + row + '+U' + row;
+      fMargen    = '=V' + row + '-AP' + row;
+    }
+    sh.getRange(row, colFacturado).setFormula(fFacturado);
+    sh.getRange(row, colMargen).setFormula(fMargen);
+  } else {
+    // Fallback defensivo: si por algún layout futuro no hay colFacturado, al menos margen como valor.
+    sh.getRange(row, colMargen).setValue(totalNuevo - costo);
   }
 
   SpreadsheetApp.flush();
@@ -8704,7 +8786,9 @@ function _doPostMarcarCobrado(data) {
     sh.getRange(row, cols.ef).setValue(ef);
     sh.getRange(row, cols.tr).setValue(tr);
   }
-  if (propina > 0 && propMet) {
+  if (propina !== 0 && propMet) {
+    // Propina puede ser negativa (ajuste de redondeo) — ej. -30 cuando el cliente
+    // pago $10.550 de un total de $10.580.
     var colProp = propMet === 'Efectivo' ? cols.propEf : cols.propTr;
     sh.getRange(row, colProp).setValue(propina);
   }
@@ -8822,7 +8906,9 @@ function _doPostCobrarParcial(data) {
 
 /** POST action=ajusteSaldo — guarda el saldo real como snapshot.
  *  El Panel calcula el saldo vivo como: SaldoBase + cobrado/ingreso/gasto DESPUÉS de la fecha del snapshot.
- *  Así, cobros históricos ya reflejados en el monto ajustado no cuentan dos veces. */
+ *  Así, cobros históricos ya reflejados en el monto ajustado no cuentan dos veces.
+ *  Acepta opcionalmente `billetera`: sub-saldo del Efectivo que está en la billetera
+ *  (vs caja fuerte). Si no viene, hereda el último valor conocido. */
 function _doPostAjusteSaldo(data) {
   var deseadoEf = Number(data.efectivo) || 0;
   var deseadoMP = Number(data.mp) || 0;
@@ -8830,17 +8916,74 @@ function _doPostAjusteSaldo(data) {
   var shSaldo = SS.getSheetByName('Saldo Base');
   if (!shSaldo) {
     shSaldo = SS.insertSheet('Saldo Base');
-    shSaldo.getRange(1, 1, 1, 3).setValues([['Fecha', 'Efectivo', 'Mercado Pago']]);
+    shSaldo.getRange(1, 1, 1, 4).setValues([['Fecha', 'Efectivo', 'Mercado Pago', 'Billetera']]);
     shSaldo.setFrozenRows(1);
-    shSaldo.getRange(1, 1, 1, 3).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
+    shSaldo.getRange(1, 1, 1, 4).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
   }
+  // Billetera: si el cliente la manda, la usa; sino hereda el último valor (no resetear).
+  // Cap: billetera no puede ser mayor al efectivo total (no tiene sentido).
+  var deseadoBil;
+  if (data.billetera !== undefined && data.billetera !== null) {
+    deseadoBil = Number(data.billetera) || 0;
+  } else {
+    var lastRow = shSaldo.getLastRow();
+    deseadoBil = (lastRow > 1 && shSaldo.getLastColumn() >= 4)
+      ? (Number(shSaldo.getRange(lastRow, 4).getValue()) || 0)
+      : 0;
+  }
+  if (deseadoBil > deseadoEf) deseadoBil = deseadoEf;
+  if (deseadoBil < 0) deseadoBil = 0;
+
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  shSaldo.appendRow([argNow, deseadoEf, deseadoMP]);
+  shSaldo.appendRow([argNow, deseadoEf, deseadoMP, deseadoBil]);
   shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
   // Sin flush(): UI optimista en frontend.
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP, bil: deseadoBil })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=moverBilletera — transferir plata entre Caja Fuerte y Billetera.
+ *  NO cambia el saldo Efectivo total — solo ajusta la sub-cuenta Billetera.
+ *  Body: { monto: N, dir: 'aBilletera' | 'aCajaFuerte' }
+ *  Append una fila a Saldo Base con efectivo y mp iguales al último snapshot
+ *  pero billetera ajustada. Así la auditoría queda en el historial. */
+function _doPostMoverBilletera(data) {
+  var monto = Number(data.monto) || 0;
+  var dir = String(data.dir || '').trim();
+  if (monto <= 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto invalido' })).setMimeType(ContentService.MimeType.JSON);
+  if (dir !== 'aBilletera' && dir !== 'aCajaFuerte') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'dir invalida' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var shSaldo = SS.getSheetByName('Saldo Base');
+  if (!shSaldo) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin Saldo Base' })).setMimeType(ContentService.MimeType.JSON);
+  var lastRow = shSaldo.getLastRow();
+  if (lastRow < 2) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin snapshot previo — ajusta saldo primero' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Hereda ef y mp del último snapshot (no se mueve plata fuera de Efectivo)
+  var ef = Number(shSaldo.getRange(lastRow, 2).getValue()) || 0;
+  var mp = Number(shSaldo.getRange(lastRow, 3).getValue()) || 0;
+  var bilActual = (shSaldo.getLastColumn() >= 4) ? (Number(shSaldo.getRange(lastRow, 4).getValue()) || 0) : 0;
+
+  // Cálculo nuevo billetera
+  var bilNuevo;
+  if (dir === 'aBilletera') {
+    // Saca de Caja Fuerte y mete en Billetera. No puede exceder el efectivo total.
+    bilNuevo = bilActual + monto;
+    if (bilNuevo > ef) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto excede caja fuerte disponible' })).setMimeType(ContentService.MimeType.JSON);
+  } else {
+    // Saca de Billetera y mete en Caja Fuerte. No puede bajar de 0.
+    bilNuevo = bilActual - monto;
+    if (bilNuevo < 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto excede billetera' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  shSaldo.appendRow([argNow, ef, mp, bilNuevo]);
+  shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: ef, mp: mp, bil: bilNuevo })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -8854,6 +8997,20 @@ function _doGetVentas() {
   var ventas = [];
   var MVAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+  // Normaliza cualquier fecha (Date o String) a "dd/MM/yyyy" en TZ AR.
+  // - Si es Date → formatea sin hora.
+  // - Si viene como "9/5/2026 19:13" → corta la hora y padea dia/mes (→ "09/05/2026").
+  // Imprescindible para que el filtro de Fecha del Panel matchee strings exactos.
+  function _fmtF(raw) {
+    if (raw instanceof Date) return Utilities.formatDate(raw, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+    var s = String(raw || '').trim();
+    if (!s) return '';
+    s = s.split(' ')[0]; // sacar hora si la tiene ("09/05/2026 19:13" → "09/05/2026")
+    var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + m[3];
+    return s;
+  }
+
   // ── Helper: parsear fila VD (Home, Pilar) — v2 abr/2026 ──
   // Home v2: Facturado V(21), Ef R(17), Tr S(18), Costo AP(41), Margen AQ(42), FechaEnt AX(49), MesEnt AY(50), SemEnt AZ(51)
   // Pilar v2: Facturado V(21), Ef R(17), Tr S(18), Costo AT(45), Margen AU(46), FechaEnt BA(52), MesEnt BB(53), SemEnt BC(54)
@@ -8861,25 +9018,31 @@ function _doGetVentas() {
     var cliente = String(data[r][7] || '').trim();
     if (!cliente) return null;
     var isP = (zona === 'Pilar');
+    // Home: fCob=54 (col BC). Pilar: fCob=57 (col BF).
     var IDX = isP
-      ? { fact:21, totalAlt:16, ef:17, tr:18, costo:45, margen:46, fechaEnt:52, mesEnt:53, semEnt:54 }
-      : { fact:21, totalAlt:16, ef:17, tr:18, costo:41, margen:42, fechaEnt:49, mesEnt:50, semEnt:51 };
+      ? { fact:21, totalAlt:16, ef:17, tr:18, costo:45, margen:46, fechaEnt:52, mesEnt:53, semEnt:54, fCob:57 }
+      : { fact:21, totalAlt:16, ef:17, tr:18, costo:41, margen:42, fechaEnt:49, mesEnt:50, semEnt:51, fCob:54 };
     var facturado = Number(data[r][IDX.fact]) || Number(data[r][IDX.totalAlt]) || 0;
     if (facturado === 0) return null;
     var fechaEnt = data[r][IDX.fechaEnt];
-    var fecha = fechaEnt instanceof Date ? fechaEnt : data[r][3];
-    var fechaStr = fecha instanceof Date ? Utilities.formatDate(fecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fecha || '');
+    var fechaRaw = (fechaEnt instanceof Date || (typeof fechaEnt === 'string' && fechaEnt.trim())) ? fechaEnt : data[r][3];
+    var fechaStr = _fmtF(fechaRaw);
+    var fCobStr = _fmtF(data[r][IDX.fCob]);
     var mesEnt = String(data[r][IDX.mesEnt] || '').trim();
     var semEnt = Number(data[r][IDX.semEnt]) || 0;
     var mesPed = String(data[r][4] || '').trim();
     var semPed = Number(data[r][5]) || 0;
     var mes = MVAL.indexOf(mesEnt) >= 0 ? mesEnt : mesPed;
     var sem = semEnt > 0 ? semEnt : semPed;
+    // Propinas: Home/Pilar tienen Propina Ef en col T (idx 19) y Propina Tr en col U (idx 20).
+    // El facturado (col V) las suma; ef/tr NO. Exponemos pEf/pTr para que el cliente
+    // pueda reconciliar Cobrado = ef + tr + pEf + pTr = Facturado.
     return {
-      canal: 'Venta Directa', zona: zona, fecha: fechaStr, mes: mes, sem: sem,
+      canal: 'Venta Directa', zona: zona, fecha: fechaStr, fCob: fCobStr, mes: mes, sem: sem,
       cliente: cliente, estado: String(data[r][10] || '').trim(),
       fp: String(data[r][11] || '').trim(), ep: String(data[r][12] || '').trim(),
       $: facturado, ef: Number(data[r][IDX.ef]) || 0, tr: Number(data[r][IDX.tr]) || 0,
+      pEf: Number(data[r][19]) || 0, pTr: Number(data[r][20]) || 0,
       costo: Number(data[r][IDX.costo]) || 0, margen: Number(data[r][IDX.margen]) || 0
     };
   }
@@ -8891,15 +9054,17 @@ function _doGetVentas() {
     var club = String(data[r][8] || '').trim();
     var fac = Number(data[r][22]) || Number(data[r][16]) || 0;
     if (fac === 0) return null;
-    var fC = data[r][3];
-    var fCS = fC instanceof Date ? Utilities.formatDate(fC, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fC || '');
+    var fCS = _fmtF(data[r][3]);
+    // Clubes: Propina Ef en col U (idx 20), Propina Tr en col V (idx 21). Fecha de Cobro col 35 (idx 34).
+    var fCobCS = _fmtF(data[r][34]);
     return {
-      canal: 'Clubes', zona: club, fecha: fCS,
+      canal: 'Clubes', zona: club, fecha: fCS, fCob: fCobCS,
       mes: String(data[r][4] || '').trim(), sem: Number(data[r][5]) || 0,
       cliente: cli + (club ? ' (' + club + ')' : ''),
       estado: String(data[r][13] || '').trim(),
       fp: String(data[r][14] || '').trim(), ep: String(data[r][15] || '').trim(),
       $: fac, ef: Number(data[r][18]) || 0, tr: Number(data[r][19]) || 0,
+      pEf: Number(data[r][20]) || 0, pTr: Number(data[r][21]) || 0,
       costo: Number(data[r][31]) || 0, margen: Number(data[r][32]) || 0
     };
   }
@@ -8952,16 +9117,20 @@ function _doGetVentas() {
       if (!cliR) continue;
       var aPagarR = Number(dRd[rr][48]) || 0;
       if (aPagarR === 0) continue;
-      var fR = dRd[rr][3];
-      var fRS = fR instanceof Date ? Utilities.formatDate(fR, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fR || '');
+      var fRS = _fmtF(dRd[rr][3]);
+      // Red: las propinas (S/T = idx 18/19) van 100% al vendedor, no a Maleu.
+      // Dejamos pEf/pTr en 0 para no inflar el "Cobrado" de Red con plata que no es nuestra.
+      // Fecha Pago a Maleu: idx 54 (col BC).
+      var fCobRS = _fmtF(dRd[rr][54]);
       ventas.push({
-        canal: 'Red', zona: String(dRd[rr][7] || '').trim(), fecha: fRS,
+        canal: 'Red', zona: String(dRd[rr][7] || '').trim(), fecha: fRS, fCob: fCobRS,
         mes: String(dRd[rr][4] || '').trim(), sem: Number(dRd[rr][5]) || 0,
         cliente: cliR, estado: estadoR,
         fp: String(dRd[rr][12] || '').trim(),
         ep: String(dRd[rr][13] || '').trim(),
         $: aPagarR,
         ef: Number(dRd[rr][16]) || 0, tr: Number(dRd[rr][17]) || 0,
+        pEf: 0, pTr: 0,
         costo: Number(dRd[rr][44]) || 0,
         margen: Number(dRd[rr][47]) || 0
       });
@@ -8977,14 +9146,14 @@ function _doGetVentas() {
       if (!cliB) continue;
       var facB = Number(dB[rb][8]) || 0;
       if (facB === 0) continue;
-      var fB = dB[rb][1];
-      var fBS = fB instanceof Date ? Utilities.formatDate(fB, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fB || '');
+      var fBS = _fmtF(dB[rb][1]);
       ventas.push({
-        canal: 'B2B', zona: '', fecha: fBS,
+        canal: 'B2B', zona: '', fecha: fBS, fCob: fBS,
         mes: String(dB[rb][2] || '').trim(), sem: Number(dB[rb][3]) || 0,
         cliente: cliB, estado: 'Entregado',
         fp: Number(dB[rb][10]) > 0 ? 'Transferencia' : 'Efectivo', ep: 'Cobrado',
         $: facB, ef: Number(dB[rb][9]) || 0, tr: Number(dB[rb][10]) || 0,
+        pEf: 0, pTr: 0,
         costo: 0, margen: 0
       });
     }
@@ -8999,14 +9168,14 @@ function _doGetVentas() {
       if (!cliT) continue;
       var facT = Number(dCt[rt][8]) || 0;
       if (facT === 0) continue;
-      var fT = dCt[rt][1];
-      var fTS = fT instanceof Date ? Utilities.formatDate(fT, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fT || '');
+      var fTS = _fmtF(dCt[rt][1]);
       ventas.push({
-        canal: 'Catering', zona: String(dCt[rt][7] || '').trim(), fecha: fTS,
+        canal: 'Catering', zona: String(dCt[rt][7] || '').trim(), fecha: fTS, fCob: fTS,
         mes: String(dCt[rt][2] || '').trim(), sem: Number(dCt[rt][3]) || 0,
         cliente: cliT, estado: 'Entregado',
         fp: Number(dCt[rt][11]) > 0 ? 'Transferencia' : 'Efectivo', ep: 'Cobrado',
         $: facT, ef: Number(dCt[rt][10]) || 0, tr: Number(dCt[rt][11]) || 0,
+        pEf: 0, pTr: 0,
         costo: Number(dCt[rt][17]) || 0, margen: Number(dCt[rt][22]) || 0
       });
     }
@@ -10297,6 +10466,9 @@ function _doGetCrmProductos() {
       pedidosCount: 0,
       clientesUnicos: 0,
       ultimaVenta: null,
+      // Sell-through (Ola 1): compras a proveedor (OC Recibido, no Depósito)
+      comprados7: 0, comprados30: 0, comprados90: 0,
+      costoUltimo: 0, fechaCostoUltimo: null, provUltimo: '',
       _clientes: {}
     });
   }
@@ -10306,6 +10478,7 @@ function _doGetCrmProductos() {
   var hoy = new Date();
   var hace30 = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
   var hace7 = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000);
+  var hace90 = new Date(hoy.getTime() - 90 * 24 * 60 * 60 * 1000);
 
   var hojas = _crmHojasConfig();
   hojas.forEach(function(cfg) {
@@ -10345,9 +10518,43 @@ function _doGetCrmProductos() {
     }
   });
 
+  // ─── Sell-through (Ola 1): leer hoja OC y sumar compras a proveedor por SKU ───
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (shOC && shOC.getLastRow() > 1) {
+    var ocData = shOC.getRange(1, 1, shOC.getLastRow(), 25).getValues();
+    for (var ro = 1; ro < ocData.length; ro++) {
+      var rowO = ocData[ro];
+      var estO = String(rowO[20] || '').trim();
+      if (estO !== 'Recibido') continue;                // solo lo que entró
+      var origenO = String(rowO[19] || '').trim();
+      if (origenO.indexOf('Dep') === 0) continue;       // descartar Depósito (no es compra)
+      var ab = String(rowO[11] || '').trim();
+      if (!ab) continue;
+      var p2 = byAbrev[ab];
+      if (!p2) continue;
+      var qty = Number(rowO[12]) || 0;
+      if (qty <= 0) continue;
+      var fechaO = _crmToDate(rowO[1]);                 // fecha creación OC
+      if (fechaO) {
+        if (fechaO >= hace7)  p2.comprados7  += qty;
+        if (fechaO >= hace30) p2.comprados30 += qty;
+        if (fechaO >= hace90) p2.comprados90 += qty;
+      }
+      var costoU = Number(rowO[13]) || 0;
+      if (costoU > 0 && fechaO && (!p2.fechaCostoUltimo || fechaO > p2.fechaCostoUltimo)) {
+        p2.costoUltimo = costoU;
+        p2.fechaCostoUltimo = fechaO;
+        p2.provUltimo = String(rowO[9] || '').trim();
+      }
+    }
+  }
+
   prods.forEach(function(p) {
     p.clientesUnicos = Object.keys(p._clientes).length;
     p.ultimaVenta = p.ultimaVenta ? Utilities.formatDate(p.ultimaVenta, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '';
+    p.fechaCostoUltimo = p.fechaCostoUltimo ? Utilities.formatDate(p.fechaCostoUltimo, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '';
+    // Sell-through 30d: ventas / compras (ventana 30d). >100% = se vendió más de lo que entró (stock se redujo). <100% = sobra.
+    p.sellThrough30 = p.comprados30 > 0 ? Math.round((p.vendidosMes / p.comprados30) * 100) : null;
     delete p._clientes;
   });
 
@@ -10463,6 +10670,74 @@ function _doGetCrmProducto(e) {
   pedidosRecientes.sort(function(a, b) { return b.fechaSort - a.fechaSort; });
   pedidosRecientes = pedidosRecientes.slice(0, 30);
 
+  // ─── Compras (OC) del SKU: series mensuales + por proveedor + historial reciente ───
+  var comprasPorMes = {};      // {YYYY-MM: cant}
+  var comprasPorProv = {};     // {prov: {cant, monto, ultimaFecha, ultimoCosto}}
+  var comprasRecientes = [];   // últimas 20 OC Recibidas
+  var costoUltimo = 0, fechaCostoUltimoTs = 0, provCostoUltimo = '';
+  var totalComprado = 0;
+
+  var shOC2 = SS.getSheetByName('Orden de Compra');
+  if (shOC2 && shOC2.getLastRow() > 1) {
+    var ocData2 = shOC2.getRange(1, 1, shOC2.getLastRow(), 25).getValues();
+    for (var ro2 = 1; ro2 < ocData2.length; ro2++) {
+      var rO = ocData2[ro2];
+      var ab2 = String(rO[11] || '').trim();
+      if (ab2 !== abrev) continue;
+      var est2 = String(rO[20] || '').trim();
+      if (est2 !== 'Recibido') continue;
+      var origen2 = String(rO[19] || '').trim();
+      if (origen2.indexOf('Dep') === 0) continue;
+      var qty2 = Number(rO[12]) || 0;
+      if (qty2 <= 0) continue;
+      var fO = _crmToDate(rO[1]);
+      var costoU2 = Number(rO[13]) || 0;
+      var prov2 = String(rO[9] || '').trim();
+      var monto2 = costoU2 * qty2;
+      totalComprado += qty2;
+      if (fO) {
+        var ymO = fO.getFullYear() + '-' + String(fO.getMonth() + 1).padStart(2, '0');
+        comprasPorMes[ymO] = (comprasPorMes[ymO] || 0) + qty2;
+        if (fO.getTime() > fechaCostoUltimoTs && costoU2 > 0) {
+          costoUltimo = costoU2;
+          fechaCostoUltimoTs = fO.getTime();
+          provCostoUltimo = prov2;
+        }
+      }
+      if (prov2) {
+        if (!comprasPorProv[prov2]) comprasPorProv[prov2] = {cant: 0, monto: 0, ultimaFecha: null, ultimoCosto: 0};
+        comprasPorProv[prov2].cant += qty2;
+        comprasPorProv[prov2].monto += monto2;
+        if (fO && (!comprasPorProv[prov2].ultimaFecha || fO > comprasPorProv[prov2].ultimaFecha)) {
+          comprasPorProv[prov2].ultimaFecha = fO;
+          if (costoU2 > 0) comprasPorProv[prov2].ultimoCosto = costoU2;
+        }
+      }
+      comprasRecientes.push({
+        oc: String(rO[0] || '').trim(),
+        fecha: fO ? Utilities.formatDate(fO, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
+        fechaSort: fO ? fO.getTime() : 0,
+        prov: prov2,
+        cant: qty2,
+        costoUnit: costoU2,
+        monto: monto2
+      });
+    }
+  }
+  comprasRecientes.sort(function(a, b) { return b.fechaSort - a.fechaSort; });
+  comprasRecientes = comprasRecientes.slice(0, 20);
+
+  var proveedoresArr = Object.keys(comprasPorProv).map(function(pr) {
+    var v = comprasPorProv[pr];
+    return {
+      prov: pr,
+      cant: v.cant,
+      monto: v.monto,
+      ultimoCosto: v.ultimoCosto,
+      ultimaFecha: v.ultimaFecha ? Utilities.formatDate(v.ultimaFecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : ''
+    };
+  }).sort(function(a, b) { return b.cant - a.cant; });
+
   return ContentService.createTextOutput(JSON.stringify({
     ts: Date.now(),
     producto: prodInfo,
@@ -10470,7 +10745,15 @@ function _doGetCrmProducto(e) {
     ventasPorMes: ventasPorMes,
     ventasPorCanal: ventasPorCanal,
     pedidosRecientes: pedidosRecientes,
-    clientesUnicos: Object.keys(clientes).length
+    clientesUnicos: Object.keys(clientes).length,
+    // Ola 1: compras
+    comprasPorMes: comprasPorMes,
+    proveedores: proveedoresArr,
+    comprasRecientes: comprasRecientes,
+    totalComprado: totalComprado,
+    costoUltimo: costoUltimo,
+    fechaCostoUltimo: fechaCostoUltimoTs ? Utilities.formatDate(new Date(fechaCostoUltimoTs), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
+    provCostoUltimo: provCostoUltimo
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
