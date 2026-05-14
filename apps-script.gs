@@ -284,7 +284,7 @@ function doGet(e) {
   if (action === 'resumenSemanal') return _doGetResumenSemanal(e);
   if (action === 'crmClientes') return _doGetCrmClientes();
   if (action === 'crmCliente') return _doGetCrmCliente(e);
-  if (action === 'crmProductos') return _doGetCrmProductos();
+  if (action === 'crmProductos') return _doGetCrmProductos(e);
   if (action === 'crmProducto') return _doGetCrmProducto(e);
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
@@ -10442,9 +10442,31 @@ function _doGetCrmCliente(e) {
 }
 
 // Endpoint: lista de productos enriquecida con ventas históricas.
-function _doGetCrmProductos() {
+function _doGetCrmProductos(e) {
   var shP = SS.getSheetByName('Productos');
   if (!shP) return ContentService.createTextOutput(JSON.stringify({productos: []})).setMimeType(ContentService.MimeType.JSON);
+
+  // ─── Parámetros de período (Ola 2) ───
+  // ?dias=N (default 30) o ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+  var prm = (e && e.parameter) || {};
+  var hoy = new Date();
+  var perDesde, perHasta, perDias;
+  if (prm.desde && prm.hasta) {
+    var pd = String(prm.desde).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    var ph = String(prm.hasta).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (pd && ph) {
+      perDesde = new Date(+pd[1], +pd[2] - 1, +pd[3], 0, 0, 0);
+      perHasta = new Date(+ph[1], +ph[2] - 1, +ph[3], 23, 59, 59);
+      perDias = Math.max(1, Math.round((perHasta.getTime() - perDesde.getTime()) / 86400000));
+    }
+  }
+  if (!perDesde || !perHasta) {
+    perDias = Math.max(1, parseInt(prm.dias, 10) || 30);
+    perHasta = hoy;
+    perDesde = new Date(hoy.getTime() - perDias * 86400000);
+  }
+  var perPrevHasta = new Date(perDesde.getTime() - 1);
+  var perPrevDesde = new Date(perDesde.getTime() - perDias * 86400000);
 
   var dataP = shP.getDataRange().getValues();
   var prods = [];
@@ -10469,13 +10491,15 @@ function _doGetCrmProductos() {
       // Sell-through (Ola 1): compras a proveedor (OC Recibido, no Depósito)
       comprados7: 0, comprados30: 0, comprados90: 0,
       costoUltimo: 0, fechaCostoUltimo: null, provUltimo: '',
+      // Ola 2: período configurable + comparativa
+      vendidosPeriodo: 0, facturadoPeriodo: 0, compradosPeriodo: 0,
+      vendidosPeriodoPrev: 0, compradosPeriodoPrev: 0,
       _clientes: {}
     });
   }
   var byAbrev = {};
   prods.forEach(function(p) { byAbrev[p.abrev] = p; });
 
-  var hoy = new Date();
   var hace30 = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
   var hace7 = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000);
   var hace90 = new Date(hoy.getTime() - 90 * 24 * 60 * 60 * 1000);
@@ -10511,6 +10535,13 @@ function _doGetCrmProductos() {
         var monto = totalProds > 0 ? Math.round((pr.cant / totalProds) * total) : 0;
         p.facturadoTotal += monto;
         if (fecha && fecha >= hace30) p.facturadoMes += monto;
+        // Ola 2: período configurable + comparativa
+        if (fecha && fecha >= perDesde && fecha <= perHasta) {
+          p.vendidosPeriodo += pr.cant;
+          p.facturadoPeriodo += monto;
+        } else if (fecha && fecha >= perPrevDesde && fecha <= perPrevHasta) {
+          p.vendidosPeriodoPrev += pr.cant;
+        }
         p.pedidosCount++;
         if (nombreCli) p._clientes[nombreCli] = (p._clientes[nombreCli] || 0) + pr.cant;
         if (fecha && (!p.ultimaVenta || fecha > p.ultimaVenta)) p.ultimaVenta = fecha;
@@ -10539,6 +10570,9 @@ function _doGetCrmProductos() {
         if (fechaO >= hace7)  p2.comprados7  += qty;
         if (fechaO >= hace30) p2.comprados30 += qty;
         if (fechaO >= hace90) p2.comprados90 += qty;
+        // Ola 2: período + período anterior
+        if (fechaO >= perDesde && fechaO <= perHasta) p2.compradosPeriodo += qty;
+        else if (fechaO >= perPrevDesde && fechaO <= perPrevHasta) p2.compradosPeriodoPrev += qty;
       }
       var costoU = Number(rowO[13]) || 0;
       if (costoU > 0 && fechaO && (!p2.fechaCostoUltimo || fechaO > p2.fechaCostoUltimo)) {
@@ -10553,13 +10587,34 @@ function _doGetCrmProductos() {
     p.clientesUnicos = Object.keys(p._clientes).length;
     p.ultimaVenta = p.ultimaVenta ? Utilities.formatDate(p.ultimaVenta, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '';
     p.fechaCostoUltimo = p.fechaCostoUltimo ? Utilities.formatDate(p.fechaCostoUltimo, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '';
-    // Sell-through 30d: ventas / compras (ventana 30d). >100% = se vendió más de lo que entró (stock se redujo). <100% = sobra.
     p.sellThrough30 = p.comprados30 > 0 ? Math.round((p.vendidosMes / p.comprados30) * 100) : null;
+    // Ola 2: sell-through del período + delta vs período anterior
+    p.sellThroughPeriodo = p.compradosPeriodo > 0 ? Math.round((p.vendidosPeriodo / p.compradosPeriodo) * 100) : null;
+    p.deltaVentas = p.vendidosPeriodoPrev > 0
+      ? Math.round((p.vendidosPeriodo - p.vendidosPeriodoPrev) / p.vendidosPeriodoPrev * 100)
+      : (p.vendidosPeriodo > 0 ? 999 : null);
+    p.deltaCompras = p.compradosPeriodoPrev > 0
+      ? Math.round((p.compradosPeriodo - p.compradosPeriodoPrev) / p.compradosPeriodoPrev * 100)
+      : (p.compradosPeriodo > 0 ? 999 : null);
     delete p._clientes;
   });
 
-  return ContentService.createTextOutput(JSON.stringify({ts: Date.now(), productos: prods}))
-    .setMimeType(ContentService.MimeType.JSON);
+  var tz = 'America/Argentina/Buenos_Aires';
+  return ContentService.createTextOutput(JSON.stringify({
+    ts: Date.now(),
+    productos: prods,
+    periodo: {
+      dias: perDias,
+      desde: Utilities.formatDate(perDesde, tz, 'yyyy-MM-dd'),
+      hasta: Utilities.formatDate(perHasta, tz, 'yyyy-MM-dd'),
+      desdeArg: Utilities.formatDate(perDesde, tz, 'dd/MM/yyyy'),
+      hastaArg: Utilities.formatDate(perHasta, tz, 'dd/MM/yyyy'),
+      prevDesde: Utilities.formatDate(perPrevDesde, tz, 'yyyy-MM-dd'),
+      prevHasta: Utilities.formatDate(perPrevHasta, tz, 'yyyy-MM-dd'),
+      prevDesdeArg: Utilities.formatDate(perPrevDesde, tz, 'dd/MM/yyyy'),
+      prevHastaArg: Utilities.formatDate(perPrevHasta, tz, 'dd/MM/yyyy')
+    }
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Endpoint: ficha producto detallada con top clientes y series.
