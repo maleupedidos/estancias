@@ -418,19 +418,24 @@ function _doGetCobrosPendientes() {
     var dRed = shRed.getDataRange().getValues();
     // Ubicar columnas por header (Red puede crecer en columnas)
     var hdrRed = dRed[0];
-    var idxEstPagoMaleu = -1, idxFpMaleu = -1;
+    var idxEstPagoMaleu = -1, idxFpMaleu = -1, idxEntVend = -1;
     for (var hh = 0; hh < hdrRed.length; hh++) {
       var nm = String(hdrRed[hh]).trim();
       if (nm === 'Estado Pago a Maleu') idxEstPagoMaleu = hh;
       else if (nm === 'Forma Pago a Maleu') idxFpMaleu = hh;
+      else if (nm === 'Entregado a Vendedor') idxEntVend = hh;
     }
     var porVendedor = {};
     for (var r = 1; r < dRed.length; r++) {
       var estado = String(dRed[r][11] || '').trim(); // col 12 Estado Entrega
-      // Antes solo entraban Entregados. Ahora cuenta también Pendiente/Reservado
-      // — el monto total que el vendedor va a deber esta semana, así Tadeo lo ve
-      // en Ruta → Cobros incluso antes de que el vendedor entregue.
       if (estado === 'Cancelado') continue;
+      // Solo contamos pedidos que Tadeo YA le entregó al vendedor (col BE).
+      // Si Tadeo todavía no le pasó la mercadería (entrega futura), el vendedor
+      // no podría haber cobrado nada — no debe aparecer en su saldo a Maleu.
+      // Reportado por Tadeo (17/05/2026): Marcos sumaba pedidos de la semana
+      // siguiente que aún no había recibido de Tadeo.
+      var entVend = idxEntVend >= 0 ? String(dRed[r][idxEntVend] || '').trim() : '';
+      if (entVend !== 'Entregado') continue;
       var estPagoMaleu = idxEstPagoMaleu >= 0 ? String(dRed[r][idxEstPagoMaleu] || '').trim() : '';
       if (estPagoMaleu === 'Pagado' || estPagoMaleu === 'Sí' || estPagoMaleu === 'Si') continue;
       var vendedor = String(dRed[r][7] || '').trim(); // col 8 Vendedor
@@ -703,6 +708,14 @@ function _doGetEntregas(e) {
         var qty = Number(data[r][prodStart + p]) || 0;
         if (qty > 0) productos.push({ a: abbrsList[p], q: qty });
       }
+      // Tartas (15/05/2026): cols al final, no consecutivas con productos viejos.
+      // Home: BE-BH (idx 56-59) · Pilar: BH-BK (idx 59-62).
+      var tartaStart = isPilar ? 59 : 56;
+      var tartaAbbrs = ['TP', 'TJyQ', 'TCa', 'TV'];
+      for (var tp = 0; tp < 4; tp++) {
+        var qtyT = Number(data[r][tartaStart + tp]) || 0;
+        if (qtyT > 0) productos.push({ a: tartaAbbrs[tp], q: qtyT });
+      }
       if (productos.length === 0) continue;
 
       var direccion = '', barrio = '', subBarrio = '', lote = '', telefono = '';
@@ -859,6 +872,12 @@ function _doGetEntregas(e) {
       for (var pr = 0; pr < ABBRS_RED.length; pr++) {
         var qR = Number(redData[rr][21 + pr]) || 0;       // V..AR = idx 21..43
         if (qR > 0) prodsR.push({ a: ABBRS_RED[pr], q: qR });
+      }
+      // Tartas Red (15/05/2026): cols BF-BI = idx 57-60.
+      var TARTA_ABBRS_RED = ['TP', 'TJyQ', 'TCa', 'TV'];
+      for (var ptr = 0; ptr < 4; ptr++) {
+        var qRT = Number(redData[rr][57 + ptr]) || 0;
+        if (qRT > 0) prodsR.push({ a: TARTA_ABBRS_RED[ptr], q: qRT });
       }
       if (prodsR.length === 0) continue;                   // pedido vacío (defensivo, no debería pasar)
 
@@ -1805,6 +1824,50 @@ function _doGetBusqueda() {
   var semanaActualBusq = _isoWeek(_nowArg);
   var anioActualBusq = _nowArg.getFullYear();
 
+  // ── Pre-loop: leer Home/Pilar/Clubes/Red para mapear cada pedido a su Estado de Entrega
+  // y semana ISO de entrega. Tadeo cuenta una venta por su fecha de entrega; agrupar
+  // BUSQUEDA y ARMADO por la semana de entrega evita mezclar ciclos (ej: hoy ya recibido +
+  // pedido nuevo para la semana siguiente).
+  // Parser robusto: las cols pueden venir como Date o como texto "22/5/2026" / "22/05/2026".
+  function _parseFechaCualquiera(raw) {
+    if (raw instanceof Date) return raw;
+    var s = String(raw || '').trim();
+    if (!s) return null;
+    var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return null;
+  }
+  var estadosEntrega = {}; // { 'Home|3': { est: 'Entregado', semEnt: 20, anioEnt: 2026 } }
+  var hojasCanal = [
+    { name: 'Home',   colId: 2, colEst: 11, colFEnt: 50 }, // Home: AX = Fecha Entrega (col 50, idx 49)
+    { name: 'Pilar',  colId: 2, colEst: 11, colFEnt: 53 }, // Pilar: BA = Fecha Entrega (col 53, idx 52)
+    { name: 'Clubes', colId: 2, colEst: 14, colFEnt: 13 }, // Clubes: M = Dia de Entrega Elegido (col 13, idx 12)
+    { name: 'Red',    colId: 2, colEst: 12, colFEnt: 11 }  // Red: K = Dia de Entrega (col 11, idx 10)
+  ];
+  hojasCanal.forEach(function(h) {
+    var shCanal = SS.getSheetByName(h.name);
+    if (!shCanal || shCanal.getLastRow() <= 1) return;
+    var nCols = Math.max(h.colId, h.colEst, h.colFEnt);
+    var dataCanal = shCanal.getRange(2, 1, shCanal.getLastRow() - 1, nCols).getValues();
+    for (var ri = 0; ri < dataCanal.length; ri++) {
+      var idPed = String(dataCanal[ri][h.colId - 1] || '').trim();
+      if (!idPed) continue;
+      var estEnt = String(dataCanal[ri][h.colEst - 1] || '').trim();
+      // Fecha entrega: parsear el campo correspondiente. Si esta vacio o no parsea,
+      // caer a col D (fecha pedido = creacion).
+      var fEntDate = _parseFechaCualquiera(dataCanal[ri][h.colFEnt - 1]);
+      if (!fEntDate) fEntDate = _parseFechaCualquiera(dataCanal[ri][3]);
+      var semEnt = 0, anioEnt = 0;
+      if (fEntDate instanceof Date) {
+        semEnt = _isoWeek(fEntDate);
+        anioEnt = fEntDate.getFullYear();
+      }
+      estadosEntrega[h.name + '|' + idPed] = { est: estEnt, semEnt: semEnt, anioEnt: anioEnt };
+    }
+  });
+
   var porProv = {};
   var porCliente = {};
   var totalGeneral = 0;
@@ -1842,12 +1905,6 @@ function _doGetBusqueda() {
     // ── Filas activas para porProv/porCliente/ocRows: solo no-Depósito ──
     if (esDeposito) continue;
 
-    // Filtro de semana actual: usar col C (Semana) que ya es número, en lugar de TZ-convert por fila
-    var semCol = Number(row[2]) || 0;
-    var fCre = row[1];
-    var anioFila = (fCre instanceof Date) ? fCre.getFullYear() : anioActualBusq;
-    if (semCol !== semanaActualBusq || anioFila !== anioActualBusq) continue;
-
     var producto = String(row[10]).trim();
     var abbr = String(row[11]).trim();
     var precioV = Number(row[15]) || 0;
@@ -1859,27 +1916,49 @@ function _doGetBusqueda() {
     var nPedido = String(row[5]).trim();
     var ocNum = String(row[0]).trim();
 
-    // Proveedor agrupado (solo Pendiente/Pedido)
+    // Lookup semana de entrega del pedido cliente. Si no la encontramos, fallback
+    // a la semana de creacion de la OC (col C). Esto desacopla "ciclos de busqueda"
+    // por semana de entrega: pedidos para hoy y para la proxima semana van separados.
+    var entKey = canal + '|' + nPedido;
+    var entInfo = estadosEntrega[entKey];
+    var semEntPed = (entInfo && entInfo.semEnt) ? entInfo.semEnt : (Number(row[2]) || semanaActualBusq);
+    var anioEntPed = (entInfo && entInfo.anioEnt) ? entInfo.anioEnt : anioActualBusq;
+
+    // Filtrar OCs cuya entrega NO sea esta semana ni la proxima (atrasados pasan).
+    // Atrasados (semEntPed < actual) los dejamos pasar como "Esta semana" para que Tadeo no los pierda.
+    var diffSem = (anioEntPed - anioActualBusq) * 53 + (semEntPed - semanaActualBusq);
+    if (diffSem > 1) continue; // > proxima semana: no traer todavia
+
+    // Pedidos entregados ya: no incluir en ARMADO (cliente). Sigue contando para BUSQUEDA si la OC esta Pendiente/Pedida.
+    var yaEntregado = entInfo && entInfo.est === 'Entregado';
+
+    // Proveedor agrupado (solo Pendiente/Pedido). Agrupacion incluye semana
+    // de entrega: un proveedor con OCs para 2 semanas distintas tiene items separados.
     if (!esRecibido) {
-      if (!porProv[prov]) porProv[prov] = { costo: 0, cats: {} };
+      if (!porProv[prov]) porProv[prov] = { costo: 0, cats: {}, semsEnt: {} };
       var sp = splitProducto(producto);
       var arr = porProv[prov].cats[sp.cat] || (porProv[prov].cats[sp.cat] = []);
       var found = false;
       for (var v = 0; v < arr.length; v++) {
-        if (arr[v].v === sp.var) { arr[v].q += qty; arr[v].ct += costoT; found = true; break; }
+        if (arr[v].v === sp.var && arr[v].sem === semEntPed && arr[v].anio === anioEntPed) {
+          arr[v].q += qty; arr[v].ct += costoT; found = true; break;
+        }
       }
-      if (!found) arr.push({ v: sp.var, q: qty, ct: costoT });
+      if (!found) arr.push({ v: sp.var, q: qty, ct: costoT, sem: semEntPed, anio: anioEntPed });
       porProv[prov].costo += costoT;
+      porProv[prov].semsEnt[semEntPed] = anioEntPed; // tracking de semanas activas
       totalGeneral += costoT;
     }
 
-    // Cliente agrupado
-    var cKey = cliente + '|' + nPedido;
-    if (!porCliente[cKey]) porCliente[cKey] = { n: cliente, canal: canal, dir: dir, tel: tel, ped: nPedido, items: [], ing: 0 };
-    porCliente[cKey].items.push({ prod: producto, q: qty, pv: ingresoT, est: estado });
-    porCliente[cKey].ing += ingresoT;
+    // Cliente agrupado (solo si NO entregado: no debe aparecer en ARMADO)
+    if (!yaEntregado) {
+      var cKey = cliente + '|' + nPedido;
+      if (!porCliente[cKey]) porCliente[cKey] = { n: cliente, canal: canal, dir: dir, tel: tel, ped: nPedido, items: [], ing: 0, semEnt: semEntPed, anioEnt: anioEntPed };
+      porCliente[cKey].items.push({ prod: producto, q: qty, pv: ingresoT, est: estado });
+      porCliente[cKey].ing += ingresoT;
+    }
 
-    ocRows.push({ oc: ocNum, r: r + 1, prov: prov, prod: producto, abbr: abbr, q: qty, est: estado, canal: canal, cliente: cliente, nped: nPedido });
+    ocRows.push({ oc: ocNum, r: r + 1, prov: prov, prod: producto, abbr: abbr, q: qty, est: estado, canal: canal, cliente: cliente, nped: nPedido, semEnt: semEntPed });
   }
 
   // Programaciones de búsqueda por proveedor (hoja "Programaciones Búsqueda")
@@ -1899,7 +1978,9 @@ function _doGetBusqueda() {
     }
   }
 
-  // Armar provsArr
+  // Armar provsArr. Cada prov lleva tambien semsEnt (lista de semanas en las que
+  // tiene OCs activas) — el cliente lo usa para mostrarlo solo en la pestaña
+  // semanal correspondiente.
   var provsArr = [];
   Object.keys(porProv).forEach(function(prov) {
     var d = porProv[prov];
@@ -1914,35 +1995,12 @@ function _doGetBusqueda() {
     waLines.push('Total: $' + d.costo.toLocaleString('es-AR'));
     waLines.push('');
     waLines.push('Gracias!');
-    provsArr.push({ n: prov, costo: d.costo, cats: catsArr, wa: waLines.join('\n'), fProg: fProgMap[prov] || '' });
+    var semsEntArr = Object.keys(d.semsEnt).map(function(s){ return Number(s); }).sort(function(a,b){return a-b;});
+    provsArr.push({ n: prov, costo: d.costo, cats: catsArr, wa: waLines.join('\n'), fProg: fProgMap[prov] || '', semsEnt: semsEntArr });
   });
 
-  // ── Filtrar pedidos cuyo Estado de Entrega sea "Entregado" en su hoja de canal ──
-  // Si el pedido ya fue entregado, no debe aparecer más en Armado.
-  var estadosEntrega = {};
-  var hojasCanal = [
-    { name: 'Home',   colId: 2, colEst: 11 }, // B = N° pedido, K = Estado de Entrega
-    { name: 'Pilar',  colId: 2, colEst: 11 },
-    { name: 'Clubes', colId: 2, colEst: 14 }, // N = Estado de Entrega
-    { name: 'Red',    colId: 2, colEst: 12 }  // L = Estado de Entrega
-  ];
-  hojasCanal.forEach(function(h) {
-    var shCanal = SS.getSheetByName(h.name);
-    if (!shCanal || shCanal.getLastRow() <= 1) return;
-    var nCols = Math.max(h.colId, h.colEst);
-    var dataCanal = shCanal.getRange(2, 1, shCanal.getLastRow() - 1, nCols).getValues();
-    for (var ri = 0; ri < dataCanal.length; ri++) {
-      var idPed = String(dataCanal[ri][h.colId - 1] || '').trim();
-      var estEnt = String(dataCanal[ri][h.colEst - 1] || '').trim();
-      if (idPed) estadosEntrega[h.name + '|' + idPed] = estEnt;
-    }
-  });
-
-  var clientesArr = Object.keys(porCliente).map(function(k) { return porCliente[k]; }).filter(function(cli) {
-    if (!cli.canal || cli.canal === 'Deposito') return true; // OCs a stock no aplican
-    var key = cli.canal + '|' + cli.ped;
-    return estadosEntrega[key] !== 'Entregado';
-  });
+  // clientesArr: ya esta filtrado en el loop (no incluye entregados).
+  var clientesArr = Object.keys(porCliente).map(function(k) { return porCliente[k]; });
 
   // ── Pagos Proveedores (ledger) ──
   var pagosImputados = {};
@@ -2033,7 +2091,9 @@ function _doGetBusqueda() {
       clientes: clientesArr,
       total: totalGeneral,
       ocs: ocRows,
-      deudas: deudasArr
+      deudas: deudasArr,
+      semActual: semanaActualBusq,
+      anioActual: anioActualBusq
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -2895,6 +2955,7 @@ function _doPostPedido(data) {
 
 // Mapeo id de producto (página web) → columna 1-based de la hoja Home
 // Home v2 abr/2026: productos empiezan en W (23) hasta AO (41)
+// 15/05/2026: tartas en BE-BH (57-60), al final tras cols de control (no consecutivas).
 const HOME_PRODUCT_COLS = {
   5:  23,  // W  — PPM   — Pack Muzarella x2
   6:  24,  // X  — PPJyQ — Pack Jamón y Queso x2
@@ -2915,6 +2976,10 @@ const HOME_PRODUCT_COLS = {
   2:  39,  // AM — PJyQ  — Pizza Jamón y Queso
   3:  40,  // AN — PCC   — Pizza Cebolla Caramelizada
   4:  41,  // AO — PJyM  — Pizza Jamón y Morrón
+  24: 57,  // BE — TP    — Tarta Pollo y Verdeo
+  25: 58,  // BF — TJyQ  — Tarta Jamón y Queso
+  26: 59,  // BG — TCa   — Tarta Calabaza
+  27: 60,  // BH — TV    — Tarta Verdura
 };
 
 // Mapeo id de producto (página web) → abreviatura en hoja Productos (col C)
@@ -2926,6 +2991,8 @@ const PAGE_ID_TO_ABBR = {
   19: 'PMu',  1:  'PMa',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
   // Exclusivos de Pilar: sorrentinos adicionales
   20: 'SQB',  21: 'SL',    22: 'SPyP', 23: 'SE',
+  // Tartas Gourmet (Home/Pilar/Red, 15/05/2026)
+  24: 'TP', 25: 'TJyQ', 26: 'TCa', 27: 'TV',
 };
 
 // ── Layout NUEVO de Pilar (abr/2026 v2): 58 cols. Bloque monetario ampliado con Descuento
@@ -2955,6 +3022,11 @@ const PILAR_PRODUCT_COLS = {
   2:  43, // AQ — PJyQ
   3:  44, // AR — PCC
   4:  45, // AS — PJyM
+  // Tartas en BH-BK (60-63), al final (no consecutivas tras cols de control)
+  24: 60, // BH — TP
+  25: 61, // BI — TJyQ
+  26: 62, // BJ — TCa
+  27: 63, // BK — TV
 };
 
 // Mapeo col → abreviatura para Pilar (inverso de PILAR_PRODUCT_COLS vía PAGE_ID_TO_ABBR)
@@ -2964,13 +3036,78 @@ const PILAR_COL_TO_ABBR = {
   33:'ECaC', 34:'EJyQ', 35:'ECyQ', 36:'EV',
   37:'TG', 38:'TLC', 39:'TC', 40:'F',
   41:'PMu', 42:'PMa', 43:'PJyQ', 44:'PCC', 45:'PJyM',
+  60:'TP', 61:'TJyQ', 62:'TCa', 63:'TV',
 };
+
+// ─── Auto-reserva Home en horario pico (Vie 15hs → Dom 23hs AR) ───
+// Si el pedido entra a Home en esa ventana y todos los productos tienen stock
+// disponible suficiente, lo damos por Origen=Deposito + Estado=Reservado de movida
+// para que Tadeo no tenga que tocarlos uno por uno en horario pico.
+function _inVentanaAutoReservaHome(argDate) {
+  var day = argDate.getDay();   // 0=Dom, 5=Vie, 6=Sab
+  var hour = argDate.getHours();
+  if (day === 5 && hour >= 15) return true;  // Viernes desde 15hs
+  if (day === 6) return true;                // Sábado completo
+  if (day === 0 && hour < 23) return true;   // Domingo hasta 23hs
+  return false;
+}
+
+// Devuelve true si TODOS los abbrs del map tienen Stock Disponible (col H) >= qty.
+// abbrToQty: { 'PMu': 2, 'PMa': 1, ... }
+function _stockSuficienteParaAbbrs(hProd, abbrToQty) {
+  var prodData = hProd.getDataRange().getValues();
+  for (var abbr in abbrToQty) {
+    var qty = Number(abbrToQty[abbr]) || 0;
+    if (qty <= 0) continue;
+    var found = false;
+    for (var r = 1; r < prodData.length; r++) {
+      if (String(prodData[r][2]).trim() === abbr) {  // col C = Abreviatura
+        var disp = Number(prodData[r][7]) || 0;       // col H = Stock Disponible
+        if (disp < qty) return false;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+
+// Wrapper que convierte qtys con id_web → abbr antes de chequear.
+function _stockSuficienteParaPedidoHome(hProd, qtys) {
+  var abbrMap = {};
+  for (var idStr in qtys) {
+    var q = Number(qtys[idStr]) || 0;
+    if (q <= 0) continue;
+    var abbr = PAGE_ID_TO_ABBR[Number(idStr)];
+    if (!abbr) return false;
+    abbrMap[abbr] = (abbrMap[abbr] || 0) + q;
+  }
+  return _stockSuficienteParaAbbrs(hProd, abbrMap);
+}
 
 function _doPostHome(data, sheetName, prefix) {
   sheetName = sheetName || 'Home';
   prefix = prefix || 'H';
   const sh = SS.getSheetByName(sheetName);
   if (!sh) return;
+
+  // ── AUTO-RESERVA Home en ventana Vie 15hs → Dom 23hs ──
+  // Solo aplica a Home (no Pilar — los Pilar son a coordinar, no reservamos stock).
+  // Solo si el cliente no mandó un origen explícito (default es Pendiente).
+  if (sheetName === 'Home' && !data.origen) {
+    var _now = new Date();
+    var _argNow = new Date(_now.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+    if (_inVentanaAutoReservaHome(_argNow)) {
+      var _qtysTmp = {};
+      (data.items || []).forEach(function(it) { _qtysTmp[Number(it.id)] = Number(it.qty) || 0; });
+      var _hProdChk = SS.getSheetByName('Productos');
+      if (_hProdChk && _stockSuficienteParaPedidoHome(_hProdChk, _qtysTmp)) {
+        data.origen = 'Deposito';
+        data.estadoEntrega = 'Reservado';
+      }
+    }
+  }
 
   // ── N° de pedido: reinicia por semana ISO según fechaEntrega. Ignora cancelados ("-").
   const orderNum = _nextWeeklyNum(sh, 2, 10, String(data.fechaEntrega || ''), prefix);
@@ -3392,6 +3529,11 @@ const RED_PRODUCT_COLS = {
   2:  42,  // AP — PJyQ
   3:  43,  // AQ — PCC
   4:  44,  // AR — PJyM
+  // Tartas en BF-BI (58-61), al final (no consecutivas tras cols de control)
+  24: 58,  // BF — TP
+  25: 59,  // BG — TJyQ
+  26: 60,  // BH — TCa
+  27: 61,  // BI — TV
 };
 
 // Mapeo ID producto (web Red) → abreviatura en hoja Productos
@@ -3402,6 +3544,7 @@ const RED_ID_TO_ABBR = {
   14:'TG', 15:'TLC', 16:'TC', 13:'F',
   20:'SQB', 21:'SL', 22:'SPyP', 23:'SE',
   19:'PMu', 1:'PMa', 2:'PJyQ', 3:'PCC', 4:'PJyM',
+  24:'TP', 25:'TJyQ', 26:'TCa', 27:'TV',
 };
 
 function _doPostRed(data) {
@@ -3700,6 +3843,11 @@ const HOME_COL_TO_ABBR = {
   39: 'PJyQ',  // AM
   40: 'PCC',   // AN
   41: 'PJyM',  // AO
+  // Tartas Gourmet (15/05/2026, cols BE-BH al final, no consecutivas)
+  57: 'TP',    // BE
+  58: 'TJyQ',  // BF
+  59: 'TCa',   // BG
+  60: 'TV',    // BH
 };
 
 // Red: col V(22) a AR(44) = 23 productos (orden actualizado 20/04/2026)
@@ -3727,6 +3875,11 @@ const RED_COL_TO_ABBR = {
   42: 'PJyQ',  // AP
   43: 'PCC',   // AQ
   44: 'PJyM',  // AR
+  // Tartas Gourmet (15/05/2026, cols BF-BI al final, no consecutivas)
+  58: 'TP',    // BF
+  59: 'TJyQ',  // BG
+  60: 'TCa',   // BH
+  61: 'TV',    // BI
 };
 
 // IMPORTANTE: esta función debe configurarse SOLO como trigger instalable.
@@ -4593,7 +4746,10 @@ function _homeStockFisico(shHome, row, hProductos, signo) {
   var isPilar = (shHome.getName() === 'Pilar');
   var prodCount = isPilar ? 23 : 19;
   var COL_MAP   = isPilar ? PILAR_COL_TO_ABBR : HOME_COL_TO_ABBR;
-  const cantidades = shHome.getRange(row, 23, 1, prodCount).getValues()[0];
+  // Leer hasta la última col de tartas (Home BH=60, Pilar BK=63) para que el
+  // mapeo de tartas también caiga dentro del array de cantidades.
+  var maxColPC = isPilar ? 63 : 60;
+  const cantidades = shHome.getRange(row, 23, 1, maxColPC - 22).getValues()[0];
   const prodData   = hProductos.getDataRange().getValues();
   const refPedido  = String(shHome.getRange(row, 2).getValue() || ''); // B = N° Pedido
 
@@ -4636,7 +4792,9 @@ function _homeStockFisicoMixto(shHome, row, hProductos, signo) {
   var isPilarMx = (shHome.getName() === 'Pilar');
   var prodCountMx = isPilarMx ? 23 : 19;
   var COL_MAP_MX  = isPilarMx ? PILAR_COL_TO_ABBR : HOME_COL_TO_ABBR;
-  var cantidades = shHome.getRange(row, 23, 1, prodCountMx).getValues()[0];
+  // Leer hasta la última col de tartas (Home BH=60, Pilar BK=63)
+  var maxColMX = isPilarMx ? 63 : 60;
+  var cantidades = shHome.getRange(row, 23, 1, maxColMX - 22).getValues()[0];
   var prodData = hProductos.getDataRange().getValues();
   var refPedido = String(shHome.getRange(row, 2).getValue() || '');
 
@@ -6975,6 +7133,14 @@ function _doGetAdmin(opt) {
         var qty = Number(data[r][IX.prodStart + p]) || 0;
         if (qty > 0) prods.push({ a: abbrsAdm[p], q: qty });
       }
+      // Tartas (15/05/2026): cols al final, no consecutivas con productos viejos.
+      // Home: BE-BH (idx 56-59) · Pilar: BH-BK (idx 59-62).
+      var tartaStartAdm = isPilarAdm ? 59 : 56;
+      var tartaAbbrsAdm = ['TP', 'TJyQ', 'TCa', 'TV'];
+      for (var tp2 = 0; tp2 < 4; tp2++) {
+        var qtyT2 = Number(data[r][tartaStartAdm + tp2]) || 0;
+        if (qtyT2 > 0) prods.push({ a: tartaAbbrsAdm[tp2], q: qtyT2 });
+      }
 
       var formaPago = String(data[r][11] || '').trim();
       var costoPed = Number(data[r][IX.costo]) || 0;
@@ -8264,26 +8430,45 @@ function _doPostEditarPedido(data) {
   // Reescribir cantidades en TODAS las columnas de productos del bloque
   var nProds = prodEndCol - prodStartCol + 1;
   var newQty = new Array(nProds).fill(0);
+  // Tartas (cols al final, no consecutivas) — se manejan aparte:
+  // Home BE-BH 57-60, Pilar BH-BK 60-63, Red BF-BI 58-61. Clubes no tiene tartas.
+  var tartaColsByHoja = {
+    'Home':  [57, 58, 59, 60],
+    'Pilar': [60, 61, 62, 63],
+    'Red':   [58, 59, 60, 61]
+  };
+  var TARTA_ABBRS = ['TP', 'TJyQ', 'TCa', 'TV'];
+  var tartaCols = tartaColsByHoja[hoja] || [];
+  var newTartaQty = [0, 0, 0, 0];
   var subtotal = 0, costo = 0;
   Object.keys(COL_MAP).forEach(function(colStr){
     var colIdx = Number(colStr);
     var abbr = COL_MAP[colIdx];
     var info = lineasMap[abbr];
-    if (!info || info.q <= 0) {
-      newQty[colIdx - prodStartCol] = 0;
-      return;
+    var qty = (info && info.q > 0) ? info.q : 0;
+    // Determinar si esta col es tarta y dónde escribirla
+    var tartaIdx = tartaCols.indexOf(colIdx);
+    if (tartaIdx >= 0) {
+      newTartaQty[tartaIdx] = qty;
+    } else if (colIdx >= prodStartCol && colIdx <= prodEndCol) {
+      newQty[colIdx - prodStartCol] = qty;
     }
-    var precio = info.precio != null ? info.precio
-               : (hoja === 'Clubes') ? (CLUBES_PRECIOS[abbr] || 0)
-               : (precioRetail[abbr] || 0);
-    var costoLinea = info.costo != null ? info.costo : (costoUnit[abbr] || 0);
-    newQty[colIdx - prodStartCol] = info.q;
-    subtotal += info.q * precio;
-    costo    += info.q * costoLinea;
+    if (qty > 0) {
+      var precio = info.precio != null ? info.precio
+                 : (hoja === 'Clubes') ? (CLUBES_PRECIOS[abbr] || 0)
+                 : (precioRetail[abbr] || 0);
+      var costoLinea = info.costo != null ? info.costo : (costoUnit[abbr] || 0);
+      subtotal += qty * precio;
+      costo    += qty * costoLinea;
+    }
   });
 
   // Escribir cantidades en batch
   sh.getRange(row, prodStartCol, 1, nProds).setValues([newQty]);
+  // Tartas: escribir las 4 cols (consecutivas entre sí pero en otro rango)
+  if (tartaCols.length === 4) {
+    sh.getRange(row, tartaCols[0], 1, 4).setValues([newTartaQty]);
+  }
 
   // ── Recalcular subtotal / descuento / total / facturado / margen ──
   // Reglas de descuento: Home/Pilar 10% si nuevo subtotal >= 100k O pago = Efectivo.
@@ -8315,6 +8500,23 @@ function _doPostEditarPedido(data) {
   }
   sh.getRange(row, colCosto).setValue(costo);
 
+  // ── Rebalancear Efectivo (R) / Transferencia (S) según forma de pago ──
+  // Pre-cobro, R/S guardan el "monto teórico a cobrar" según fp puro. Si recalculamos
+  // Total sin actualizar R/S, queda inconsistente: la caja sigue mostrando el monto
+  // viejo cuando el pedido se editó. Solo aplica si fp es Efectivo o Transferencia
+  // puros — pedidos con cobro Mixto los maneja la PWA Ruta al cobrar.
+  var _colFpRS = (hoja === 'Clubes') ? 15 : (hoja === 'Red') ? 13 : 12;
+  var _colEfRS = (hoja === 'Clubes') ? 19 : (hoja === 'Red') ? 17 : 18;
+  var _colTrRS = (hoja === 'Clubes') ? 20 : (hoja === 'Red') ? 18 : 19;
+  var _fpEdit = String(sh.getRange(row, _colFpRS).getValue()).trim();
+  if (_fpEdit === 'Efectivo') {
+    sh.getRange(row, _colEfRS).setValue(totalNuevo);
+    sh.getRange(row, _colTrRS).setValue(0);
+  } else if (_fpEdit === 'Transferencia') {
+    sh.getRange(row, _colEfRS).setValue(0);
+    sh.getRange(row, _colTrRS).setValue(totalNuevo);
+  }
+
   // Facturado = Total + PropEf + PropTr. Cols por hoja:
   //   Home/Pilar V(22) = =Q+T+U  · Clubes W(23) = =Q+U+V  · Red U(21) = =O+S+T
   // Margen Bruto = Facturado − Costo:
@@ -8342,10 +8544,44 @@ function _doPostEditarPedido(data) {
   }
 
   SpreadsheetApp.flush();
+
+  // ── Auto-re-reserva post-edición ──
+  // Si el edit reseteó el Origen (porque se agregó algo o subió cantidad), estamos
+  // en ventana viernes 15hs–domingo 23hs y el pedido nuevo completo cabe en stock,
+  // re-auto-reservamos para no obligar a Tadeo a re-decidir origen en horario pico.
+  // El flush() previo aseguró que el SUMPRODUCT de Productos ya recalculó liberando
+  // la reserva vieja, así el Stock Disponible que leemos es el real.
+  var autoReReservado = false;
+  if (origenReseteado && hoja === 'Home') {
+    var _nowEd = new Date();
+    var _argEd = new Date(_nowEd.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+    if (_inVentanaAutoReservaHome(_argEd)) {
+      var _abbrMap = {};
+      Object.keys(lineasMap).forEach(function(abbr){
+        var q = Number(lineasMap[abbr].q) || 0;
+        if (q > 0) _abbrMap[abbr] = q;
+      });
+      var _hProdRe = SS.getSheetByName('Productos');
+      if (_hProdRe && _stockSuficienteParaAbbrs(_hProdRe, _abbrMap)) {
+        sh.getRange(row, colOrigen).setValue('Deposito');
+        sh.getRange(row, colEst).setValue('Reservado');
+        if (colOrigenDetalle) {
+          var oDNuevo = {};
+          Object.keys(_abbrMap).forEach(function(a){ oDNuevo[a] = 'D'; });
+          sh.getRange(row, colOrigenDetalle).setValue(JSON.stringify(oDNuevo));
+        }
+        origenReseteado = false;
+        autoReReservado = true;
+        SpreadsheetApp.flush();
+      }
+    }
+  }
+
   return ContentService.createTextOutput(JSON.stringify({
     ok: true, total: totalNuevo, descuento: descuentoNuevo, subtotal: subtotal,
     costo: costo, margen: totalNuevo - costo,
-    origenReseteado: origenReseteado
+    origenReseteado: origenReseteado,
+    autoReReservado: autoReReservado
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -9440,17 +9676,19 @@ function _resumenClienteKey(canal, fila) {
 
 function _resumenCfgCanales() {
   // 0-based para acceso al array (Home cFecha:3 = índice 3 = col D)
+  // tartaStart / tartaEnd (0-based): cols al final donde están las tartas TP/TJyQ/TCa/TV.
+  // Home BE-BH = idx 56-59. Pilar BH-BK = idx 59-62. Red BF-BI = idx 57-60.
   return [
     { canal:'Home', sheet:'Home',
       cFecha:3, cCliente:7, cOrigen:8, cEstEnt:10, cEstPago:12,
       cTotal:16, cEf:17, cTr:18, cPropEf:19, cPropTr:20, cFacturado:21,
       cCosto:41, cBarrio:43, cSubBarrio:44, cLote:45, cTel:46,
-      cFechaCobro:54, prodStart:22, prodEnd:40 },
+      cFechaCobro:54, prodStart:22, prodEnd:40, tartaStart:56, tartaEnd:59 },
     { canal:'Pilar', sheet:'Pilar',
       cFecha:3, cCliente:7, cOrigen:8, cEstEnt:10, cEstPago:12,
       cTotal:16, cEf:17, cTr:18, cPropEf:19, cPropTr:20, cFacturado:21,
       cCosto:45, cBarrio:47, cSubBarrio:47, cLote:48, cTel:49,
-      cFechaCobro:57, prodStart:22, prodEnd:44 },
+      cFechaCobro:57, prodStart:22, prodEnd:44, tartaStart:59, tartaEnd:62 },
     { canal:'Clubes', sheet:'Clubes',
       cFecha:3, cCliente:7, cClub:8, cDeporte:9, cGrupo:10, cOrigen:11, cEstEnt:13, cEstPago:15,
       cTotal:16, cEf:18, cTr:19, cPropEf:20, cPropTr:21, cFacturado:22,
@@ -9459,7 +9697,7 @@ function _resumenCfgCanales() {
       cFecha:3, cVendedor:7, cCliente:8, cOrigen:9, cEstEnt:11, cEstPago:13,
       cTotal:14, cEf:16, cTr:17, cPropEf:18, cPropTr:19, cFacturado:20,
       cCosto:44, cBarrio:49, cLote:50, cTel:51,
-      cFechaCobro:54, prodStart:21, prodEnd:43 }
+      cFechaCobro:54, prodStart:21, prodEnd:43, tartaStart:57, tartaEnd:60 }
   ];
 }
 
@@ -9510,6 +9748,13 @@ function _resumenFilaToObj(row, cfg) {
   for (var c = cfg.prodStart; c <= cfg.prodEnd; c++) {
     var q = Number(row[c]) || 0;
     if (q > 0) productos[c] = q;
+  }
+  // Tartas (cols al final, no consecutivas con productos viejos)
+  if (cfg.tartaStart != null && cfg.tartaEnd != null) {
+    for (var ct = cfg.tartaStart; ct <= cfg.tartaEnd; ct++) {
+      var qt = Number(row[ct]) || 0;
+      if (qt > 0) productos[ct] = qt;
+    }
   }
   return {
     cliente: String(val(cfg.cCliente,'')).trim(),
@@ -10064,17 +10309,20 @@ function _crmToDate(v) {
 }
 
 // Configuración de columnas (0-indexed) para cada hoja operativa.
+// tartaStart/tartaEnd: rango adicional al final con las 4 tartas (cols separadas).
 function _crmHojasConfig() {
   return [
     {
       name: 'Home', cliente: 7, dia: 9, fecha: 3, est: 10, pago: 12, fp: 11,
       total: 21, costo: 41, barrio: 43, subBarrio: 44, domicilio: 45, tel: 46,
-      prodStart: 22, prodEnd: 40, fechaCobro: 54
+      prodStart: 22, prodEnd: 40, fechaCobro: 54,
+      tartaStart: 56, tartaEnd: 59
     },
     {
       name: 'Pilar', cliente: 7, dia: 9, fecha: 3, est: 10, pago: 12, fp: 11,
       total: 21, costo: 45, barrio: 47, subBarrio: -1, domicilio: 48, tel: 49,
-      prodStart: 22, prodEnd: 44, fechaCobro: 57
+      prodStart: 22, prodEnd: 44, fechaCobro: 57,
+      tartaStart: 59, tartaEnd: 62
     },
     {
       name: 'Clubes', cliente: 7, dia: 12, fecha: 3, est: 13, pago: 15, fp: 14,
@@ -10084,18 +10332,26 @@ function _crmHojasConfig() {
     {
       name: 'Red', cliente: 8, dia: 10, fecha: 3, est: 11, pago: 13, fp: 12,
       total: 20, costo: 44, barrio: 49, subBarrio: -1, domicilio: 50, tel: 51,
-      prodStart: 21, prodEnd: 43, vendedor: 7
+      prodStart: 21, prodEnd: 43, vendedor: 7,
+      tartaStart: 57, tartaEnd: 60
     }
   ];
 }
 
 // Lee headers de productos de cada hoja para mapear columna → abreviatura.
-function _crmProductHeaders(sh, prodStart, prodEnd) {
+function _crmProductHeaders(sh, prodStart, prodEnd, tartaStart, tartaEnd) {
   var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   var map = {};
   for (var i = prodStart; i <= prodEnd && i < headers.length; i++) {
     var abrev = String(headers[i] || '').trim();
     if (abrev) map[i] = abrev;
+  }
+  // Tartas (rango adicional)
+  if (tartaStart != null && tartaEnd != null) {
+    for (var j = tartaStart; j <= tartaEnd && j < headers.length; j++) {
+      var ab = String(headers[j] || '').trim();
+      if (ab) map[j] = ab;
+    }
   }
   return map;
 }
@@ -10142,7 +10398,7 @@ function _crmBuildClientesIndex() {
   hojas.forEach(function(cfg) {
     var sh = SS.getSheetByName(cfg.name);
     if (!sh || sh.getLastRow() <= 1) return;
-    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd);
+    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd, cfg.tartaStart, cfg.tartaEnd);
     var data = sh.getDataRange().getValues();
 
     for (var r = 1; r < data.length; r++) {
@@ -10508,7 +10764,7 @@ function _doGetCrmProductos(e) {
   hojas.forEach(function(cfg) {
     var sh = SS.getSheetByName(cfg.name);
     if (!sh || sh.getLastRow() <= 1) return;
-    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd);
+    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd, cfg.tartaStart, cfg.tartaEnd);
     var data = sh.getDataRange().getValues();
     for (var r = 1; r < data.length; r++) {
       var row = data[r];
@@ -10659,7 +10915,7 @@ function _doGetCrmProducto(e) {
   hojas.forEach(function(cfg) {
     var sh = SS.getSheetByName(cfg.name);
     if (!sh || sh.getLastRow() <= 1) return;
-    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd);
+    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd, cfg.tartaStart, cfg.tartaEnd);
     var idxAbrev = -1;
     Object.keys(prodMap).forEach(function(idx) {
       if (prodMap[idx] === abrev) idxAbrev = parseInt(idx, 10);
