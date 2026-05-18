@@ -3286,9 +3286,13 @@ function _doPostHome(data, sheetName, prefix) {
   sh.appendRow(row);
   var newRow = sh.getLastRow();
 
-  // Fórmula Facturado (V=22): V = Q (Total a cobrar) + T (Propina Ef) + U (Propina Tr)
-  // Refleja la venta realizada (no depende de si ya se cobró). La caja usa R/S aparte.
-  sh.getRange(newRow, 22).setFormula('=Q' + newRow + '+T' + newRow + '+U' + newRow);
+  // Fórmula Facturado (V=22): V = Q (Total a cobrar) + T (Propina Ef) + U (Propina Tr) + BE/BH (A Favor / Aplicado).
+  // BE en Home (col 57), BH en Pilar (col 60). Default vacío = 0.
+  // A Favor / Aplicado refleja el "extra" cobrado al cliente que queda a favor (positivo)
+  // o el saldo aplicado del cliente en una compra futura (negativo).
+  // Tadeo (17/05/2026): "facturado pueda ver todo lo que tengo realmente en efectivo".
+  var colAFavor = (sheetName === 'Pilar') ? 'BH' : 'BE';
+  sh.getRange(newRow, 22).setFormula('=Q' + newRow + '+T' + newRow + '+U' + newRow + '+' + colAFavor + newRow);
   // Fórmula Margen Bruto = Facturado (V) - Costo
   var costoLetter = _colLetter(COL_COSTO);
   sh.getRange(newRow, COL_MARGEN).setFormula('=V' + newRow + '-' + costoLetter + newRow);
@@ -9031,15 +9035,36 @@ function _doPostMarcarCobrado(data) {
   }
 
   // Modelo: R (Efectivo) y S (Transferencia) = parte del TOTAL A COBRAR por método (sin propina).
-  // T/U = propina por método (plus sobre el total). La col Facturado (V) = Q+T+U.
-  // El cliente (PWA Ruta) envía ef/tr YA NETOS y propina aparte. Escribimos tal cual.
+  // T/U = propina por método (plus sobre el total). La col Facturado (V) = Q+T+U+BE/BH.
+  // BE (Home col 57) / BH (Pilar col 60) = A Favor / Aplicado (positivo: cliente paga
+  // más; negativo: se aplica saldo de crédito previo del cliente).
+  // El cliente (PWA Ruta) envía ef/tr ya NETOS al total facturado + propina aparte.
   var propina = Number(data.propina) || 0;
   var propMet = String(data.propMet || '').trim();
   var ef = Number(data.ef) || 0;
   var tr = Number(data.tr) || 0;
+  // aFavor: cliente paga más que el total. Suma a ef/tr según fp. Va a col BE/BH.
+  // aplicacion: se descuenta del cobro porque el cliente tenía saldo a favor. Resta de ef/tr.
+  // Ambos son siempre positivos en el payload; el signo neto se calcula acá.
+  var aFavor = Number(data.aFavor) || 0;
+  var aplicacion = Number(data.aplicacion) || 0;
+  if (aFavor < 0) aFavor = 0;
+  if (aplicacion < 0) aplicacion = 0;
+  var deltaAFavor = aFavor - aplicacion;  // positivo = a favor; negativo = aplicación neta
   // Si hubo recálculo y no es Mixto, forzar ef/tr al nuevo total según fp
   if (totalRecalculado !== null && formaPago === 'Efectivo')      { ef = totalRecalculado; tr = 0; }
   else if (totalRecalculado !== null && formaPago === 'Transferencia') { tr = totalRecalculado; ef = 0; }
+  // Ajustar ef/tr con el aFavor/aplicacion (lo que el cliente realmente entregó).
+  if (aFavor > 0 || aplicacion > 0) {
+    var ajuste = deltaAFavor;
+    if (formaPago === 'Efectivo') ef = Math.max(0, ef + ajuste);
+    else if (formaPago === 'Transferencia') tr = Math.max(0, tr + ajuste);
+    else if (formaPago === 'Mixto') {
+      // Si es mixto, ajustamos del que ya tiene mayor monto (heurística simple)
+      if (tr >= ef) tr = Math.max(0, tr + ajuste);
+      else ef = Math.max(0, ef + ajuste);
+    }
+  }
   if (ef > 0 || tr > 0) {
     sh.getRange(row, cols.ef).setValue(ef);
     sh.getRange(row, cols.tr).setValue(tr);
@@ -9050,8 +9075,14 @@ function _doPostMarcarCobrado(data) {
     var colProp = propMet === 'Efectivo' ? cols.propEf : cols.propTr;
     sh.getRange(row, colProp).setValue(propina);
   }
+  // Escribir A Favor / Aplicado en col BE (Home) o BH (Pilar). Solo aplica a VD.
+  if (isVD && deltaAFavor !== 0) {
+    var colAFav = (hoja === 'Pilar') ? 60 : 57;
+    var actual = Number(sh.getRange(row, colAFav).getValue()) || 0;
+    sh.getRange(row, colAFav).setValue(actual + deltaAFavor);
+  }
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalRecalculado })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalRecalculado, aFavor: aFavor, aplicacion: aplicacion })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=cobrarParcial — registra un cobro parcial de un pedido.
@@ -11360,26 +11391,9 @@ function _doPostCrearSaldoCliente(data) {
   ]);
   sh.getRange(sh.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
 
-  // Reflejar en caja si vino método (Efectivo/Transferencia). Sin método → solo tracking.
-  var metodo = String(data.metodo || '').trim();
-  if (metodo === 'Efectivo' || metodo === 'Transferencia') {
-    var fechaArg = Utilities.formatDate(argNow, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
-    var semanaIso = _isoWeek(argNow);
-    var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    var mesNombre = MESES[argNow.getMonth()];
-    if (tipo === 'Crédito') {
-      var shIng = SS.getSheetByName('Ingresos');
-      if (shIng) {
-        shIng.appendRow([fechaArg, semanaIso, mesNombre, 'Saldo a favor cliente', 'Saldo a favor: ' + cliente + (pedidoRef ? ' (' + pedidoRef + ')' : ''), metodo, monto, String(data.notas || '')]);
-      }
-    } else {
-      // Aplicación: egreso (el cliente paga menos por descontar contra el saldo)
-      var shEgr = SS.getSheetByName('Egresos');
-      if (shEgr) {
-        shEgr.appendRow([fechaArg, semanaIso, mesNombre, 'Saldo a favor aplicado', 'Aplicado saldo a favor: ' + cliente + (pedidoRef ? ' (' + pedidoRef + ')' : ''), metodo, monto, String(data.notas || '')]);
-      }
-    }
-  }
+  // Nota: el ajuste a caja efectivo/MP NO se hace acá. Se hace via col BE/BH
+  // "A Favor / Aplicado" del pedido (que entra en la fórmula Facturado).
+  // Esta hoja Saldos Clientes es solo historial/tracking del saldo del cliente.
 
   // Calcular saldo neto actual del cliente (por teléfono si hay, sino por nombre)
   var saldoNeto = _calcSaldoCliente(sh, telefono, cliente);
