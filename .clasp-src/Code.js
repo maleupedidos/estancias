@@ -7256,6 +7256,12 @@ function _doGetAdmin(opt) {
         if (String(headersH[hd]).trim() === 'Origen Detalle') { oDetStr = String(data[r][hd] || '').trim(); break; }
       }
 
+      // Repartidor: Home col 56 (BD, idx 55), Pilar col 59 (idx 58). Leer por header para resiliencia.
+      var repStr = '';
+      for (var hr2 = 0; hr2 < headersH.length; hr2++) {
+        if (String(headersH[hr2]).trim() === 'Repartidor') { repStr = String(data[r][hr2] || '').trim(); break; }
+      }
+
       pedidos.push({
         n: nPedido, h: hoja, c: cliente, f: fechaStr, de: diaEntrega, dee: diaEntregaISO,
         es: estado, o: origen, ep: estadoPago, fp: formaPago,
@@ -7265,6 +7271,7 @@ function _doGetAdmin(opt) {
         fe: feStr, fed: feDiaStr,
         fc: fcStr, fcd: fcDiaStr,
         oDet: oDetStr,
+        rep: repStr,
         r: r + 1
       });
     }
@@ -7349,6 +7356,12 @@ function _doGetAdmin(opt) {
         if (String(headersClub[hdC]).trim() === 'Origen Detalle') { oDetStrC = String(dataClubes[rc][hdC] || '').trim(); break; }
       }
 
+      // Repartidor (Clubes col 37, idx 36). Leer por header para resiliencia.
+      var repStrC = '';
+      for (var hrC = 0; hrC < headersClub.length; hrC++) {
+        if (String(headersClub[hrC]).trim() === 'Repartidor') { repStrC = String(dataClubes[rc][hrC] || '').trim(); break; }
+      }
+
       pedidos.push({
         n: nPedidoC, h: 'Clubes',
         c: clienteC + (clubC ? ' (' + clubC + ')' : ''),
@@ -7359,6 +7372,7 @@ function _doGetAdmin(opt) {
         ef: efC, tr: trC, pef: pefC, ptr: ptrC,
         fc: fcStrC, fcd: fcDiaStrC,
         oDet: oDetStrC,
+        rep: repStrC,
         r: rc + 1
       });
     }
@@ -9287,29 +9301,41 @@ function _doPostMoverBilletera(data) {
   var lastRow = shSaldo.getLastRow();
   if (lastRow < 2) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin snapshot previo — ajusta saldo primero' })).setMimeType(ContentService.MimeType.JSON);
 
-  // Hereda ef y mp del último snapshot (no se mueve plata fuera de Efectivo)
-  var ef = Number(shSaldo.getRange(lastRow, 2).getValue()) || 0;
-  var mp = Number(shSaldo.getRange(lastRow, 3).getValue()) || 0;
   var bilActual = (shSaldo.getLastColumn() >= 4) ? (Number(shSaldo.getRange(lastRow, 4).getValue()) || 0) : 0;
+
+  // BUG FIX 18/05/2026: antes heredábamos ef/mp del snapshot anterior, lo que
+  // descartaba todos los cobros/gastos posteriores (caja vivía caía al valor
+  // del último snapshot). Ahora el frontend debe pasar saldoVivoEf y saldoVivoMP
+  // calculados al momento del click (los que el Panel muestra en pantalla).
+  // Si no llegan, fallback al snapshot anterior (compat con clientes viejos).
+  var efAUsar, mpAUsar;
+  if (data.saldoVivoEf !== undefined && data.saldoVivoEf !== null) {
+    efAUsar = Math.round(Number(data.saldoVivoEf) || 0);
+  } else {
+    efAUsar = Number(shSaldo.getRange(lastRow, 2).getValue()) || 0;
+  }
+  if (data.saldoVivoMP !== undefined && data.saldoVivoMP !== null) {
+    mpAUsar = Math.round(Number(data.saldoVivoMP) || 0);
+  } else {
+    mpAUsar = Number(shSaldo.getRange(lastRow, 3).getValue()) || 0;
+  }
 
   // Cálculo nuevo billetera
   var bilNuevo;
   if (dir === 'aBilletera') {
-    // Saca de Caja Fuerte y mete en Billetera. No puede exceder el efectivo total.
     bilNuevo = bilActual + monto;
-    if (bilNuevo > ef) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto excede caja fuerte disponible' })).setMimeType(ContentService.MimeType.JSON);
+    if (bilNuevo > efAUsar) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto excede caja fuerte disponible' })).setMimeType(ContentService.MimeType.JSON);
   } else {
-    // Saca de Billetera y mete en Caja Fuerte. No puede bajar de 0.
     bilNuevo = bilActual - monto;
     if (bilNuevo < 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto excede billetera' })).setMimeType(ContentService.MimeType.JSON);
   }
 
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  shSaldo.appendRow([argNow, ef, mp, bilNuevo]);
+  shSaldo.appendRow([argNow, efAUsar, mpAUsar, bilNuevo]);
   shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: ef, mp: mp, bil: bilNuevo })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: efAUsar, mp: mpAUsar, bil: bilNuevo })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ══════════════════════════════════════════════════════════════
