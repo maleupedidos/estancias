@@ -3176,8 +3176,14 @@ function _doPostHome(data, sheetName, prefix) {
     }
   }
 
-  const efectivo        = pago === 'Efectivo'      ? total : 0;
-  const transferencia   = pago === 'Transferencia' ? total : 0;
+  // saldoAplicado: si el cliente tenía saldo a favor previo y lo aplicó en checkout,
+  // descuenta del cobro real. Total (col Q) se mantiene en el bruto del pedido,
+  // pero ef/tr reflejan lo que el cliente paga realmente.
+  var saldoAplicadoNum = Number(data.saldoAplicado) || 0;
+  if (saldoAplicadoNum < 0) saldoAplicadoNum = 0;
+  var cobroReal = Math.max(0, total - saldoAplicadoNum);
+  const efectivo        = pago === 'Efectivo'      ? cobroReal : 0;
+  const transferencia   = pago === 'Transferencia' ? cobroReal : 0;
 
   // ── Cantidades de productos por id ────────────────────────
   const qtys = {};
@@ -3285,6 +3291,35 @@ function _doPostHome(data, sheetName, prefix) {
 
   sh.appendRow(row);
   var newRow = sh.getLastRow();
+
+  // ── Saldo a favor aplicado en este pedido (si el cliente tenía crédito previo) ──
+  // El frontend tienda detecta saldo via GET saldoCliente y manda saldoAplicado>0.
+  // Lo escribimos como NEGATIVO en col BI/BL para que el Facturado refleje lo que
+  // el cliente paga realmente (Total - saldoAplicado). También registra movimiento
+  // "Aplicación" en hoja Saldos Clientes para llevar la cuenta del crédito restante.
+  var saldoAplicado = Number(data.saldoAplicado) || 0;
+  if (saldoAplicado > 0) {
+    var colAFavIdx = (sheetName === 'Pilar') ? 64 : 61;
+    sh.getRange(newRow, colAFavIdx).setValue(-saldoAplicado);
+    try {
+      _ensureSaldosClientesSheet();
+      var shSC = SS.getSheetByName('Saldos Clientes');
+      var ahoraSC = new Date();
+      var argNowSC = new Date(ahoraSC.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+      shSC.appendRow([
+        argNowSC,
+        String(data.nombre || ''),
+        _normalizarTel(data.telefono),
+        'Aplicación',
+        saldoAplicado,
+        sheetName,
+        String(orderNum || ''),
+        'Aplicado en checkout (auto-detectado por teléfono)',
+        ''
+      ]);
+      shSC.getRange(shSC.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    } catch(_) {}
+  }
 
   // Fórmula Facturado (V=22): V = Q (Total a cobrar) + T (Propina Ef) + U (Propina Tr) + BI/BL (A Favor / Aplicado).
   // BI en Home (col 61), BL en Pilar (col 64). Default vacío = 0.
