@@ -281,6 +281,7 @@ function doGet(e) {
   if (action === 'precios') return _doGetPrecios();
   if (action === 'cobrosPendientes') return _doGetCobrosPendientes();
   if (action === 'pendientesGuardarStock') return _doGetPendientesGuardarStock();
+  if (action === 'saldoCliente') return _doGetSaldoCliente(e);
   if (action === 'resumenSemanal') return _doGetResumenSemanal(e);
   if (action === 'crmClientes') return _doGetCrmClientes();
   if (action === 'crmCliente') return _doGetCrmCliente(e);
@@ -2888,6 +2889,7 @@ function doPost(e) {
     if (data.action === 'programarBusqueda')    return _doPostProgramarBusqueda(data);
     if (data.action === 'marcarEntregadoAVendedor') return _doPostMarcarEntregadoAVendedor(data);
     if (data.action === 'marcarGuardadoEnStock') return _doPostMarcarGuardadoEnStock(data);
+    if (data.action === 'crearSaldoCliente') return _doPostCrearSaldoCliente(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
@@ -2937,6 +2939,24 @@ function _logPedidoFallido(e, err) {
 }
 
 function _doPostPedido(data) {
+    // ── Dedupe por clientOrderId ──
+    // El frontend genera un ID único cuando arma el pedido. Si el cliente tiene mala
+    // señal, el POST puede llegar al server pero la respuesta no volver al navegador →
+    // el cliente reintenta y crearía un duplicado. CacheService con TTL 6h descarta
+    // POSTs repetidos. Suficiente porque los retries de cola persisten minutos, no horas.
+    var coid = String(data.clientOrderId || '').trim();
+    if (coid) {
+      try {
+        var _cache = CacheService.getScriptCache();
+        if (_cache.get('coid_' + coid)) {
+          return ContentService
+            .createTextOutput(JSON.stringify({ ok: true, dedup: true }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+        _cache.put('coid_' + coid, '1', 21600); // 6h
+      } catch (_e) { /* si CacheService falla, dejamos pasar — mejor un duplicado que un pedido perdido */ }
+    }
+
     const canal = String(data.canal || 'Home');
     if (canal === 'Clubes')          _doPostClubes(data);
     else if (canal === 'Red')        _doPostRed(data);
@@ -3310,8 +3330,10 @@ function _doPostHome(data, sheetName, prefix) {
     }
   }
 
-  // Sync WATI (silencioso, no bloquea)
-  _syncWatiContact_(isPilar ? 'Pilar' : 'Home', data.telefono, isPilar ? '' : subBarrio, isPilar ? (data.barrio || data.direccion) : barrioPrivado);
+  // Sync WATI desactivado (17/05/2026): permiso UrlFetchApp.fetch revocado.
+  // Ensuciaba Log Errores con una excepción por pedido sin afectar el grabado.
+  // Reactivar cuando se renueve OAuth del Apps Script.
+  // _syncWatiContact_(isPilar ? 'Pilar' : 'Home', data.telefono, isPilar ? '' : subBarrio, isPilar ? (data.barrio || data.direccion) : barrioPrivado);
 }
 
 // Helper: número de columna → letra (1→A, 27→AA, ...)
@@ -3494,8 +3516,8 @@ function _doPostClubes(data) {
     }
   }
 
-  // Sync WATI (silencioso)
-  _syncWatiContact_('Clubes', data.telefono, '', '');
+  // Sync WATI desactivado (17/05/2026): permiso UrlFetchApp.fetch revocado.
+  // _syncWatiContact_('Clubes', data.telefono, '', '');
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3669,8 +3691,8 @@ function _doPostRed(data) {
   var telRed = String(data.telefono || '');
   if (telRed) sh.getRange(newRow, 52).setNumberFormat('@').setValue(telRed);
 
-  // Sync WATI (silencioso)
-  _syncWatiContact_('Red', data.telefono, '', '');
+  // Sync WATI desactivado (17/05/2026): permiso UrlFetchApp.fetch revocado.
+  // _syncWatiContact_('Red', data.telefono, '', '');
 }
 
 // Número de semana ISO (lunes = primer día de la semana)
@@ -11273,4 +11295,125 @@ function _doPostMarcarGuardadoEnStock(data) {
   });
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true, n: marcados, total: rows.length })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SALDOS A FAVOR DE CLIENTES (Fase 1: registro)
+//  Hoja "Saldos Clientes". Una fila = un movimiento (Crédito o Aplicación).
+//  Saldo neto del cliente = Σ Crédito - Σ Aplicación.
+//  Identificación: por teléfono normalizado (más único que nombre).
+//  Caso de uso (17/05/2026): Lucia Fernandez Moores pagó \$40.150 por un pedido
+//  de \$31.320 → \$8.830 quedan a favor para próxima compra.
+// ════════════════════════════════════════════════════════════════════════════
+
+function _normalizarTel(s) {
+  return String(s || '').replace(/[^0-9]/g, '');
+}
+
+function _ensureSaldosClientesSheet() {
+  var sh = SS.getSheetByName('Saldos Clientes');
+  if (!sh) {
+    sh = SS.insertSheet('Saldos Clientes');
+    sh.getRange(1, 1, 1, 9).setValues([['Fecha','Cliente','Telefono','Tipo','Monto','Pedido Hoja','Pedido N','Notas','Repartidor']]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, 9).setBackground('#331C1C').setFontColor('#FFFFFF').setFontWeight('bold');
+  }
+  return sh;
+}
+
+/** POST action=crearSaldoCliente
+ *  Body: { cliente, telefono, tipo:'Crédito'|'Aplicación', monto:N, pedidoHoja, pedidoId, notas, repartidor, metodo? }
+ *  Crea una fila en hoja "Saldos Clientes". Monto siempre positivo; el signo lo da Tipo.
+ *  Si llega `metodo` (Efectivo/Transferencia/Mixto), también registra el movimiento
+ *  en caja para reflejar el flujo real de efectivo/MP:
+ *    - Crédito + metodo → Ingreso (la plata extra entró a la caja).
+ *    - Aplicación + metodo → Egreso (la caja "pierde" porque el cliente paga menos).
+ */
+function _doPostCrearSaldoCliente(data) {
+  var cliente = String(data.cliente || '').trim();
+  var telefono = _normalizarTel(data.telefono);
+  var tipo = String(data.tipo || 'Crédito').trim();
+  var monto = Number(data.monto) || 0;
+  if (!cliente && !telefono) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin cliente ni telefono' })).setMimeType(ContentService.MimeType.JSON);
+  if (monto <= 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto inválido' })).setMimeType(ContentService.MimeType.JSON);
+  if (tipo !== 'Crédito' && tipo !== 'Credito' && tipo !== 'Aplicación' && tipo !== 'Aplicacion') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'tipo inválido' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  // Normalizar acentos
+  if (tipo === 'Credito') tipo = 'Crédito';
+  if (tipo === 'Aplicacion') tipo = 'Aplicación';
+
+  var sh = _ensureSaldosClientesSheet();
+  var ahora = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var pedidoRef = (String(data.pedidoHoja || '') + (data.pedidoId ? ' #' + data.pedidoId : '')).trim();
+  sh.appendRow([
+    argNow,
+    cliente,
+    telefono,
+    tipo,
+    monto,
+    String(data.pedidoHoja || ''),
+    String(data.pedidoId || ''),
+    String(data.notas || ''),
+    String(data.repartidor || '')
+  ]);
+  sh.getRange(sh.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
+
+  // Reflejar en caja si vino método (Efectivo/Transferencia). Sin método → solo tracking.
+  var metodo = String(data.metodo || '').trim();
+  if (metodo === 'Efectivo' || metodo === 'Transferencia') {
+    var fechaArg = Utilities.formatDate(argNow, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+    var semanaIso = _isoWeek(argNow);
+    var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var mesNombre = MESES[argNow.getMonth()];
+    if (tipo === 'Crédito') {
+      var shIng = SS.getSheetByName('Ingresos');
+      if (shIng) {
+        shIng.appendRow([fechaArg, semanaIso, mesNombre, 'Saldo a favor cliente', 'Saldo a favor: ' + cliente + (pedidoRef ? ' (' + pedidoRef + ')' : ''), metodo, monto, String(data.notas || '')]);
+      }
+    } else {
+      // Aplicación: egreso (el cliente paga menos por descontar contra el saldo)
+      var shEgr = SS.getSheetByName('Egresos');
+      if (shEgr) {
+        shEgr.appendRow([fechaArg, semanaIso, mesNombre, 'Saldo a favor aplicado', 'Aplicado saldo a favor: ' + cliente + (pedidoRef ? ' (' + pedidoRef + ')' : ''), metodo, monto, String(data.notas || '')]);
+      }
+    }
+  }
+
+  // Calcular saldo neto actual del cliente (por teléfono si hay, sino por nombre)
+  var saldoNeto = _calcSaldoCliente(sh, telefono, cliente);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, saldo: saldoNeto })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** GET ?action=saldoCliente&tel=...&cliente=...
+ *  Devuelve el saldo neto a favor del cliente.
+ *  Matcheo: si viene tel, prioriza match por tel normalizado; sino por nombre exacto.
+ */
+function _doGetSaldoCliente(e) {
+  var tel = _normalizarTel(e && e.parameter && e.parameter.tel);
+  var cliente = String((e && e.parameter && e.parameter.cliente) || '').trim();
+  if (!tel && !cliente) return ContentService.createTextOutput(JSON.stringify({ ok: true, saldo: 0, movimientos: [] })).setMimeType(ContentService.MimeType.JSON);
+  var sh = SS.getSheetByName('Saldos Clientes');
+  if (!sh || sh.getLastRow() <= 1) return ContentService.createTextOutput(JSON.stringify({ ok: true, saldo: 0, movimientos: [] })).setMimeType(ContentService.MimeType.JSON);
+  var saldo = _calcSaldoCliente(sh, tel, cliente);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, saldo: saldo })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function _calcSaldoCliente(sh, tel, cliente) {
+  if (!sh || sh.getLastRow() <= 1) return 0;
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues();
+  var nombreLower = String(cliente || '').toLowerCase().trim();
+  var saldo = 0;
+  for (var i = 0; i < data.length; i++) {
+    var rTel = _normalizarTel(data[i][2]);
+    var rCliente = String(data[i][1] || '').toLowerCase().trim();
+    var match = (tel && rTel === tel) || (!tel && nombreLower && rCliente === nombreLower);
+    if (!match) continue;
+    var tipo = String(data[i][3] || '').trim();
+    var monto = Number(data[i][4]) || 0;
+    if (tipo === 'Crédito' || tipo === 'Credito') saldo += monto;
+    else if (tipo === 'Aplicación' || tipo === 'Aplicacion') saldo -= monto;
+  }
+  return Math.max(0, Math.round(saldo));
 }
