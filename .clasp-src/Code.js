@@ -3286,12 +3286,13 @@ function _doPostHome(data, sheetName, prefix) {
   sh.appendRow(row);
   var newRow = sh.getLastRow();
 
-  // Fórmula Facturado (V=22): V = Q (Total a cobrar) + T (Propina Ef) + U (Propina Tr) + BE/BH (A Favor / Aplicado).
-  // BE en Home (col 57), BH en Pilar (col 60). Default vacío = 0.
+  // Fórmula Facturado (V=22): V = Q (Total a cobrar) + T (Propina Ef) + U (Propina Tr) + BI/BL (A Favor / Aplicado).
+  // BI en Home (col 61), BL en Pilar (col 64). Default vacío = 0.
   // A Favor / Aplicado refleja el "extra" cobrado al cliente que queda a favor (positivo)
   // o el saldo aplicado del cliente en una compra futura (negativo).
   // Tadeo (17/05/2026): "facturado pueda ver todo lo que tengo realmente en efectivo".
-  var colAFavor = (sheetName === 'Pilar') ? 'BH' : 'BE';
+  // NOTA: BE/BH son cols de Tartas (TP), no usar ahí.
+  var colAFavor = (sheetName === 'Pilar') ? 'BL' : 'BI';
   sh.getRange(newRow, 22).setFormula('=Q' + newRow + '+T' + newRow + '+U' + newRow + '+' + colAFavor + newRow);
   // Fórmula Margen Bruto = Facturado (V) - Costo
   var costoLetter = _colLetter(COL_COSTO);
@@ -9075,9 +9076,10 @@ function _doPostMarcarCobrado(data) {
     var colProp = propMet === 'Efectivo' ? cols.propEf : cols.propTr;
     sh.getRange(row, colProp).setValue(propina);
   }
-  // Escribir A Favor / Aplicado en col BE (Home) o BH (Pilar). Solo aplica a VD.
+  // Escribir A Favor / Aplicado en col BI (Home, 61) o BL (Pilar, 64). Solo aplica a VD.
+  // BE/BH son cols de Tartas (TP), NO usar ahí.
   if (isVD && deltaAFavor !== 0) {
-    var colAFav = (hoja === 'Pilar') ? 60 : 57;
+    var colAFav = (hoja === 'Pilar') ? 64 : 61;
     var actual = Number(sh.getRange(row, colAFav).getValue()) || 0;
     sh.getRange(row, colAFav).setValue(actual + deltaAFavor);
   }
