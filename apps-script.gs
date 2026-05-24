@@ -287,6 +287,7 @@ function doGet(e) {
   if (action === 'crmCliente') return _doGetCrmCliente(e);
   if (action === 'crmProductos') return _doGetCrmProductos(e);
   if (action === 'crmProducto') return _doGetCrmProducto(e);
+  if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -1917,18 +1918,39 @@ function _doGetBusqueda() {
     var nPedido = String(row[5]).trim();
     var ocNum = String(row[0]).trim();
 
+    // ── Normalizar canal Deposito ──
+    // El Sheets tiene mezcla historica: canal 'Deposito' (sin tilde, viejo) y 'Depósito' (con tilde, actual),
+    // y cliente 'Reposicion stock' vs 'Tadeo — Stock'. Los unificamos para que aparezcan como UNA sola card
+    // en ARMADO/BUSQUEDA, agrupada por semana.
+    var _canalLower = canal.toLowerCase();
+    var esDepCanal = (_canalLower === 'deposito' || _canalLower === 'depósito');
+    if (esDepCanal) {
+      canal = 'Depósito';
+      cliente = 'Depósito Maleu';
+      nPedido = '';
+    }
+
     // Lookup semana de entrega del pedido cliente. Si no la encontramos, fallback
-    // a la semana de creacion de la OC (col C). Esto desacopla "ciclos de busqueda"
-    // por semana de entrega: pedidos para hoy y para la proxima semana van separados.
+    // a la semana de creacion de la OC (col C).
     var entKey = canal + '|' + nPedido;
     var entInfo = estadosEntrega[entKey];
-    var semEntPed = (entInfo && entInfo.semEnt) ? entInfo.semEnt : (Number(row[2]) || semanaActualBusq);
-    var anioEntPed = (entInfo && entInfo.anioEnt) ? entInfo.anioEnt : anioActualBusq;
+    var semEntPed, anioEntPed;
+    if (esDepCanal) {
+      // Para Depósito no hay pedido cliente; usar siempre la semana/año de la OC.
+      semEntPed = Number(row[2]) || semanaActualBusq;
+      var fCreDep = row[1];
+      anioEntPed = (fCreDep instanceof Date) ? fCreDep.getFullYear() : anioActualBusq;
+    } else {
+      semEntPed = (entInfo && entInfo.semEnt) ? entInfo.semEnt : (Number(row[2]) || semanaActualBusq);
+      anioEntPed = (entInfo && entInfo.anioEnt) ? entInfo.anioEnt : anioActualBusq;
+    }
 
-    // Filtrar OCs cuya entrega NO sea esta semana ni la proxima (atrasados pasan).
-    // Atrasados (semEntPed < actual) los dejamos pasar como "Esta semana" para que Tadeo no los pierda.
+    // Filtrar OCs cuya entrega NO sea esta semana ni la proxima.
+    // Para canales con cliente real: atrasados se incluyen como "Esta semana" para no perderlos.
+    // Para Depósito: NO traer atrasados — son cosas que Tadeo ya guardó en su día.
     var diffSem = (anioEntPed - anioActualBusq) * 53 + (semEntPed - semanaActualBusq);
-    if (diffSem > 1) continue; // > proxima semana: no traer todavia
+    if (diffSem > 1) continue;
+    if (esDepCanal && diffSem < 0) continue;
 
     // Pedidos entregados ya: no incluir en ARMADO (cliente). Sigue contando para BUSQUEDA si la OC esta Pendiente/Pedida.
     var yaEntregado = entInfo && entInfo.est === 'Entregado';
@@ -1951,9 +1973,10 @@ function _doGetBusqueda() {
       totalGeneral += costoT;
     }
 
-    // Cliente agrupado (solo si NO entregado: no debe aparecer en ARMADO)
+    // Cliente agrupado (solo si NO entregado: no debe aparecer en ARMADO).
+    // Para Depósito agregamos la semana al cKey: cada semana tiene su propia card.
     if (!yaEntregado) {
-      var cKey = cliente + '|' + nPedido;
+      var cKey = cliente + '|' + nPedido + (esDepCanal ? ('|sem' + semEntPed + '-' + anioEntPed) : '');
       if (!porCliente[cKey]) porCliente[cKey] = { n: cliente, canal: canal, dir: dir, tel: tel, ped: nPedido, items: [], ing: 0, semEnt: semEntPed, anioEnt: anioEntPed };
       porCliente[cKey].items.push({ prod: producto, q: qty, pv: ingresoT, est: estado });
       porCliente[cKey].ing += ingresoT;
@@ -9133,7 +9156,41 @@ function _doPostMarcarCobrado(data) {
     sh.getRange(row, colAFav).setValue(actual + deltaAFavor);
   }
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalRecalculado, aFavor: aFavor, aplicacion: aplicacion })).setMimeType(ContentService.MimeType.JSON);
+  // ── CAMBIO CRUZADO (Ef↔MP) ──
+  // Caso: cliente paga con efectivo de más, Tadeo devuelve cambio por MP (porque
+  // no tenía cambio físico). Físicamente: entra Ef extra y sale MP. Para que la
+  // caja refleje la realidad, creamos un par balanceador: Ingreso Ef + Egreso MP
+  // del mismo monto, categoría "Cambio cruzado". Ej: pedido $13.230 + propina
+  // $770 = cobro $14.000 Ef. Cliente dio $20.000 Ef → Tadeo devolvió $6.000 MP.
+  // → cambioMP=6000 → Ingreso $6.000 Ef + Egreso $6.000 MP.
+  // Y al revés: cambioEf=N significa que el cliente pago MP de más y Tadeo le
+  // devolvió cambio físico → Ingreso MP + Egreso Ef.
+  var cambioMP = Number(data.cambioMP) || 0;
+  var cambioEf = Number(data.cambioCruzadoEf) || 0;
+  if (cambioMP > 0 || cambioEf > 0) {
+    var shIng = SS.getSheetByName('Ingresos');
+    var shEgr = SS.getSheetByName('Egresos');
+    var ahoraCC = new Date();
+    var argNowCC = new Date(ahoraCC.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+    var fechaCC = Utilities.formatDate(argNowCC, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+    var semanaCC = _isoWeek(argNowCC);
+    var MESES_CC = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var mesCC = MESES_CC[argNowCC.getMonth()];
+    var clienteCC = String(data.cliente || sh.getRange(row, 7).getValue() || '').trim();
+    var concepto = clienteCC + ' (' + hoja + ' #' + pedidoId + ')';
+    if (cambioMP > 0) {
+      // Cliente pagó Ef de más → Tadeo le devolvió MP. Entra Ef, sale MP.
+      if (shIng) shIng.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio Ef recibido extra · ' + concepto, 'Efectivo', cambioMP, '']);
+      if (shEgr) shEgr.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio MP devuelto · ' + concepto, 'Mercado Pago', cambioMP, '']);
+    }
+    if (cambioEf > 0) {
+      // Cliente pagó MP de más → Tadeo le devolvió Ef. Entra MP, sale Ef.
+      if (shIng) shIng.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio MP recibido extra · ' + concepto, 'Mercado Pago', cambioEf, '']);
+      if (shEgr) shEgr.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio Ef devuelto · ' + concepto, 'Efectivo', cambioEf, '']);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalRecalculado, aFavor: aFavor, aplicacion: aplicacion, cambioMP: cambioMP, cambioEf: cambioEf })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=cobrarParcial — registra un cobro parcial de un pedido.
@@ -11493,4 +11550,251 @@ function _calcSaldoCliente(sh, tel, cliente) {
     else if (tipo === 'Aplicación' || tipo === 'Aplicacion') saldo -= monto;
   }
   return Math.max(0, Math.round(saldo));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ANÁLISIS PROVEEDOR — dashboard para negociaciones
+// ══════════════════════════════════════════════════════════════
+//
+// GET ?action=analisisProveedor
+//   Devuelve TODAS las OCs (limpias) + catálogo de productos por proveedor.
+//   Frontend filtra/agrupa por proveedor según necesite.
+//
+//   Notas de fidelidad de datos:
+//   • Filtra OCs Canceladas.
+//   • Las filas "OC-REC-*" históricas (cantidad agregada sin abr en col 11
+//     pero con desglose textual en col 10) se EXPANDEN a filas virtuales
+//     por producto. Sin esto se perdían semanas enteras de historia al
+//     filtrar por categoría/producto.
+//   • Cada OC expone su estado real (Pedido / Recibido) para que el
+//     frontend pueda filtrar "Solo Recibido" si quiere la versión más
+//     conservadora para la negociación.
+function _doGetAnalisisProveedor(e) {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  var shProv = SS.getSheetByName('Proveedores');
+
+  function _money(v) {
+    if (typeof v === 'number') return v;
+    var s = String(v == null ? '' : v).replace(/[$\s]/g, '').replace(/\./g, '').replace(/,/g, '.');
+    var n = Number(s);
+    return isFinite(n) ? n : 0;
+  }
+  function _fmtF(raw) {
+    if (raw instanceof Date) return Utilities.formatDate(raw, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+    var s = String(raw || '').trim().split(' ')[0];
+    var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + m[3];
+    return '';
+  }
+  function _parseAR(ddmmyyyy) {
+    var m = String(ddmmyyyy || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
+  }
+
+  // ── Catálogo de productos por proveedor ──
+  // Cols hoja Proveedores: N°(0) Producto(1) Proveedor(2) Gustos(3) Abrev(4)
+  //                       Info(5) Canales(6) Costo(7) VentaDirecta(8) Clubes(9) WhatsApp(10)
+  var catalogo = [];
+  var costoByAbr = {}; // para expandir RECs en filas con costo unitario coherente
+  if (shProv) {
+    var pd = shProv.getDataRange().getValues();
+    for (var i = 1; i < pd.length; i++) {
+      var r = pd[i];
+      if (!r[2]) continue;
+      var abrC = String(r[4] || '');
+      var c = {
+        producto: String(r[1] || ''),
+        proveedor: String(r[2] || ''),
+        gustos: String(r[3] || ''),
+        abr: abrC,
+        canales: String(r[6] || ''),
+        costo: _money(r[7]),
+        precioRetail: _money(r[8]),
+        precioClubes: _money(r[9])
+      };
+      catalogo.push(c);
+      if (abrC) costoByAbr[abrC] = c.costo;
+    }
+  }
+
+  // ── Parser de RECs históricas ──
+  // Convierte "Packs (39 Mu + 20 JyQ + 11 CyQ) + Empanadas (7 CaC + 6 JyQ)"
+  // en [{abr:'PPM',qty:39},{abr:'PPJyQ',qty:20},...].
+  //
+  // Mapeo (categoría texto → prefijo abr):
+  //   "Packs" → "PP"        (PPM, PPJyQ, PPCyQ)
+  //   "Empanadas" → "E"     (ECaC, EJyQ, ECyQ, EV)
+  //   "Sorrentinos" → "S"   (SQB, SL, SCo, SPyP, SJyQ, SE, SCa)
+  //   "Tortas" → "T"        (TG, TLC, TC)
+  //   "Tartas" → "T" gourmet (TP, TJyQ, TCa, TV)  — distinto de Tortas
+  //   "Franui" → "F"
+  //   "Pizza Premium" → "P" (PMu, PMa, PJyQ, PCC, PJyM)
+  //
+  // Cada subnombre se normaliza y se matchea contra el catálogo del proveedor.
+  function _expandREC(producto, totalQty, proveedor) {
+    if (!producto) return null;
+    // Match grupos "Cat (lista)" capturando categoría y contenido entre paréntesis.
+    var groupRe = /([A-Za-zÁÉÍÓÚáéíóúñÑ ]+?)\s*\(([^)]+)\)/g;
+    var matches = [];
+    var m;
+    while ((m = groupRe.exec(producto)) !== null) {
+      matches.push({ cat: m[1].trim(), inner: m[2].trim() });
+    }
+    if (!matches.length) return null;
+
+    // Catálogo del proveedor por categoría → array de productos
+    var byCatProv = {};
+    catalogo.forEach(function(c) {
+      if (c.proveedor !== proveedor) return;
+      // Normalizo Pack Pizza ↔ "Packs" (texto histórico)
+      var catKey = c.producto.replace(/\s+/g, ' ').trim();
+      if (!byCatProv[catKey]) byCatProv[catKey] = [];
+      byCatProv[catKey].push(c);
+    });
+    // Alias categoría texto histórico → catálogo
+    var catAliases = {
+      'Packs': 'Pack Pizza',
+      'Pack': 'Pack Pizza',
+      'Empanadas': 'Empanadas',
+      'Sorrentinos': 'Sorrentinos',
+      'Tortas': 'Tortas',
+      'Tartas': 'Tartas Gourmet',
+      'Franuis': 'Franuis',
+      'Franui': 'Franuis',
+      'Pizza Premium': 'Pizza Premium',
+      'Pizzas Premium': 'Pizza Premium'
+    };
+
+    var virtuales = [];
+    matches.forEach(function(g) {
+      var catName = catAliases[g.cat] || g.cat;
+      var cands = byCatProv[catName] || [];
+      // Items dentro: "39 Mu + 20 JyQ + 11 CyQ"
+      var items = g.inner.split(/\s*\+\s*/);
+      items.forEach(function(it) {
+        var im = it.trim().match(/^(\d+)\s+(.+)$/);
+        if (!im) return;
+        var qty = Number(im[1]) || 0;
+        var subname = im[2].trim();
+        // Buscar el producto del catálogo cuyo "gustos" contenga el subname
+        // (case-insensitive, robusto a abreviaturas "Mu" / "Muzzarella")
+        var snLow = subname.toLowerCase();
+        var found = null;
+        for (var k = 0; k < cands.length; k++) {
+          var c = cands[k];
+          var gustosLow = (c.gustos || '').toLowerCase();
+          var abrLow = (c.abr || '').toLowerCase();
+          // Match fuerte: el subname aparece como token en gustos
+          if (gustosLow.split(/[\s,]+/).some(function(t) { return t.startsWith(snLow) || snLow.startsWith(t); })) {
+            found = c; break;
+          }
+          // Match alternativo: abreviatura
+          if (abrLow.indexOf(snLow) >= 0) { found = c; break; }
+        }
+        if (found && qty > 0) {
+          virtuales.push({ abr: found.abr, producto: found.producto, gustos: found.gustos, qty: qty, costo: found.costo });
+        }
+      });
+    });
+    // Sanity check: si la suma de virtuales no coincide con totalQty, igual devolvemos lo parseado pero marcamos.
+    return virtuales.length ? virtuales : null;
+  }
+
+  // ── OCs (limpias, no canceladas) ──
+  // Cols OC: N°(0) Fecha(1) Sem(2) Mes(3) Canal(4) NPed(5) Cliente(6) Tel(7) Dir(8)
+  //          Prov(9) Producto(10) Abr(11) Cant(12) CostoU(13) CostoT(14)
+  //          VentaU(15) IngresoT(16) Margen$(17) Margen%(18) Origen(19)
+  //          Estado(20) FechaPedProv(21) FechaRec(22) Pagado(23) GuardadoStock(24)
+  var ocs = [];
+  if (shOC) {
+    var od = shOC.getDataRange().getValues();
+    for (var j = 1; j < od.length; j++) {
+      var row = od[j];
+      var estado = String(row[20] || '').trim();
+      if (estado === 'Cancelado') continue;
+      var fechaStr = _fmtF(row[1]);
+      if (!fechaStr) continue;
+      var dt = _parseAR(fechaStr);
+      if (!dt) continue;
+      var wk = _isoWeek(dt);
+      var monthKey = dt.getFullYear() + '-' + (dt.getMonth() < 9 ? '0' + (dt.getMonth() + 1) : (dt.getMonth() + 1));
+      var weekKey = dt.getFullYear() + '-W' + (wk < 10 ? '0' + wk : wk);
+      var nOrden = String(row[0] || '');
+      var proveedor = String(row[9] || '');
+      var producto = String(row[10] || '');
+      var abr = String(row[11] || '');
+      var cant = Number(row[12]) || 0;
+      var costoUnit = _money(row[13]);
+      var costoTotal = _money(row[14]);
+
+      // ── REC histórica: expandir en filas virtuales ──
+      if (nOrden.indexOf('OC-REC') === 0 && !abr && producto.indexOf('(') >= 0) {
+        var virtuales = _expandREC(producto, cant, proveedor);
+        if (virtuales && virtuales.length) {
+          virtuales.forEach(function(v) {
+            ocs.push({
+              nOrden: nOrden,
+              fecha: fechaStr,
+              weekKey: weekKey,
+              monthKey: monthKey,
+              canal: String(row[4] || ''),
+              cliente: String(row[6] || ''),
+              proveedor: proveedor,
+              producto: v.producto,
+              abr: v.abr,
+              cantidad: v.qty,
+              costoUnit: v.costo,
+              costoTotal: v.qty * v.costo,
+              precioUnit: 0,
+              ingresoTotal: 0,
+              margen: 0,
+              estado: estado,
+              esVirtual: true
+            });
+          });
+          continue; // saltar la fila REC original
+        }
+        // Si no pudo expandir, sigue cargándola como estaba (sin abr).
+      }
+
+      ocs.push({
+        nOrden: nOrden,
+        fecha: fechaStr,
+        weekKey: weekKey,
+        monthKey: monthKey,
+        canal: String(row[4] || ''),
+        cliente: String(row[6] || ''),
+        proveedor: proveedor,
+        producto: producto,
+        abr: abr,
+        cantidad: cant,
+        costoUnit: costoUnit,
+        costoTotal: costoTotal,
+        precioUnit: _money(row[15]),
+        ingresoTotal: _money(row[16]),
+        margen: _money(row[17]),
+        estado: estado
+      });
+    }
+  }
+
+  // ── Resumen por proveedor (totales para selector) ──
+  // Cuenta de OCs únicas (no de filas, porque las RECs expandidas comparten N°).
+  var resumen = {};
+  var seenOrden = {};
+  ocs.forEach(function(oc) {
+    if (!oc.proveedor) return;
+    if (!resumen[oc.proveedor]) resumen[oc.proveedor] = { qty: 0, costo: 0, ocs: 0 };
+    resumen[oc.proveedor].qty += oc.cantidad;
+    resumen[oc.proveedor].costo += oc.costoTotal;
+    var key = oc.proveedor + '::' + oc.nOrden;
+    if (!seenOrden[key]) {
+      seenOrden[key] = true;
+      resumen[oc.proveedor].ocs += 1;
+    }
+  });
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ocs: ocs, catalogo: catalogo, resumen: resumen }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
