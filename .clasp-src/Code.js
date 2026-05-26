@@ -9149,15 +9149,8 @@ function _doPostCobrarVendedorRed(data) {
     return ContentService.createTextOutput(JSON.stringify({ok:true, updated:0, msg:'sin pedidos por cobrar'})).setMimeType(ContentService.MimeType.JSON);
   }
 
-  // Marcar col BB (Pagado) y BC (Fecha) en cada fila
-  Object.keys(porSemana).forEach(function(skey) {
-    porSemana[skey].filas.forEach(function(rowSheet) {
-      sh.getRange(rowSheet, 54).setValue('Pagado');
-      sh.getRange(rowSheet, 55).setValue(argDate);
-    });
-  });
-
-  // Crear filas en hoja Pagos Red Liq (una por semana ISO)
+  // Crear filas en hoja Pagos Red Liq (una por semana ISO).
+  // Calcular ef/tr por semana ANTES para usar al setear la forma de pago en BA.
   var shLiq = SS.getSheetByName('Pagos Red Liq');
   if (!shLiq) {
     shLiq = SS.insertSheet('Pagos Red Liq');
@@ -9176,6 +9169,13 @@ function _doPostCobrarVendedorRed(data) {
       ef = Math.round(totalEfIn * ratio);
       tr = Math.round(totalTrIn * ratio);
     }
+    // Forma de pago para col BA (53): coherente con marcarSemanaPagadaRed
+    var formaPago = (ef > 0 && tr > 0) ? 'Mixto' : (ef > 0 ? 'Efectivo' : 'Transferencia');
+    s.filas.forEach(function(rowSheet) {
+      sh.getRange(rowSheet, 53).setValue(formaPago);   // BA Forma Pago a Maleu
+      sh.getRange(rowSheet, 54).setValue('Pagado');    // BB Estado Pago a Maleu
+      sh.getRange(rowSheet, 55).setValue(argDate);     // BC Fecha Pago a Maleu
+    });
     shLiq.appendRow([
       argDate, fechaStr, vendedor, s.year, s.sem,
       ef, tr, ef + tr, s.aPagar, (ef + tr) - s.aPagar,
