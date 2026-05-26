@@ -274,6 +274,7 @@ function doGet(e) {
   if (action === 'catalogo') return _doGetCatalogo();
   if (action === 'admin') return _doGetAdmin();
   if (action === 'pedidosLight') return _doGetAdmin({ light: true });
+  if (action === 'pedidosNew') return _doGetAdmin({ light: true, tail: Math.max(3, Math.min(50, parseInt(e.parameter.tail) || 10)) });
   if (action === 'cajaLight') return _doGetAdmin({ mode: 'caja' });
   if (action === 'ventas') return _doGetVentas();
   if (action === 'stock') return _doGetStock();
@@ -288,6 +289,7 @@ function doGet(e) {
   if (action === 'crmProductos') return _doGetCrmProductos(e);
   if (action === 'crmProducto') return _doGetCrmProducto(e);
   if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
+  if (action === 'productosAnalytics') return _doGetProductosAnalytics(e);
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -1891,22 +1893,11 @@ function _doGetBusqueda() {
 
     var costoT = (Number(row[13]) || 0) * qty;
 
-    // ── DEUDAS: Recibido + no-Depósito + Pagado != Sí ──
-    if (esRecibido && !esDeposito) {
-      var pagado = String(row[23]).trim();
-      if (pagado !== 'Sí' && pagado !== 'Si' && costoT > 0) {
-        var semD = String(row[2]).trim();
-        if (!deudas[prov]) deudas[prov] = { total: 0, semanas: {}, rows: [] };
-        deudas[prov].total += costoT;
-        if (!deudas[prov].semanas[semD]) deudas[prov].semanas[semD] = 0;
-        deudas[prov].semanas[semD] += costoT;
-        deudas[prov].rows.push({ r: r + 1, prod: String(row[10]).trim(), q: qty, costo: costoT, sem: semD });
-      }
-    }
-
-    // ── Filas activas para porProv/porCliente/ocRows: solo no-Depósito ──
-    if (esDeposito) continue;
-
+    // Datos del cliente/canal para esta OC (los necesitamos antes del calculo
+    // de deudas, porque la semana de la deuda DEBE ser la semana de entrega
+    // del pedido al cliente, no la semana de creacion de la OC. Ejemplo del
+    // bug: pedido Red creado sab 16/05 (sem 20) para entregar vie 22/05 (sem 21)
+    // — la OC contra Sevuchitas debe sumar a la semana 21, no 20.)
     var producto = String(row[10]).trim();
     var abbr = String(row[11]).trim();
     var precioV = Number(row[15]) || 0;
@@ -1944,6 +1935,36 @@ function _doGetBusqueda() {
       semEntPed = (entInfo && entInfo.semEnt) ? entInfo.semEnt : (Number(row[2]) || semanaActualBusq);
       anioEntPed = (entInfo && entInfo.anioEnt) ? entInfo.anioEnt : anioActualBusq;
     }
+
+    // ── DEUDAS: Recibido + no-Depósito + Pagado != Sí ──
+    // La semana de la deuda es la semana en la que Tadeo RECIBIÓ la mercadería
+    // (col W "Fecha Recibido"). Si está vacía, fallback a la semana de creación
+    // de la OC (col C "Semana"). NO usamos semEntPed porque el pedido cliente
+    // puede tener Día de Entrega muy viejo (zombi) y arruinar la imputación.
+    if (esRecibido && !esDeposito) {
+      var pagado = String(row[23]).trim();
+      if (pagado !== 'Sí' && pagado !== 'Si' && costoT > 0) {
+        var semRec = 0;
+        var fRecRaw = row[22]; // col W "Fecha Recibido"
+        var fRecDate = _parseFechaCualquiera(fRecRaw);
+        if (fRecDate instanceof Date) semRec = _isoWeek(fRecDate);
+        var semD = String(semRec || row[2] || '').trim();
+        if (!deudas[prov]) deudas[prov] = { total: 0, semanas: {}, rows: [] };
+        deudas[prov].total += costoT;
+        if (!deudas[prov].semanas[semD]) deudas[prov].semanas[semD] = 0;
+        deudas[prov].semanas[semD] += costoT;
+        // Detalle por OC: canal/cliente/nped para que el cliente pueda mostrar
+        // un breakdown legible ("Red / Marína Donati #24 — Empanadas CaC x1 $14.700").
+        deudas[prov].rows.push({
+          r: r + 1, prod: producto, abbr: abbr, q: qty,
+          costoU: Number(row[13]) || 0, costo: costoT,
+          sem: semD, canal: canal, cliente: cliente, nped: nPedido
+        });
+      }
+    }
+
+    // ── Filas activas para porProv/porCliente/ocRows: solo no-Depósito ──
+    if (esDeposito) continue;
 
     // Filtrar OCs cuya entrega NO sea esta semana ni la proxima.
     // Para canales con cliente real: atrasados se incluyen como "Esta semana" para no perderlos.
@@ -2042,9 +2063,15 @@ function _doGetBusqueda() {
       var semImp = String(pagosData[rp][5] || '').trim();
       var notas = String(pagosData[rp][6] || '').trim();
       var fechaRaw = pagosData[rp][0];
-      var fechaStr = (fechaRaw instanceof Date)
-        ? Utilities.formatDate(fechaRaw, 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm')
-        : String(fechaRaw || '').trim();
+      // Prefijo de dia (Lun/Mar/Mié/Jue/Vie/Sáb/Dom) ayuda a ubicar el pago rapido.
+      var fechaStr;
+      if (fechaRaw instanceof Date) {
+        var diasCortos = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+        var diaCorto = diasCortos[fechaRaw.getDay()];
+        fechaStr = diaCorto + ' ' + Utilities.formatDate(fechaRaw, 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm');
+      } else {
+        fechaStr = String(fechaRaw || '').trim();
+      }
       var pagoObj = { fecha: fechaStr, ef: ef, mp: mp, tot: tot, notas: notas };
       if (semImp) {
         if (!pagosImputados[pp]) pagosImputados[pp] = {};
@@ -2074,6 +2101,16 @@ function _doGetBusqueda() {
     Object.keys(imp).forEach(function(s) { semSet[s] = true; });
     var semKeys = Object.keys(semSet).sort();
 
+    // Indexar los items detallados por semana — el cliente los muestra en el
+    // breakdown de cada card (qué fue lo que se pidió esa semana).
+    var rowsBySem = {};
+    (d.rows || []).forEach(function(rw){
+      var sk = String(rw.sem || '').trim();
+      if (!sk) return;
+      if (!rowsBySem[sk]) rowsBySem[sk] = [];
+      rowsBySem[sk].push(rw);
+    });
+
     var semsArr = [];
     var totalOriginal = 0;
     var totalPagado = 0;
@@ -2088,7 +2125,11 @@ function _doGetBusqueda() {
       saldoLibre -= aplicarLibre;
       var pagadoTotalSem = pagadoImp + aplicarLibre;
       var pendiente = Math.max(0, bruto - pagadoTotalSem);
-      semsArr.push({ sem: s, original: bruto, pagado: pagadoTotalSem, pendiente: pendiente, pagosImp: pagosSem, pagadoFifo: aplicarLibre });
+      semsArr.push({
+        sem: s, original: bruto, pagado: pagadoTotalSem, pendiente: pendiente,
+        pagosImp: pagosSem, pagadoFifo: aplicarLibre,
+        items: rowsBySem[s] || [] // detalle de OCs imputadas a esta semana
+      });
       totalOriginal += bruto;
       totalPagado += pagadoTotalSem;
       totalPendiente += pendiente;
@@ -5019,9 +5060,23 @@ function setupProductosFormulas() {
     // Col K (Margen Unitario) = Precio - Costo
     hProd.getRange(rowNum, 11).setFormula('=I' + rowNum + '-J' + rowNum);
 
-    // Col L (Check D-E) = Stock Inicial - Vendidos
-    hProd.getRange(rowNum, 12).setFormula('=D' + rowNum + '-E' + rowNum);
+    // Col L (Check) = Stock Inicial + Comprado - Vendidos - Stock Físico (debería ser 0 si todo cuadra)
+    hProd.getRange(rowNum, 12).setFormula('=D' + rowNum + '+N' + rowNum + '-E' + rowNum + '-F' + rowNum);
+
+    // Col N (Comprado Semana) — OC recibidas en la semana en curso (Lun 00:00 → Dom 23:59 AR)
+    hProd.getRange(rowNum, 14).setFormula(
+      '=SUMPRODUCT(' +
+      "('Orden de Compra'!$L$2:$L$10000=$C" + rowNum + ')*' +
+      '(\'Orden de Compra\'!$U$2:$U$10000="Recibido")*' +
+      "('Orden de Compra'!$W$2:$W$10000>=TODAY()-WEEKDAY(TODAY();3))*" +
+      "('Orden de Compra'!$W$2:$W$10000<TODAY()-WEEKDAY(TODAY();3)+7)*" +
+      "'Orden de Compra'!$M$2:$M$10000)"
+    );
   }
+
+  // Asegurar headers de col L y N
+  hProd.getRange(1, 12).setValue('Check (D+N-E-F)');
+  hProd.getRange(1, 14).setValue('Comprado Semana');
 
   SS.toast('Formulas actualizadas (semana ' + semanaActual + '/' + anioActual + ')', 'Productos', 5);
 }
@@ -5041,6 +5096,26 @@ function resetStockSemanal() {
   setupProductosFormulas();
 
   SS.toast('Stock Inicial y formulas actualizados para la nueva semana', 'Reset semanal', 5);
+}
+
+/** Instala el trigger semanal que ejecuta resetStockSemanal cada Lunes 00:00 AR.
+ *  Ejecutar UNA sola vez desde el editor de Apps Script. Idempotente: si ya existe, lo reemplaza. */
+function installResetStockTrigger() {
+  var existentes = ScriptApp.getProjectTriggers();
+  var borrados = 0;
+  for (var i = 0; i < existentes.length; i++) {
+    if (existentes[i].getHandlerFunction() === 'resetStockSemanal') {
+      ScriptApp.deleteTrigger(existentes[i]);
+      borrados++;
+    }
+  }
+  ScriptApp.newTrigger('resetStockSemanal')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(0)
+    .inTimezone('America/Argentina/Buenos_Aires')
+    .create();
+  SpreadsheetApp.getUi().alert('Trigger resetStockSemanal instalado (Lunes 00:00 AR). Borrados previos: ' + borrados);
 }
 
 /** NUCLEAR: elimina TODOS los triggers y crea uno solo limpio */
@@ -5244,6 +5319,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Actualizar fórmulas Productos', 'setupProductosFormulas')
     .addItem('Reset stock semanal', 'resetStockSemanal')
+    .addItem('Instalar trigger reset semanal (Lun 00:00)', 'installResetStockTrigger')
     .addSeparator()
     .addItem('Ver/Editar Config', 'mostrarConfig')
     .addSeparator()
@@ -7094,10 +7170,17 @@ function _setupEgresos() {
 function _doGetAdmin(opt) {
   var _lightOnly = opt && opt.light === true;
   var _cajaMode = opt && opt.mode === 'caja';
+  // _tail: si > 0, leer solo las últimas N filas de cada hoja operativa. Optimización
+  // del botón "Actualizar pedidos" — un pedido nuevo cae en las últimas filas, así
+  // que pasamos de leer ~407 filas (Home 330 + Pilar + Clubes + Red) a leer ~40.
+  // En modo tail, los stats por canal (canales[]) no son representativos → se devuelven
+  // vacíos y el frontend conserva los anteriores.
+  var _tail = (opt && opt.tail) ? Math.max(3, Math.min(50, opt.tail)) : 0;
   // Cache server-side (TTL 5s) para cajaLight y pedidosLight. La primera lectura
   // sigue tomando ~8s, pero clicks consecutivos del usuario son instantáneos.
   // Se invalida automáticamente cada 5s, así un cobro nuevo aparece en <5s + 8s.
-  var _cacheKey = _cajaMode ? 'admin_caja_v1' : (_lightOnly ? 'admin_light_v1' : null);
+  // En modo tail NO cacheamos: queremos data fresca en cada click del botón.
+  var _cacheKey = _tail ? null : (_cajaMode ? 'admin_caja_v1' : (_lightOnly ? 'admin_light_v1' : null));
   if (_cacheKey) {
     try {
       var _cache = CacheService.getScriptCache();
@@ -7170,8 +7253,18 @@ function _doGetAdmin(opt) {
     var sh = SS.getSheetByName(hoja);
     var stats = { nombre: hoja, pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
     if (!sh || sh.getLastRow() <= 1) { canales.push(stats); return; }
-    var data = sh.getDataRange().getValues();
-    var headersH = data[0];
+    // Lectura con tail si está pedido. data sigue siendo [headers, ...rows] para
+    // mantener compat con el código existente; _rOffH = startRow - 1 corrige el
+    // "r + 1" usado para guardar la fila real del Sheet.
+    var _lastRowH = sh.getLastRow();
+    var _lastColH = sh.getLastColumn();
+    var _startRowH = (_tail > 0 && _lastRowH > _tail + 1) ? (_lastRowH - _tail + 1) : 2;
+    var _rOffH = _startRowH - 1;
+    var headersH = sh.getRange(1, 1, 1, _lastColH).getValues()[0];
+    var data = [headersH];
+    if (_lastRowH >= _startRowH) {
+      data = data.concat(sh.getRange(_startRowH, 1, _lastRowH - _startRowH + 1, _lastColH).getValues());
+    }
 
     // Índices comunes Home/Pilar v2 (abr/2026). Difieren solo en nº de productos y cols post-productos.
     var isPilarAdm = (hoja === 'Pilar');
@@ -7295,7 +7388,7 @@ function _doGetAdmin(opt) {
         fc: fcStr, fcd: fcDiaStr,
         oDet: oDetStr,
         rep: repStr,
-        r: r + 1
+        r: r + _rOffH
       });
     }
     canales.push(stats);
@@ -7305,8 +7398,15 @@ function _doGetAdmin(opt) {
   var shClubes = SS.getSheetByName('Clubes');
   var statsClubes = { nombre: 'Clubes', pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
   if (shClubes && shClubes.getLastRow() > 1) {
-    var dataClubes = shClubes.getDataRange().getValues();
-    var headersClub = dataClubes[0];
+    var _lastRowC = shClubes.getLastRow();
+    var _lastColC = shClubes.getLastColumn();
+    var _startRowC = (_tail > 0 && _lastRowC > _tail + 1) ? (_lastRowC - _tail + 1) : 2;
+    var _rOffC = _startRowC - 1;
+    var headersClub = shClubes.getRange(1, 1, 1, _lastColC).getValues()[0];
+    var dataClubes = [headersClub];
+    if (_lastRowC >= _startRowC) {
+      dataClubes = dataClubes.concat(shClubes.getRange(_startRowC, 1, _lastRowC - _startRowC + 1, _lastColC).getValues());
+    }
     for (var rc = 1; rc < dataClubes.length; rc++) {
       var estadoC = String(dataClubes[rc][13]).trim();
       var estadoPagoC = String(dataClubes[rc][15]).trim();
@@ -7396,7 +7496,7 @@ function _doGetAdmin(opt) {
         fc: fcStrC, fcd: fcDiaStrC,
         oDet: oDetStrC,
         rep: repStrC,
-        r: rc + 1
+        r: rc + _rOffC
       });
     }
   }
@@ -7408,7 +7508,15 @@ function _doGetAdmin(opt) {
   var shRedDash = SS.getSheetByName('Red');
   var statsRed = { nombre: 'Red', pedidos: 0, entregados: 0, pendientes: 0, cancelados: 0, reservados: 0, facturado: 0, cobrado: 0, noCobrado: 0 };
   if (shRedDash && shRedDash.getLastRow() > 1) {
-    var dataRed = shRedDash.getDataRange().getValues();
+    var _lastRowR = shRedDash.getLastRow();
+    var _lastColR = shRedDash.getLastColumn();
+    var _startRowR = (_tail > 0 && _lastRowR > _tail + 1) ? (_lastRowR - _tail + 1) : 2;
+    var _rOffR = _startRowR - 1;
+    var _headersRedDash = shRedDash.getRange(1, 1, 1, _lastColR).getValues()[0];
+    var dataRed = [_headersRedDash];
+    if (_lastRowR >= _startRowR) {
+      dataRed = dataRed.concat(shRedDash.getRange(_startRowR, 1, _lastRowR - _startRowR + 1, _lastColR).getValues());
+    }
     for (var rr = 1; rr < dataRed.length; rr++) {
       var estadoR = String(dataRed[rr][11]).trim(); // L = Estado Entrega
       var estadoPagoR = String(dataRed[rr][13]).trim(); // N = Estado Pago
@@ -7466,7 +7574,7 @@ function _doGetAdmin(opt) {
         ef: efRd, tr: trRd, pef: pefRd, ptr: ptrRd,
         oDet: oDetStrR,
         retira: vendedorR,
-        r: rr + 1
+        r: rr + _rOffR
       });
     }
   }
@@ -7480,8 +7588,17 @@ function _doGetAdmin(opt) {
   // stock, OC, caja, ingresos, egresos, movimientos, pagos red, cobros parciales.
   // Bajamos de ~12s a ~3s en el endpoint.
   if (_lightOnly) {
-    var _outLight = JSON.stringify({ ts: Date.now(), pedidos: pedidos, canales: canales, light: true });
-    try { CacheService.getScriptCache().put('admin_light_v1', _outLight, 5); } catch (e) {}
+    var _outObj = { ts: Date.now(), pedidos: pedidos, light: true };
+    if (_tail > 0) {
+      _outObj.tail = _tail;
+      // canales[] queda fuera en modo tail (stats no representativos). El frontend mantiene los anteriores.
+    } else {
+      _outObj.canales = canales;
+    }
+    var _outLight = JSON.stringify(_outObj);
+    if (!_tail) {
+      try { CacheService.getScriptCache().put('admin_light_v1', _outLight, 5); } catch (e) {}
+    }
     return ContentService.createTextOutput(_outLight).setMimeType(ContentService.MimeType.JSON);
   }
 
@@ -8973,24 +9090,105 @@ function _generarOCSelectiva(canal, row, abbrs) {
 /** POST action=marcarCobrado — marca un pedido como Cobrado desde el Panel.
  *  { action:'marcarCobrado', hoja:'Clubes', id:'C-005' } */
 // Cobrar todos los pedidos de un Vendedor Red
+/** POST action=cobrarVendedorRed — Tadeo cobra a un vendedor Red desde Ruta→COBROS.
+ *  Antes tocaba la col equivocada (14, Estado de Pago al cliente). Ahora hace
+ *  exactamente lo mismo que cuando el vendedor paga desde su portal (red.html):
+ *  - Marca col BB (54) "Estado Pago a Maleu" = "Pagado".
+ *  - Marca col BC (55) "Fecha Pago a Maleu" = ahora.
+ *  - Crea filas en hoja "Pagos Red Liq" agrupadas por semana ISO.
+ *  Criterios: vendedor=X, no cancelado, Estado de Pago = Cobrado (al cliente),
+ *  Estado Pago a Maleu != Pagado.
+ *  Body: { vendedor, ef?, tr? }
+ *    - ef/tr opcional: monto total cobrado por método. Si no llegan, default
+ *      100% transferencia (asumimos que Marcos siempre paga MP).
+ *      Si llegan, se prorratean entre las semanas según el monto a pagar.
+ *  Reportado por Tadeo (25/05/2026): cobrar desde Ruta no sincronizaba con
+ *  el portal del vendedor (col equivocada). Fix replica el flujo de
+ *  marcarSemanaPagadaRed (que es lo que ejecuta el portal del vendedor). */
 function _doPostCobrarVendedorRed(data) {
   var vendedor = String(data.vendedor || '').trim();
   if (!vendedor) return ContentService.createTextOutput(JSON.stringify({ok:false,err:'vendedor vacio'})).setMimeType(ContentService.MimeType.JSON);
   var sh = SS.getSheetByName('Red');
-  if (!sh) return ContentService.createTextOutput(JSON.stringify({ok:false,err:'hoja'})).setMimeType(ContentService.MimeType.JSON);
-  var d = sh.getDataRange().getValues();
-  var updated = 0;
-  for (var r = 1; r < d.length; r++) {
-    var vend = String(d[r][7] || '').trim();      // col 8 Vendedor
-    var estado = String(d[r][11] || '').trim();   // col 12 Estado Entrega
-    var pago = String(d[r][13] || '').trim();     // col 14 Estado Pago
+  if (!sh || sh.getLastRow() <= 1) return ContentService.createTextOutput(JSON.stringify({ok:false,err:'hoja vacia'})).setMimeType(ContentService.MimeType.JSON);
+
+  var argDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var pad = function(n){return String(n).padStart(2,'0');};
+  var fechaStr = pad(argDate.getDate()) + '/' + pad(argDate.getMonth()+1) + '/' + argDate.getFullYear();
+
+  var d = sh.getRange(2, 1, sh.getLastRow()-1, 55).getValues();
+  // Cols (0-indexed dentro de d[r]):
+  // 1=N°Pedido, 5=Semana ISO, 6=Año, 7=Vendedor, 11=Estado Entrega,
+  // 13=Estado de Pago al cliente, 48=A Pagar (col AW), 53=Estado Pago a Maleu
+  var porSemana = {};
+  var totalGlobal = 0, updatedTotal = 0;
+
+  for (var i = 0; i < d.length; i++) {
+    var vend = String(d[i][7] || '').trim();
+    var estado = String(d[i][11] || '').trim();
+    var pagoCli = String(d[i][13] || '').trim();
+    var pagoMaleu = String(d[i][53] || '').trim();
+    var yaPagado = (pagoMaleu === 'Pagado' || pagoMaleu === 'Sí' || pagoMaleu === 'Si');
     if (vend !== vendedor) continue;
-    if (estado !== 'Entregado') continue;
-    if (pago === 'Cobrado') continue;
-    sh.getRange(r+1, 14).setValue('Cobrado');     // col 14 = N
-    updated++;
+    if (estado === 'Cancelado') continue;
+    if (pagoCli !== 'Cobrado') continue;
+    if (yaPagado) continue;
+    var yr = Number(d[i][6]) || argDate.getFullYear();
+    var sem = Number(d[i][5]) || 0;
+    var aPagar = Number(d[i][48]) || 0;
+    var pedId = String(d[i][1] || '');
+    var skey = yr + '|' + sem;
+    if (!porSemana[skey]) porSemana[skey] = { year: yr, sem: sem, filas: [], aPagar: 0, ids: [] };
+    porSemana[skey].filas.push(i + 2);
+    porSemana[skey].aPagar += aPagar;
+    porSemana[skey].ids.push(pedId);
+    totalGlobal += aPagar;
+    updatedTotal++;
   }
-  return ContentService.createTextOutput(JSON.stringify({ok:true, updated:updated})).setMimeType(ContentService.MimeType.JSON);
+
+  if (updatedTotal === 0) {
+    return ContentService.createTextOutput(JSON.stringify({ok:true, updated:0, msg:'sin pedidos por cobrar'})).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Marcar col BB (Pagado) y BC (Fecha) en cada fila
+  Object.keys(porSemana).forEach(function(skey) {
+    porSemana[skey].filas.forEach(function(rowSheet) {
+      sh.getRange(rowSheet, 54).setValue('Pagado');
+      sh.getRange(rowSheet, 55).setValue(argDate);
+    });
+  });
+
+  // Crear filas en hoja Pagos Red Liq (una por semana ISO)
+  var shLiq = SS.getSheetByName('Pagos Red Liq');
+  if (!shLiq) {
+    shLiq = SS.insertSheet('Pagos Red Liq');
+    shLiq.appendRow(['Timestamp','Fecha','Vendedor','Año','Semana','Efectivo','Transferencia','Total','A Pagar Esperado','Diferencia','Pedidos','# Pedidos']);
+    shLiq.setFrozenRows(1);
+    shLiq.getRange('A1:L1').setFontWeight('bold').setBackground('#f3e5ab');
+  }
+  var totalEfIn = Number(data.ef) || 0;
+  var totalTrIn = Number(data.tr) || 0;
+  var totalIn = totalEfIn + totalTrIn;
+  Object.keys(porSemana).forEach(function(skey) {
+    var s = porSemana[skey];
+    var ef = 0, tr = s.aPagar; // default 100% transferencia
+    if (totalIn > 0 && totalGlobal > 0) {
+      var ratio = s.aPagar / totalGlobal;
+      ef = Math.round(totalEfIn * ratio);
+      tr = Math.round(totalTrIn * ratio);
+    }
+    shLiq.appendRow([
+      argDate, fechaStr, vendedor, s.year, s.sem,
+      ef, tr, ef + tr, s.aPagar, (ef + tr) - s.aPagar,
+      s.ids.join(', '), s.ids.length
+    ]);
+  });
+
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    updated: updatedTotal,
+    total: totalGlobal,
+    semanas: Object.keys(porSemana).length
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Cancelar pedido: Estado Entrega = Cancelado + revertir stock si corresponde
@@ -11797,4 +11995,296 @@ function _doGetAnalisisProveedor(e) {
   return ContentService
     .createTextOutput(JSON.stringify({ ocs: ocs, catalogo: catalogo, resumen: resumen }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  PRODUCTOS ANALYTICS — Subtab VENTAS → PRODUCTOS del Panel
+//  GET ?action=productosAnalytics
+//      &desde=YYYY-MM-DD&hasta=YYYY-MM-DD (default: ultimos 30 dias)
+//      &canal=all|Home|Pilar|Clubes|Red (default: all)
+// ════════════════════════════════════════════════════════════
+
+// Mapeo abreviatura -> categoria (para analisis de mix)
+function _prodCategoria(abrev) {
+  if (!abrev) return 'Otro';
+  var a = String(abrev).trim();
+  if (a.indexOf('PP') === 0) return 'Packs';
+  if (a.indexOf('P') === 0 && a !== 'PP') return 'Pizzas';
+  if (a.indexOf('S') === 0) return 'Sorrentinos';
+  if (a.indexOf('E') === 0) return 'Empanadas';
+  if (a === 'TG' || a === 'TLC' || a === 'TC') return 'Tortas';
+  if (a === 'TP' || a === 'TJyQ' || a === 'TCa' || a === 'TV') return 'Tartas';
+  if (a === 'F') return 'Postres';
+  return 'Otro';
+}
+
+// Asigna cuadrante BCG por volumen (unidades) y margen unit ($)
+function _prodBCG(unidades, margenUnit, mediaUnid, mediaMargen) {
+  var altoVol = unidades >= mediaUnid;
+  var altoMargen = margenUnit >= mediaMargen;
+  if (altoVol && altoMargen) return 'estrella';
+  if (altoVol && !altoMargen) return 'vaca';
+  if (!altoVol && altoMargen) return 'interrogante';
+  return 'perro';
+}
+
+function _doGetProductosAnalytics(e) {
+  var prm = (e && e.parameter) || {};
+  var canal = String(prm.canal || 'all').trim();
+  var hoy = new Date();
+
+  var perDesde, perHasta, perDias;
+  if (prm.desde && prm.hasta) {
+    var pd = String(prm.desde).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    var ph = String(prm.hasta).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (pd && ph) {
+      perDesde = new Date(+pd[1], +pd[2] - 1, +pd[3], 0, 0, 0);
+      perHasta = new Date(+ph[1], +ph[2] - 1, +ph[3], 23, 59, 59);
+      perDias = Math.max(1, Math.round((perHasta.getTime() - perDesde.getTime()) / 86400000) + 1);
+    }
+  }
+  if (!perDesde || !perHasta) {
+    perDias = Math.max(1, parseInt(prm.dias, 10) || 30);
+    perHasta = hoy;
+    perDesde = new Date(hoy.getTime() - perDias * 86400000);
+  }
+  var perPrevHasta = new Date(perDesde.getTime() - 1);
+  var perPrevDesde = new Date(perDesde.getTime() - perDias * 86400000);
+
+  var shP = SS.getSheetByName('Productos');
+  if (!shP) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'no Productos sheet'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var dataP = shP.getDataRange().getValues();
+  var prods = [];
+  for (var rP = 1; rP < dataP.length; rP++) {
+    var nombre = String(dataP[rP][1] || '').trim();
+    var abrev = String(dataP[rP][2] || '').trim();
+    if (!abrev) continue;
+    var precio = Number(dataP[rP][8]) || 0;
+    var costo = Number(dataP[rP][9]) || 0;
+    prods.push({
+      abrev: abrev,
+      nombre: nombre,
+      categoria: _prodCategoria(abrev),
+      stockFisico: Number(dataP[rP][5]) || 0,
+      reservado: Number(dataP[rP][6]) || 0,
+      disponible: Number(dataP[rP][7]) || 0,
+      precioRetail: precio,
+      costo: costo,
+      margenUnit: precio - costo,
+      margenPct: precio > 0 ? (precio - costo) / precio : 0,
+      unidades: 0,
+      facturado: 0,
+      pedidosCount: 0,
+      clientesUnicos: 0,
+      porCanal: { Home: 0, Pilar: 0, Clubes: 0, Red: 0 },
+      _clientes: {},
+      unidadesPrev: 0,
+      evol8sem: [0, 0, 0, 0, 0, 0, 0, 0],
+      ultimaVenta: null,
+      bcg: null
+    });
+  }
+  var byAbrev = {};
+  prods.forEach(function(p) { byAbrev[p.abrev] = p; });
+
+  var hojas = _crmHojasConfig();
+  var hojasUsadas = canal === 'all' ? hojas : hojas.filter(function(h) { return h.name === canal; });
+
+  var combos = {};
+
+  var lunesActual = new Date(hoy.getTime());
+  var dow = lunesActual.getDay();
+  var diasAtrasLun = dow === 0 ? 6 : dow - 1;
+  lunesActual.setDate(lunesActual.getDate() - diasAtrasLun);
+  lunesActual.setHours(0, 0, 0, 0);
+  var inicio8sem = new Date(lunesActual.getTime() - 7 * 7 * 86400000);
+
+  hojasUsadas.forEach(function(cfg) {
+    var sh = SS.getSheetByName(cfg.name);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd, cfg.tartaStart, cfg.tartaEnd);
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var estado = String(row[cfg.est] || '').trim();
+      if (estado !== 'Entregado') continue;
+      var fecha = _crmToDate(row[cfg.fecha]);
+      if (!fecha) continue;
+      var totalFila = Number(row[cfg.total]) || 0;
+      var nombreCli = String(row[cfg.cliente] || '').trim();
+
+      var totalCantPed = 0;
+      var prodsRow = [];
+      Object.keys(prodMap).forEach(function(idx) {
+        var cant = Number(row[idx]) || 0;
+        if (cant > 0) {
+          prodsRow.push({ abrev: prodMap[idx], cant: cant });
+          totalCantPed += cant;
+        }
+      });
+      if (prodsRow.length === 0) continue;
+
+      var enPeriodoActual = (fecha >= perDesde && fecha <= perHasta);
+      if (enPeriodoActual && prodsRow.length >= 2) {
+        for (var i = 0; i < prodsRow.length; i++) {
+          for (var j = i + 1; j < prodsRow.length; j++) {
+            var a1 = prodsRow[i].abrev, a2 = prodsRow[j].abrev;
+            var key = (a1 < a2) ? a1 + '|' + a2 : a2 + '|' + a1;
+            combos[key] = (combos[key] || 0) + 1;
+          }
+        }
+      }
+
+      prodsRow.forEach(function(pr) {
+        var p = byAbrev[pr.abrev];
+        if (!p) return;
+        var monto = totalCantPed > 0 ? Math.round((pr.cant / totalCantPed) * totalFila) : 0;
+
+        if (enPeriodoActual) {
+          p.unidades += pr.cant;
+          p.facturado += monto;
+          p.pedidosCount++;
+          p.porCanal[cfg.name] = (p.porCanal[cfg.name] || 0) + pr.cant;
+          if (nombreCli) p._clientes[nombreCli] = (p._clientes[nombreCli] || 0) + pr.cant;
+          if (!p.ultimaVenta || fecha > p.ultimaVenta) p.ultimaVenta = fecha;
+        } else if (fecha >= perPrevDesde && fecha <= perPrevHasta) {
+          p.unidadesPrev += pr.cant;
+        }
+        if (fecha >= inicio8sem && fecha < new Date(lunesActual.getTime() + 7 * 86400000)) {
+          var diff = Math.floor((fecha.getTime() - inicio8sem.getTime()) / (7 * 86400000));
+          if (diff >= 0 && diff < 8) p.evol8sem[diff] += pr.cant;
+        }
+      });
+    }
+  });
+
+  var prodsConVentas = prods.filter(function(p) { return p.unidades > 0; });
+  var sumUnid = 0, sumMargen = 0;
+  prodsConVentas.forEach(function(p) {
+    sumUnid += p.unidades;
+    sumMargen += p.margenUnit;
+  });
+  var mediaUnid = prodsConVentas.length > 0 ? sumUnid / prodsConVentas.length : 0;
+  var mediaMargen = prodsConVentas.length > 0 ? sumMargen / prodsConVentas.length : 0;
+
+  var totalFactPeriodo = 0;
+  prods.forEach(function(p) { totalFactPeriodo += p.facturado; });
+
+  prods.forEach(function(p) {
+    p.clientesUnicos = Object.keys(p._clientes).length;
+    delete p._clientes;
+
+    p.porcMix = totalFactPeriodo > 0 ? p.facturado / totalFactPeriodo : 0;
+    p.margenTotal = p.unidades * p.margenUnit;
+
+    if (p.unidadesPrev > 0) {
+      p.tendenciaPct = (p.unidades - p.unidadesPrev) / p.unidadesPrev;
+    } else if (p.unidades > 0) {
+      p.tendenciaPct = 999;
+    } else {
+      p.tendenciaPct = null;
+    }
+
+    p.velocidadDiaria = p.unidades / perDias;
+    if (p.velocidadDiaria > 0) {
+      p.diasCobertura = Math.round(p.disponible / p.velocidadDiaria);
+    } else {
+      p.diasCobertura = null;
+    }
+
+    if (p.unidades > 0) {
+      p.bcg = _prodBCG(p.unidades, p.margenUnit, mediaUnid, mediaMargen);
+    }
+
+    var status = 'normal';
+    if (p.unidades === 0 && p.unidadesPrev > 0) status = 'sin_movimiento';
+    else if (p.diasCobertura !== null && p.diasCobertura <= 7 && p.unidades > 0) status = 'stock_critico';
+    else if (p.tendenciaPct !== null && p.tendenciaPct !== 999 && p.tendenciaPct <= -0.3) status = 'caida_fuerte';
+    else if (p.tendenciaPct !== null && p.tendenciaPct >= 0.5 && p.tendenciaPct !== 999) status = 'crecimiento';
+    p.status = status;
+
+    p.ultimaVenta = p.ultimaVenta
+      ? Utilities.formatDate(p.ultimaVenta, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
+      : '';
+  });
+
+  var alertas = {
+    stockCritico: prods.filter(function(p) { return p.status === 'stock_critico'; })
+      .sort(function(a, b) { return (a.diasCobertura || 0) - (b.diasCobertura || 0); })
+      .map(function(p) { return { abrev: p.abrev, nombre: p.nombre, disponible: p.disponible, diasCobertura: p.diasCobertura, velocidad: Math.round(p.velocidadDiaria * 7 * 10) / 10 }; }),
+    caidaFuerte: prods.filter(function(p) { return p.status === 'caida_fuerte'; })
+      .sort(function(a, b) { return a.tendenciaPct - b.tendenciaPct; })
+      .map(function(p) { return { abrev: p.abrev, nombre: p.nombre, unidades: p.unidades, unidadesPrev: p.unidadesPrev, tendenciaPct: p.tendenciaPct }; }),
+    sinMovimiento: prods.filter(function(p) { return p.status === 'sin_movimiento'; })
+      .map(function(p) { return { abrev: p.abrev, nombre: p.nombre, unidadesPrev: p.unidadesPrev, ultimaVenta: p.ultimaVenta }; }),
+    crecimiento: prods.filter(function(p) { return p.status === 'crecimiento'; })
+      .sort(function(a, b) { return b.tendenciaPct - a.tendenciaPct; })
+      .map(function(p) { return { abrev: p.abrev, nombre: p.nombre, unidades: p.unidades, unidadesPrev: p.unidadesPrev, tendenciaPct: p.tendenciaPct }; })
+  };
+
+  var combosArr = Object.keys(combos).map(function(k) {
+    var ps = k.split('|');
+    return {
+      a1: ps[0],
+      n1: byAbrev[ps[0]] ? byAbrev[ps[0]].nombre : ps[0],
+      a2: ps[1],
+      n2: byAbrev[ps[1]] ? byAbrev[ps[1]].nombre : ps[1],
+      pedidos: combos[k]
+    };
+  }).sort(function(a, b) { return b.pedidos - a.pedidos; }).slice(0, 10);
+
+  var totales = {
+    unidades: 0,
+    facturado: 0,
+    margenTotal: 0,
+    pedidosUnicos: 0,
+    unidadesPrev: 0
+  };
+  prods.forEach(function(p) {
+    totales.unidades += p.unidades;
+    totales.facturado += p.facturado;
+    totales.margenTotal += p.margenTotal;
+    totales.unidadesPrev += p.unidadesPrev;
+  });
+  totales.margenPct = totales.facturado > 0 ? totales.margenTotal / totales.facturado : 0;
+  totales.tendenciaPct = totales.unidadesPrev > 0
+    ? (totales.unidades - totales.unidadesPrev) / totales.unidadesPrev
+    : null;
+
+  var topProd = null;
+  prods.forEach(function(p) {
+    if (!topProd || p.unidades > topProd.unidades) topProd = p;
+  });
+  totales.topProducto = topProd && topProd.unidades > 0
+    ? { abrev: topProd.abrev, nombre: topProd.nombre, unidades: topProd.unidades, facturado: topProd.facturado }
+    : null;
+
+  var mixCat = {};
+  prods.forEach(function(p) {
+    if (!mixCat[p.categoria]) mixCat[p.categoria] = { unidades: 0, facturado: 0 };
+    mixCat[p.categoria].unidades += p.unidades;
+    mixCat[p.categoria].facturado += p.facturado;
+  });
+
+  var tz = 'America/Argentina/Buenos_Aires';
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    ts: Date.now(),
+    canal: canal,
+    periodo: {
+      dias: perDias,
+      desde: Utilities.formatDate(perDesde, tz, 'yyyy-MM-dd'),
+      hasta: Utilities.formatDate(perHasta, tz, 'yyyy-MM-dd'),
+      desdeArg: Utilities.formatDate(perDesde, tz, 'dd/MM/yyyy'),
+      hastaArg: Utilities.formatDate(perHasta, tz, 'dd/MM/yyyy')
+    },
+    productos: prods,
+    totales: totales,
+    alertas: alertas,
+    combos: combosArr,
+    mixCategorias: mixCat
+  })).setMimeType(ContentService.MimeType.JSON);
 }
