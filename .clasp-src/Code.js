@@ -280,22 +280,279 @@ function doGet(e) {
   if (action === 'stock') return _doGetStock();
   if (action === 'stock_full') return _doGetStockFull();
   if (action === 'precios') return _doGetPrecios();
-  if (action === 'cobrosPendientes') return _doGetCobrosPendientes();
+  if (action === 'cobrosPendientes') return _doGetCobrosPendientes(e);
   if (action === 'pendientesGuardarStock') return _doGetPendientesGuardarStock();
   if (action === 'saldoCliente') return _doGetSaldoCliente(e);
   if (action === 'resumenSemanal') return _doGetResumenSemanal(e);
-  if (action === 'crmClientes') return _doGetCrmClientes();
+  if (action === 'crmClientes') return _doGetCrmClientes(e);
   if (action === 'crmCliente') return _doGetCrmCliente(e);
   if (action === 'crmProductos') return _doGetCrmProductos(e);
   if (action === 'crmProducto') return _doGetCrmProducto(e);
   if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
   if (action === 'productosAnalytics') return _doGetProductosAnalytics(e);
+  if (action === 'miReparto') return _doGetMiReparto(e);
+  if (action === 'miRepartoHistorial') return _doGetMiRepartoHistorial(e);
+  if (action === 'cierreMensual') return _doGetCierreMensual(e);
+  if (action === 'planMes') return _doGetPlanMes(e);
+  if (action === 'repartidoresList') return _doGetRepartidoresList();
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
+}
+
+// ════════════════════════════════════════════════════════════
+//  Mi Reparto - Historial: días trabajados del repartidor.
+//  Params: usuario (obligatorio), desde/hasta (ISO, opcionales)
+//  Devuelve por día: cantidad entregas, propinas, fijo $50k, total.
+//  Solo días con al menos 1 entrega. Ordenado descendente.
+// ════════════════════════════════════════════════════════════
+function _doGetMiRepartoHistorial(e) {
+  var usuario = String((e && e.parameter && e.parameter.usuario) || '').trim();
+  if (!usuario) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false, err:'Falta usuario'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  var desde = String((e && e.parameter && e.parameter.desde) || '').trim();
+  var hasta = String((e && e.parameter && e.parameter.hasta) || '').trim();
+  var FIJO_DIA = 50000;
+
+  var sh = SS.getSheetByName('Home');
+  if (!sh || sh.getLastRow() <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok:true, usuario:usuario, fijo:FIJO_DIA,
+      diasTrabajados:0, entregasTot:0, propinasTot:0, totalGanado:0, dias:[]
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var lastCol = sh.getLastColumn();
+  var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var idx = {};
+  for (var h = 0; h < headers.length; h++) idx[String(headers[h]).trim()] = h;
+
+  var iEstadoEnt = idx['Estado de Entrega'] != null ? idx['Estado de Entrega'] : 10;
+  var iEstadoPg  = idx['Estado de Pago'] != null ? idx['Estado de Pago'] : 12;
+  var iEf        = idx['Efectivo'] != null ? idx['Efectivo'] : 17;
+  var iTr        = idx['Transferencia'] != null ? idx['Transferencia'] : 18;
+  var iPropEf    = idx['Propina Efectivo'] != null ? idx['Propina Efectivo'] : 19;
+  var iPropTr    = idx['Propina Transferencia'] != null ? idx['Propina Transferencia'] : 20;
+  var iFact      = idx['Facturado'] != null ? idx['Facturado'] : 21;
+  var iRep       = idx['Repartidor'];
+  var iFEnt = -1;
+  for (var hf = 0; hf < headers.length; hf++) {
+    var hn = String(headers[hf]).trim();
+    if (hn === 'Fecha Entrega' || hn === 'Fecha de Entrega') { iFEnt = hf; break; }
+  }
+  if (iRep == null) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false, err:'Columna Repartidor no encontrada'})).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var data = sh.getDataRange().getValues();
+  var usuarioLow = usuario.toLowerCase();
+  var porDia = {}; // fecha ISO → metrics
+
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    if (String(row[iEstadoEnt] || '').trim() !== 'Entregado') continue;
+    var rep = String(row[iRep] || '').trim();
+    if (!rep || rep.toLowerCase() !== usuarioLow) continue;
+
+    var fRaw = (iFEnt >= 0) ? row[iFEnt] : null;
+    var fISO = '';
+    if (fRaw instanceof Date) {
+      fISO = Utilities.formatDate(fRaw, 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+    } else if (fRaw) {
+      var s = String(fRaw).trim().split(' ')[0];
+      var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) {
+        fISO = m[3] + '-' + (m[2].length===1?'0'+m[2]:m[2]) + '-' + (m[1].length===1?'0'+m[1]:m[1]);
+      } else if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        fISO = s.substring(0,10);
+      }
+    }
+    if (!fISO) continue;
+    if (desde && fISO < desde) continue;
+    if (hasta && fISO > hasta) continue;
+
+    if (!porDia[fISO]) porDia[fISO] = { entregas:0, propinas:0, ef:0, tr:0, propEf:0, propTr:0, movido:0, pendiente:0, nPend:0 };
+    var d = porDia[fISO];
+    d.entregas++;
+    var ef = Number(row[iEf]) || 0;
+    var tr = Number(row[iTr]) || 0;
+    var pEf = Math.max(0, Number(row[iPropEf]) || 0);
+    var pTr = Math.max(0, Number(row[iPropTr]) || 0);
+    var fact = Number(row[iFact]) || 0;
+    d.ef += ef;
+    d.tr += tr;
+    d.propEf += pEf;
+    d.propTr += pTr;
+    d.propinas += pEf + pTr;
+    d.movido += fact;
+    var estadoPago = String(row[iEstadoPg] || '').trim();
+    if (estadoPago !== 'Cobrado') { d.pendiente += fact; d.nPend++; }
+  }
+
+  var dias = [];
+  var entregasTot = 0, propinasTot = 0, movidoTot = 0, pendienteTot = 0;
+  Object.keys(porDia).forEach(function(f) {
+    var d = porDia[f];
+    var ganadoDia = FIJO_DIA + d.propinas;
+    dias.push({
+      f:f, n:d.entregas, prop:d.propinas, fijo:FIJO_DIA, tot:ganadoDia,
+      ef:d.ef, tr:d.tr, propEf:d.propEf, propTr:d.propTr,
+      movido:d.movido, pendiente:d.pendiente, nPend:d.nPend
+    });
+    entregasTot += d.entregas;
+    propinasTot += d.propinas;
+    movidoTot += d.movido;
+    pendienteTot += d.pendiente;
+  });
+  dias.sort(function(a,b){ return a.f < b.f ? 1 : -1; });
+
+  var diasTrabajados = dias.length;
+  var totalGanado = diasTrabajados * FIJO_DIA + propinasTot;
+
+  return ContentService.createTextOutput(JSON.stringify({
+    ok:true, usuario:usuario, fijo:FIJO_DIA,
+    diasTrabajados:diasTrabajados, entregasTot:entregasTot,
+    propinasTot:propinasTot, totalGanado:totalGanado,
+    movidoTot:movidoTot, pendienteTot:pendienteTot,
+    dias:dias
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  Mi Reparto — resumen del día para rol Repartidor.
+//  Params: usuario (nombre exacto col Repartidor), fecha (ISO YYYY-MM-DD).
+//  Solo Home (los Pilar/Clubes/Red no van con repartidor delegado por ahora).
+//  Devuelve: entregas del día con propinas + fijo $50.000/día.
+// ════════════════════════════════════════════════════════════
+function _doGetMiReparto(e) {
+  var usuario = String((e && e.parameter && e.parameter.usuario) || '').trim();
+  var fechaISO = String((e && e.parameter && e.parameter.fecha) || '').trim();
+  if (!usuario) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false, err:'Falta usuario'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (!fechaISO || !/^\d{4}-\d{2}-\d{2}$/.test(fechaISO)) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false, err:'Fecha inválida (YYYY-MM-DD)'})).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var FIJO_DIA = 50000;
+
+  var sh = SS.getSheetByName('Home');
+  if (!sh || sh.getLastRow() <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok:true, usuario:usuario, fecha:fechaISO, fijo:FIJO_DIA, propinas:0, total:FIJO_DIA, entregas:[]
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var lastCol = sh.getLastColumn();
+  var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var idx = {};
+  for (var h = 0; h < headers.length; h++) {
+    idx[String(headers[h]).trim()] = h;
+  }
+
+  var iN          = idx['N° Pedido'] != null ? idx['N° Pedido'] : 1;
+  var iCliente    = idx['Cliente'] != null ? idx['Cliente'] : 7;
+  var iEstadoEnt  = idx['Estado de Entrega'] != null ? idx['Estado de Entrega'] : 10;
+  var iEstadoPago = idx['Estado de Pago'] != null ? idx['Estado de Pago'] : 12;
+  var iTotal      = idx['Total ($)'] != null ? idx['Total ($)'] : (idx['Total'] != null ? idx['Total'] : 13);
+  var iEf         = idx['Efectivo'] != null ? idx['Efectivo'] : 15;
+  var iTr         = idx['Transferencia'] != null ? idx['Transferencia'] : 16;
+  var iPropEf     = idx['Propina Efectivo'] != null ? idx['Propina Efectivo'] : 19;
+  var iPropTr     = idx['Propina Transferencia'] != null ? idx['Propina Transferencia'] : 20;
+  var iRep        = idx['Repartidor'];
+  var iSubBarrio  = idx['Sub Barrio'];
+  var iDomLote    = idx['Domicilio-Lote'] != null ? idx['Domicilio-Lote'] : (idx['Domicilio'] != null ? idx['Domicilio'] : -1);
+  // Buscar "Fecha Entrega" real (auto-llenada al marcar Entregado). Fallback "Fecha de Entrega".
+  var iFEnt = -1;
+  for (var hf = 0; hf < headers.length; hf++) {
+    var hn = String(headers[hf]).trim();
+    if (hn === 'Fecha Entrega' || hn === 'Fecha de Entrega') { iFEnt = hf; break; }
+  }
+
+  if (iRep == null) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false, err:'Columna Repartidor no encontrada en hoja Home'})).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var data = sh.getDataRange().getValues();
+  var usuarioLow = usuario.toLowerCase();
+  var entregas = [];
+  var sumPropEf = 0, sumPropTr = 0;
+
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var estEnt = String(row[iEstadoEnt] || '').trim();
+    if (estEnt !== 'Entregado') continue;
+    var rep = String(row[iRep] || '').trim();
+    if (!rep || rep.toLowerCase() !== usuarioLow) continue;
+
+    // Comparar fecha entrega real con la pedida (ISO)
+    var fRaw = (iFEnt >= 0) ? row[iFEnt] : null;
+    var fISO = '';
+    if (fRaw instanceof Date) {
+      fISO = Utilities.formatDate(fRaw, 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+    } else if (fRaw) {
+      var s = String(fRaw).trim().split(' ')[0];
+      var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) {
+        fISO = m[3] + '-' + (m[2].length===1?'0'+m[2]:m[2]) + '-' + (m[1].length===1?'0'+m[1]:m[1]);
+      } else if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        fISO = s.substring(0,10);
+      }
+    }
+    if (fISO !== fechaISO) continue;
+
+    var nPed   = String(row[iN] || '').trim();
+    var cliente= String(row[iCliente] || '').trim();
+    var total  = Number(row[iTotal]) || 0;
+    // Propinas: clamp a >=0. Valores negativos en el Sheets son data sucia (descuentos
+    // mal cargados, ajustes); no deben restar del fijo del repartidor.
+    var propEf = Math.max(0, Number(row[iPropEf]) || 0);
+    var propTr = Math.max(0, Number(row[iPropTr]) || 0);
+    var subBarrio = (iSubBarrio != null) ? String(row[iSubBarrio] || '').trim() : '';
+    var lote   = (iDomLote >= 0) ? String(row[iDomLote] || '').trim() : '';
+    var estPag = String(row[iEstadoPago] || '').trim();
+
+    sumPropEf += propEf;
+    sumPropTr += propTr;
+    entregas.push({
+      n: nPed, c: cliente, $: total,
+      pEf: propEf, pTr: propTr,
+      sb: subBarrio, l: lote,
+      ep: estPag
+    });
+  }
+
+  var propinasTot = sumPropEf + sumPropTr;
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    usuario: usuario,
+    fecha: fechaISO,
+    fijo: FIJO_DIA,
+    propinasEf: sumPropEf,
+    propinasTr: sumPropTr,
+    propinas: propinasTot,
+    total: FIJO_DIA + propinasTot,
+    cantidad: entregas.length,
+    entregas: entregas
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Cobros pendientes: pedidos Entregados + No Cobrados de TODAS las hojas
 // Red: agrupado por Vendedor (aplica 17% de comision)
-function _doGetCobrosPendientes() {
+//
+// Cache server-side 30s (TTL): la PWA Ruta refresca cada 90s y el panel cada
+// poco más. Sin cache, cada llamada toma ~7s leyendo 4 hojas. Con cache, el
+// 2do click responde instantáneo. Para forzar refresh (post-cobro), el cliente
+// pasa &fresh=1 — eso saltea cache y regenera (y guarda el nuevo valor).
+function _doGetCobrosPendientes(e) {
+  var _ck = 'cobros_pendientes_v1';
+  var _fresh = !!(e && e.parameter && e.parameter.fresh);
+  if (!_fresh) {
+    try {
+      var _c = CacheService.getScriptCache();
+      var _h = _c.get(_ck);
+      if (_h) return ContentService.createTextOutput(_h).setMimeType(ContentService.MimeType.JSON);
+    } catch (_e) { /* sin cache no rompe */ }
+  }
   // colSub/colEnv/colDesc: necesarios para recalcular el total al cambiar forma de pago
   // (aplicar/quitar 10% OFF Efectivo). Home/Pilar v2: N(13)=Subtotal, O(14)=Envío, P(15)=Descuento.
   // Clubes no tiene descuento efectivo.
@@ -326,6 +583,29 @@ function _doGetCobrosPendientes() {
     }
   }
 
+  // Productos del pedido (para mostrar en el cuadro de Cobros: qué pidió el cliente).
+  function _prodsDelCobro(row, hojaName) {
+    var ABBRS_H = ['PPM','PPJyQ','PPCyQ','SCo','SJyQ','SCa','ECaC','EJyQ','ECyQ','EV','TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
+    var ABBRS_P = ['PPM','PPJyQ','PPCyQ','SQB','SL','SCo','SPyP','SJyQ','SE','SCa','ECaC','EJyQ','ECyQ','EV','TG','TLC','TC','F','PMu','PMa','PJyQ','PCC','PJyM'];
+    var ABBRS_C = ['PMu','PMa','PJyQ','PCC','PJyM','PPM','PPJyQ','PPCyQ'];
+    var res = [];
+    function add(a, q) { if (q > 0) res.push({ a: a, q: q }); }
+    if (hojaName === 'Home' || hojaName === 'Pilar') {
+      var abbrs = (hojaName === 'Pilar') ? ABBRS_P : ABBRS_H;
+      for (var p = 0; p < abbrs.length; p++) add(abbrs[p], Number(row[22 + p]) || 0);
+      var tStart = (hojaName === 'Pilar') ? 59 : 56;
+      var tAbbrs = ['TP','TJyQ','TCa','TV'];
+      for (var t = 0; t < 4; t++) add(tAbbrs[t], Number(row[tStart + t]) || 0);
+      var wStart = (hojaName === 'Pilar') ? 64 : 61;
+      var wAbbrs = ['RC','RP'];
+      for (var w = 0; w < 2; w++) add(wAbbrs[w], Number(row[wStart + w]) || 0);
+    } else if (hojaName === 'Clubes') {
+      for (var c = 0; c < ABBRS_C.length; c++) add(ABBRS_C[c], Number(row[23 + c]) || 0);
+      var eAbbrs = ['ECaC','EJyQ','ECyQ','EV'];
+      for (var e = 0; e < 4; e++) add(eAbbrs[e], Number(row[37 + e]) || 0);
+    }
+    return res;
+  }
   var out = [];
   hojas.forEach(function(cfg) {
     var sh = SS.getSheetByName(cfg.name);
@@ -395,7 +675,8 @@ function _doGetCobrosPendientes() {
         // Datos para recalcular total si cambia la forma de pago (aplicar/quitar 10% Efectivo)
         sub: cfg.colSub !== null ? (Number(data[r][cfg.colSub]) || 0) : 0,
         env: cfg.colEnv !== null ? (Number(data[r][cfg.colEnv]) || 0) : 0,
-        desc: cfg.colDesc !== null ? (Number(data[r][cfg.colDesc]) || 0) : 0
+        desc: cfg.colDesc !== null ? (Number(data[r][cfg.colDesc]) || 0) : 0,
+        p: _prodsDelCobro(data[r], cfg.name)   // productos del pedido (para el cuadro de Cobros)
       });
     }
   });
@@ -503,8 +784,18 @@ function _doGetCobrosPendientes() {
     });
   }
 
-  return ContentService.createTextOutput(JSON.stringify({ts: Date.now(), cobros: out}))
-    .setMimeType(ContentService.MimeType.JSON);
+  // Billetera (fondo de cambio): la PWA Ruta la muestra en el cuadro de Cobros para
+  // saber cuánto tenés para dar vuelto y descontarla al devolver cambio.
+  var _bilRuta = 0;
+  try {
+    var _shSBb = SS.getSheetByName('Saldo Base');
+    if (_shSBb && _shSBb.getLastRow() > 1 && _shSBb.getLastColumn() >= 4) {
+      _bilRuta = Number(_shSBb.getRange(_shSBb.getLastRow(), 4).getValue()) || 0;
+    }
+  } catch (_eb) { /* nada */ }
+  var _resp = JSON.stringify({ts: Date.now(), cobros: out, billetera: _bilRuta});
+  try { CacheService.getScriptCache().put(_ck, _resp, 30); } catch (_e) { /* nada */ }
+  return ContentService.createTextOutput(_resp).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Precios y costos por abreviatura — consumido por ruta.html (solapa +)
@@ -720,6 +1011,16 @@ function _doGetEntregas(e) {
         var qtyT = Number(data[r][tartaStart + tp]) || 0;
         if (qtyT > 0) productos.push({ a: tartaAbbrs[tp], q: qtyT });
       }
+      // Wraps Claudia Polito (27/05/2026): cols al final tras "A Favor / Aplicado".
+      // Home: BJ-BK (idx 61-62) · Pilar: BL-BM (idx 64-65).
+      // Sin este loop, los pedidos que SOLO tienen wraps (caso Simón Panelo 05/06)
+      // pasaban el filtro `productos.length === 0` → se saltean → no aparecen en RUTA.
+      var wrapStart = isPilar ? 64 : 61;
+      var wrapAbbrs = ['RC', 'RP'];
+      for (var wp = 0; wp < 2; wp++) {
+        var qtyW = Number(data[r][wrapStart + wp]) || 0;
+        if (qtyW > 0) productos.push({ a: wrapAbbrs[wp], q: qtyW });
+      }
       if (productos.length === 0) continue;
 
       var direccion = '', barrio = '', subBarrio = '', lote = '', telefono = '';
@@ -755,6 +1056,17 @@ function _doGetEntregas(e) {
         Object.keys(ocMap).forEach(function(ab){ ocItems.push({ a: ab, q: ocMap[ab] }); });
       }
 
+      // Hora del pedido (col A): para ordenar RUTA por "hora del pedido" (FIFO).
+      var horaPed = data[r][0];
+      var hrStr = '';
+      if (horaPed instanceof Date) hrStr = Utilities.formatDate(horaPed, 'America/Argentina/Buenos_Aires', 'HH:mm');
+      else if (horaPed) hrStr = String(horaPed).trim().slice(0,5);
+      // Fecha del pedido (col D): junto con hr permite ordenar absoluto entre días.
+      var fechaPed = data[r][3];
+      var fpStr = '';
+      if (fechaPed instanceof Date) fpStr = Utilities.formatDate(fechaPed, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+      else if (fechaPed) fpStr = String(fechaPed).trim();
+
       entregas.push({
         id: Number(data[r][1]) || 0,
         h: hoja,
@@ -774,7 +1086,9 @@ function _doGetEntregas(e) {
         $: montoEnt,
         p: productos,
         oD: oD,
-        oc: ocItems
+        oc: ocItems,
+        hr: hrStr,
+        f: fpStr
       });
     }
   });
@@ -797,6 +1111,12 @@ function _doGetEntregas(e) {
         var qtyC = Number(clubData[rc][23 + pc]) || 0; // X-AE = cols 23-30
         if (qtyC > 0) prodsC.push({ a: ABBRS_CLUB[pc], q: qtyC });
       }
+      // Empanadas Clubes (28/05/2026): cols AL-AO = idx 37-40
+      var ABBRS_CLUB_EMP = ['ECaC','EJyQ','ECyQ','EV'];
+      for (var ec = 0; ec < 4; ec++) {
+        var qtyEc = Number(clubData[rc][37 + ec]) || 0;
+        if (qtyEc > 0) prodsC.push({ a: ABBRS_CLUB_EMP[ec], q: qtyEc });
+      }
       if (prodsC.length === 0) continue;
 
       var club = String(clubData[rc][8] || '').trim();
@@ -816,6 +1136,14 @@ function _doGetEntregas(e) {
         Object.keys(ocMapC).forEach(function(ab){ ocItemsC.push({ a: ab, q: ocMapC[ab] }); });
       }
 
+      var horaPedC = clubData[rc][0];
+      var hrStrC = '';
+      if (horaPedC instanceof Date) hrStrC = Utilities.formatDate(horaPedC, 'America/Argentina/Buenos_Aires', 'HH:mm');
+      else if (horaPedC) hrStrC = String(horaPedC).trim().slice(0,5);
+      var fechaPedC = clubData[rc][3];
+      var fpStrC = '';
+      if (fechaPedC instanceof Date) fpStrC = Utilities.formatDate(fechaPedC, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+      else if (fechaPedC) fpStrC = String(fechaPedC).trim();
       entregas.push({
         id: Number(clubData[rc][1]) || 0,
         h: 'Clubes',
@@ -835,7 +1163,9 @@ function _doGetEntregas(e) {
         $: Number(clubData[rc][16]) || 0, // Q = Total
         p: prodsC,
         oD: oDc,
-        oc: ocItemsC
+        oc: ocItemsC,
+        hr: hrStrC,
+        f: fpStrC
       });
     }
   }
@@ -853,8 +1183,12 @@ function _doGetEntregas(e) {
   if (shRed && shRed.getLastRow() > 1) {
     var redData = shRed.getDataRange().getValues();
     for (var rr = 1; rr < redData.length; rr++) {
-      var estadoR = String(redData[rr][11]).trim();          // L = Estado entrega Marcos→cliente (informativo)
+      var estadoR = String(redData[rr][11]).trim();          // L = Estado entrega Marcos→cliente
       if (estadoR === 'Cancelado') continue;
+      // Bug 05/06/2026: si Tadeo marca pedidos Red individualmente como Entregado (sin
+      // usar el botón "ENTREGAR A VENDEDOR"), seguían apareciendo en ARMADO/RUTA del
+      // Tadeo. Ahora también filtra por Estado de Entrega = Entregado.
+      if (estadoR === 'Entregado') continue;
       var entVend = String(redData[rr][56] || '').trim();    // BE = Entregado a Vendedor (Tadeo→Marcos)
       if (entVend === 'Entregado') continue;                 // ya se lo entregamos a Marcos, no aparece en Armado
 
@@ -887,6 +1221,14 @@ function _doGetEntregas(e) {
 
       var vendedor = String(redData[rr][7] || '').trim();
       var clienteFinal = String(redData[rr][8] || '').trim();
+      var horaPedR = redData[rr][0];
+      var hrStrR = '';
+      if (horaPedR instanceof Date) hrStrR = Utilities.formatDate(horaPedR, 'America/Argentina/Buenos_Aires', 'HH:mm');
+      else if (horaPedR) hrStrR = String(horaPedR).trim().slice(0,5);
+      var fechaPedR = redData[rr][3];
+      var fpStrR = '';
+      if (fechaPedR instanceof Date) fpStrR = Utilities.formatDate(fechaPedR, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+      else if (fechaPedR) fpStrR = String(fechaPedR).trim();
 
       entregas.push({
         id: Number(redData[rr][1]) || 0,
@@ -907,7 +1249,9 @@ function _doGetEntregas(e) {
         $: Number(redData[rr][14]) || 0,                  // O = Total
         p: prodsR,
         oD: oDr,
-        retira: vendedor                                  // Indicador: lo retira el vendedor, no lo entrega Tadeo
+        retira: vendedor,                                 // Indicador: lo retira el vendedor, no lo entrega Tadeo
+        hr: hrStrR,
+        f: fpStrR
       });
     }
   }
@@ -985,6 +1329,37 @@ function _getPermisos() {
     sh.getRange('A1:C1').setFontWeight('bold').setBackground('#331C1C').setFontColor('#fff');
     sh.setColumnWidths(1, 3, 130);
   }
+  // Migración idempotente: tabs nuevas que deben existir para ciertos roles.
+  // Si la combinación rol+tab falta en la hoja, se agrega con su valor default.
+  // Esto evita tener que tocar Permisos a mano cada vez que se agrega una tab.
+  var NEW_TABS = [
+    { rol:'admin',      tab:'mireparto',   def:'Sí' },
+    { rol:'empleado',   tab:'mireparto',   def:'Sí' },
+    { rol:'repartidor', tab:'mireparto',   def:'Sí' },
+    { rol:'vendedor',   tab:'mireparto',   def:'No' },
+    { rol:'admin',      tab:'pedidoshome', def:'Sí' },
+    { rol:'empleado',   tab:'pedidoshome', def:'Sí' },
+    { rol:'repartidor', tab:'pedidoshome', def:'Sí' },
+    { rol:'vendedor',   tab:'pedidoshome', def:'No' }
+  ];
+  var existing = {};
+  if (sh.getLastRow() > 1) {
+    var allRows = sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues();
+    for (var er = 0; er < allRows.length; er++) {
+      var rE = String(allRows[er][0] || '').trim().toLowerCase();
+      var tE = String(allRows[er][1] || '').trim().toLowerCase();
+      if (rE && tE) existing[rE + '|' + tE] = true;
+    }
+  }
+  var toAdd = [];
+  for (var nt = 0; nt < NEW_TABS.length; nt++) {
+    var k = NEW_TABS[nt].rol + '|' + NEW_TABS[nt].tab;
+    if (!existing[k]) toAdd.push([NEW_TABS[nt].rol, NEW_TABS[nt].tab, NEW_TABS[nt].def]);
+  }
+  if (toAdd.length) {
+    sh.getRange(sh.getLastRow() + 1, 1, toAdd.length, 3).setValues(toAdd);
+  }
+
   var matrix = {};
   if (sh.getLastRow() > 1) {
     var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues();
@@ -1814,13 +2189,52 @@ function _doGetBusqueda() {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // Parser robusto: acepta números crudos o strings "$8.000". Antes de este parche,
+  // Number("$8.000") → NaN → 0 y costoT se calculaba como 0 para esas filas (bug 03/06/26).
+  function _toMoney(v) {
+    if (typeof v === 'number') return v;
+    var s = String(v == null ? '' : v).replace(/[$\s]/g, '').replace(/\./g, '').replace(/,/g, '.');
+    var n = Number(s);
+    return isFinite(n) ? n : 0;
+  }
+
   // Una sola lectura del rango usado (sin getDataRange que sobre-lee columnas vacías)
   var lastRow = shOC.getLastRow();
   var data = shOC.getRange(1, 1, lastRow, 25).getValues();
 
+  // Mapa de display: nombres unificados para el WhatsApp del proveedor y las cards.
+  // Hay variantes históricas en el Sheets ("Pack Pizza", "Pack Pizzas", "Pack Pizzas x2"
+  // todas son lo mismo). Las agrupamos bajo "Pack Pizzas". Las pizzas individuales
+  // de Bernardo Pisano van como "Pizzas".
+  var CAT_DISPLAY = {
+    'Tartas Gourmet': 'Tartas',
+    'Tartas': 'Tartas',
+    'Pizza Premium': 'Pizzas Individuales',
+    'Pizzas Premium': 'Pizzas Individuales',
+    'Pizza Individual': 'Pizzas Individuales',
+    'Pizzas Individuales': 'Pizzas Individuales',
+    'Pack Pizza': 'Pack Pizzas',
+    'Pack Pizzas': 'Pack Pizzas',
+    'Pack Pizzas x2': 'Pack Pizzas',
+    'Packs Pizza': 'Pack Pizzas',
+    'Pack Pizza x2': 'Pack Pizzas'
+  };
   function splitProducto(nombre) {
     var parts = nombre.split(' — ');
-    return { cat: (parts[0] || nombre).trim(), var: (parts[1] || '').trim() };
+    var catRaw = (parts[0] || nombre).trim();
+    var cat = CAT_DISPLAY[catRaw] || catRaw;
+    return { cat: cat, var: (parts[1] || '').trim() };
+  }
+  // Renombrar el `prod` completo para que tambien el detalle por OC se vea bien
+  // ("Pack Pizza — Muzzarella" → "Pizzas — Muzzarella"). Se usa al guardar items
+  // en porCliente/deudas/rows.
+  function _renameProd(nombre) {
+    var idx = nombre.indexOf(' — ');
+    if (idx < 0) return nombre;
+    var catRaw = nombre.substring(0, idx).trim();
+    var sabor = nombre.substring(idx + 3);
+    var cat = CAT_DISPLAY[catRaw] || catRaw;
+    return cat + ' — ' + sabor;
   }
 
   // Semana ISO actual (lun-dom) en zona horaria AR — para filtrar OCs vivas
@@ -1844,21 +2258,25 @@ function _doGetBusqueda() {
     return null;
   }
   var estadosEntrega = {}; // { 'Home|3': { est: 'Entregado', semEnt: 20, anioEnt: 2026 } }
+  // colEntVend (Red): "Entregado a Vendedor" (col 57, idx 56). En Red, lo que importa
+  // para que un pedido salga de ARMADO es que Maleu YA le entregó la mercadería al
+  // vendedor (Marcos), NO que el cliente final la haya recibido (eso lo hace el vendedor).
   var hojasCanal = [
     { name: 'Home',   colId: 2, colEst: 11, colFEnt: 50 }, // Home: AX = Fecha Entrega (col 50, idx 49)
     { name: 'Pilar',  colId: 2, colEst: 11, colFEnt: 53 }, // Pilar: BA = Fecha Entrega (col 53, idx 52)
     { name: 'Clubes', colId: 2, colEst: 14, colFEnt: 13 }, // Clubes: M = Dia de Entrega Elegido (col 13, idx 12)
-    { name: 'Red',    colId: 2, colEst: 12, colFEnt: 11 }  // Red: K = Dia de Entrega (col 11, idx 10)
+    { name: 'Red',    colId: 2, colEst: 12, colFEnt: 11, colEntVend: 57 }  // Red: K=Dia Entrega, BE(57)=Entregado a Vendedor
   ];
   hojasCanal.forEach(function(h) {
     var shCanal = SS.getSheetByName(h.name);
     if (!shCanal || shCanal.getLastRow() <= 1) return;
-    var nCols = Math.max(h.colId, h.colEst, h.colFEnt);
+    var nCols = Math.max(h.colId, h.colEst, h.colFEnt, h.colEntVend || 0);
     var dataCanal = shCanal.getRange(2, 1, shCanal.getLastRow() - 1, nCols).getValues();
     for (var ri = 0; ri < dataCanal.length; ri++) {
       var idPed = String(dataCanal[ri][h.colId - 1] || '').trim();
       if (!idPed) continue;
       var estEnt = String(dataCanal[ri][h.colEst - 1] || '').trim();
+      var entVend = h.colEntVend ? String(dataCanal[ri][h.colEntVend - 1] || '').trim() : '';
       // Fecha entrega: parsear el campo correspondiente. Si esta vacio o no parsea,
       // caer a col D (fecha pedido = creacion).
       var fEntDate = _parseFechaCualquiera(dataCanal[ri][h.colFEnt - 1]);
@@ -1868,7 +2286,7 @@ function _doGetBusqueda() {
         semEnt = _isoWeek(fEntDate);
         anioEnt = fEntDate.getFullYear();
       }
-      estadosEntrega[h.name + '|' + idPed] = { est: estEnt, semEnt: semEnt, anioEnt: anioEnt };
+      estadosEntrega[h.name + '|' + idPed] = { est: estEnt, entVend: entVend, semEnt: semEnt, anioEnt: anioEnt };
     }
   });
 
@@ -1891,7 +2309,7 @@ function _doGetBusqueda() {
     var qty = Number(row[12]) || 0;
     if (!prov || qty === 0) continue;
 
-    var costoT = (Number(row[13]) || 0) * qty;
+    var costoT = _toMoney(row[13]) * qty;
 
     // Datos del cliente/canal para esta OC (los necesitamos antes del calculo
     // de deudas, porque la semana de la deuda DEBE ser la semana de entrega
@@ -1956,8 +2374,8 @@ function _doGetBusqueda() {
         // Detalle por OC: canal/cliente/nped para que el cliente pueda mostrar
         // un breakdown legible ("Red / Marína Donati #24 — Empanadas CaC x1 $14.700").
         deudas[prov].rows.push({
-          r: r + 1, prod: producto, abbr: abbr, q: qty,
-          costoU: Number(row[13]) || 0, costo: costoT,
+          r: r + 1, prod: _renameProd(producto), abbr: abbr, q: qty,
+          costoU: _toMoney(row[13]), costo: costoT,
           sem: semD, canal: canal, cliente: cliente, nped: nPedido
         });
       }
@@ -1974,22 +2392,35 @@ function _doGetBusqueda() {
     if (esDepCanal && diffSem < 0) continue;
 
     // Pedidos entregados ya: no incluir en ARMADO (cliente). Sigue contando para BUSQUEDA si la OC esta Pendiente/Pedida.
-    var yaEntregado = entInfo && entInfo.est === 'Entregado';
+    // Un pedido sale de ARMADO cuando ya fue entregado. Para Red la entrega
+    // relevante es "Entregado a Vendedor" (Maleu → Marcos), NO el Estado de Entrega
+    // al cliente final (eso lo gestiona el vendedor después). Para el resto de
+    // canales, el Estado de Entrega del pedido es lo que vale.
+    var yaEntregado;
+    if (canal === 'Red') {
+      yaEntregado = entInfo && (entInfo.entVend === 'Entregado' || entInfo.est === 'Entregado');
+    } else {
+      yaEntregado = entInfo && entInfo.est === 'Entregado';
+    }
 
     // Proveedor agrupado (solo Pendiente/Pedido). Agrupacion incluye semana
     // de entrega: un proveedor con OCs para 2 semanas distintas tiene items separados.
+    // qDep = cuántas unidades del item son para reposición de Depósito (cliente
+    // "Tadeo — Stock"). Permite al usuario ver "17 × Muzz (10 cli + 7 depo)".
     if (!esRecibido) {
-      if (!porProv[prov]) porProv[prov] = { costo: 0, cats: {}, semsEnt: {} };
+      if (!porProv[prov]) porProv[prov] = { costo: 0, cats: {}, semsEnt: {}, qDepTotal: 0 };
       var sp = splitProducto(producto);
       var arr = porProv[prov].cats[sp.cat] || (porProv[prov].cats[sp.cat] = []);
+      var qDepThis = esDepCanal ? qty : 0;
       var found = false;
       for (var v = 0; v < arr.length; v++) {
         if (arr[v].v === sp.var && arr[v].sem === semEntPed && arr[v].anio === anioEntPed) {
-          arr[v].q += qty; arr[v].ct += costoT; found = true; break;
+          arr[v].q += qty; arr[v].ct += costoT; arr[v].qDep += qDepThis; found = true; break;
         }
       }
-      if (!found) arr.push({ v: sp.var, q: qty, ct: costoT, sem: semEntPed, anio: anioEntPed });
+      if (!found) arr.push({ v: sp.var, q: qty, qDep: qDepThis, ct: costoT, sem: semEntPed, anio: anioEntPed });
       porProv[prov].costo += costoT;
+      porProv[prov].qDepTotal += qDepThis;
       porProv[prov].semsEnt[semEntPed] = anioEntPed; // tracking de semanas activas
       totalGeneral += costoT;
     }
@@ -1999,11 +2430,14 @@ function _doGetBusqueda() {
     if (!yaEntregado) {
       var cKey = cliente + '|' + nPedido + (esDepCanal ? ('|sem' + semEntPed + '-' + anioEntPed) : '');
       if (!porCliente[cKey]) porCliente[cKey] = { n: cliente, canal: canal, dir: dir, tel: tel, ped: nPedido, items: [], ing: 0, semEnt: semEntPed, anioEnt: anioEntPed };
-      porCliente[cKey].items.push({ prod: producto, q: qty, pv: ingresoT, est: estado });
+      porCliente[cKey].items.push({ prod: _renameProd(producto), abbr: abbr, q: qty, pv: ingresoT, est: estado });
       porCliente[cKey].ing += ingresoT;
     }
 
-    ocRows.push({ oc: ocNum, r: r + 1, prov: prov, prod: producto, abbr: abbr, q: qty, est: estado, canal: canal, cliente: cliente, nped: nPedido, semEnt: semEntPed });
+    // _renameProd unifica variantes "Pack Pizza" / "Pack Pizzas" / "Pack Pizzas x2"
+    // bajo un solo nombre, así el panel "Recibir mercadería" agrupa correctamente
+    // por sabor en vez de tener múltiples entradas por la misma cosa.
+    ocRows.push({ oc: ocNum, r: r + 1, prov: prov, prod: _renameProd(producto), abbr: abbr, q: qty, est: estado, canal: canal, cliente: cliente, nped: nPedido, semEnt: semEntPed });
   }
 
   // Programaciones de búsqueda por proveedor (hoja "Programaciones Búsqueda")
@@ -2041,7 +2475,7 @@ function _doGetBusqueda() {
     waLines.push('');
     waLines.push('Gracias!');
     var semsEntArr = Object.keys(d.semsEnt).map(function(s){ return Number(s); }).sort(function(a,b){return a-b;});
-    provsArr.push({ n: prov, costo: d.costo, cats: catsArr, wa: waLines.join('\n'), fProg: fProgMap[prov] || '', semsEnt: semsEntArr });
+    provsArr.push({ n: prov, costo: d.costo, cats: catsArr, wa: waLines.join('\n'), fProg: fProgMap[prov] || '', semsEnt: semsEntArr, qDepTotal: d.qDepTotal || 0 });
   });
 
   // clientesArr: ya esta filtrado en el loop (no incluye entregados).
@@ -2052,13 +2486,15 @@ function _doGetBusqueda() {
   var pagosLibres = {};
   var shPagos = SS.getSheetByName('Pagos Proveedores');
   if (shPagos && shPagos.getLastRow() > 1) {
-    var pagosData = shPagos.getRange(1, 1, shPagos.getLastRow(), 7).getValues();
+    var pagosCols = Math.max(8, shPagos.getLastColumn());
+    var pagosData = shPagos.getRange(1, 1, shPagos.getLastRow(), pagosCols).getValues();
     for (var rp = 1; rp < pagosData.length; rp++) {
       var pp = String(pagosData[rp][1]).trim();
       if (!pp) continue;
       var ef = Number(pagosData[rp][2]) || 0;
       var mp = Number(pagosData[rp][3]) || 0;
-      var tot = Number(pagosData[rp][4]) || (ef + mp);
+      var bonif = Number(pagosData[rp][7]) || 0; // col H Bonificación
+      var tot = Number(pagosData[rp][4]) || (ef + mp + bonif);
       if (tot <= 0) continue;
       var semImp = String(pagosData[rp][5] || '').trim();
       var notas = String(pagosData[rp][6] || '').trim();
@@ -2072,7 +2508,7 @@ function _doGetBusqueda() {
       } else {
         fechaStr = String(fechaRaw || '').trim();
       }
-      var pagoObj = { fecha: fechaStr, ef: ef, mp: mp, tot: tot, notas: notas };
+      var pagoObj = { fecha: fechaStr, ef: ef, mp: mp, bonif: bonif, tot: tot, notas: notas };
       if (semImp) {
         if (!pagosImputados[pp]) pagosImputados[pp] = {};
         if (!pagosImputados[pp][semImp]) pagosImputados[pp][semImp] = [];
@@ -2149,6 +2585,19 @@ function _doGetBusqueda() {
     }
   });
 
+  // Stocks por abreviatura (físico actual). Permite mostrar en ARMADO/Depósito
+  // "14 × Muzz (8 actual + 14 = 22 final)" para que Tadeo vea cómo queda el freezer.
+  var stocksProductos = {};
+  var hProdSt = SS.getSheetByName('Productos');
+  if (hProdSt && hProdSt.getLastRow() > 1) {
+    var stData = hProdSt.getRange(2, 1, hProdSt.getLastRow() - 1, 8).getValues();
+    for (var rs = 0; rs < stData.length; rs++) {
+      var abr = String(stData[rs][2] || '').trim();
+      if (!abr) continue;
+      stocksProductos[abr] = Number(stData[rs][5]) || 0; // col F = Stock Físico
+    }
+  }
+
   return ContentService
     .createTextOutput(JSON.stringify({
       ts: Date.now(),
@@ -2158,7 +2607,8 @@ function _doGetBusqueda() {
       ocs: ocRows,
       deudas: deudasArr,
       semActual: semanaActualBusq,
-      anioActual: anioActualBusq
+      anioActual: anioActualBusq,
+      stocksProductos: stocksProductos
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -2173,9 +2623,12 @@ function _doPostPagarProveedor(postData) {
   var proveedor = String(postData.proveedor || '').trim();
   var montoEf = Number(postData.efectivo) || 0;
   var montoMp = Number(postData.mp) || 0;
+  // Bonificación del proveedor (ej. te regaló 1 J&Morrón). Salda deuda pero
+  // NO es plata que sale de caja → no crea egreso. Total cubre ef+mp+bonif.
+  var montoBonif = Number(postData.bonif) || 0;
   var notas = String(postData.notas || '').trim();
   var semanaImp = String(postData.semana || '').trim();
-  var totalPago = montoEf + montoMp;
+  var totalPago = montoEf + montoMp + montoBonif;
 
   if (!proveedor || totalPago <= 0) {
     return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Sin monto' })).setMimeType(ContentService.MimeType.JSON);
@@ -2188,22 +2641,25 @@ function _doPostPagarProveedor(postData) {
   var mes = MESES[argNow.getMonth()];
 
   // ── Ledger: hoja "Pagos Proveedores" ──
-  // Layout: A Fecha | B Proveedor | C Efectivo | D MP | E Total | F Semana Imputada | G Notas
+  // Layout: A Fecha | B Proveedor | C Efectivo | D MP | E Total | F Semana Imputada | G Notas | H Bonificación
   var shPag = SS.getSheetByName('Pagos Proveedores');
   if (!shPag) {
     shPag = SS.insertSheet('Pagos Proveedores');
-    shPag.getRange(1, 1, 1, 7).setValues([['Fecha', 'Proveedor', 'Efectivo', 'Mercado Pago', 'Total', 'Semana Imputada', 'Notas']]);
+    shPag.getRange(1, 1, 1, 8).setValues([['Fecha', 'Proveedor', 'Efectivo', 'Mercado Pago', 'Total', 'Semana Imputada', 'Notas', 'Bonificación']]);
     shPag.setFrozenRows(1);
-  } else if (shPag.getLastColumn() < 7) {
-    // Asegurar que existan las 7 columnas (migración suave si la hoja se creó con 6)
-    shPag.getRange(1, 6, 1, 2).setValues([['Semana Imputada', 'Notas']]);
+  } else if (shPag.getLastColumn() < 8) {
+    // Migración suave: agregar columnas faltantes (Notas col 7 si era 6, Bonif col 8 si era 7)
+    if (shPag.getLastColumn() < 7) shPag.getRange(1, 6, 1, 2).setValues([['Semana Imputada', 'Notas']]);
+    shPag.getRange(1, 8).setValue('Bonificación');
   }
-  shPag.appendRow([argNow, proveedor, montoEf, montoMp, totalPago, semanaImp, notas]);
+  shPag.appendRow([argNow, proveedor, montoEf, montoMp, totalPago, semanaImp, notas, montoBonif]);
   var rPag = shPag.getLastRow();
   shPag.getRange(rPag, 1).setNumberFormat('dd/MM/yyyy HH:mm');
   shPag.getRange(rPag, 3, 1, 3).setNumberFormat('$#,##0');
+  shPag.getRange(rPag, 8).setNumberFormat('$#,##0');
 
   // ── Egresos (impacto en caja) ──
+  // Solo Efectivo y Mercado Pago salen de caja. La bonificación NO genera egreso.
   var shEg = SS.getSheetByName('Egresos');
   if (!shEg) {
     shEg = SS.insertSheet('Egresos');
@@ -2221,7 +2677,7 @@ function _doPostPagarProveedor(postData) {
     shEg.getRange(lastRow, 7).setNumberFormat('$#,##0');
   });
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalPago, filas: pagos.length })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalPago, bonif: montoBonif, filas: pagos.length })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=marcarOC — cambia estado de OC desde busqueda.html.
@@ -2571,6 +3027,51 @@ function _doPostRecibirMercaderia(postData) {
   }
 }
 
+/** Demanda Home por abreviatura en las últimas 3 semanas ISO COMPLETAS
+ *  (excluye la semana en curso, que está incompleta y subestimaría).
+ *  Base del sugeridor de compra del depósito en busqueda.html "+ NUEVO".
+ *  El depósito responde a la venta de Home (Estancias/Río/Alcanfores).
+ *  Devuelve { abbr: { avg: <prom semanal>, weeks: [w-3, w-2, w-1] } }. */
+function _homeDemandByAbbr() {
+  var out = {};
+  var hHome = SS.getSheetByName('Home');
+
+  // Acumuladores por abbr (siempre, aunque no haya hoja Home)
+  Object.keys(HOME_COL_TO_ABBR).forEach(function(col){
+    out[HOME_COL_TO_ABBR[col]] = { avg: 0, weeks: [0, 0, 0] };
+  });
+  if (!hHome) return out;
+
+  // 3 semanas anteriores (orden viejo→nuevo): paso atrás de a 7 días desde hoy AR
+  var ahora  = new Date();
+  var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var idxOf = {}; // "año-semana" → 0|1|2
+  for (var k = 3; k >= 1; k--) {
+    var dt = new Date(argNow.getTime() - k * 7 * 86400000);
+    idxOf[dt.getFullYear() + '-' + _isoWeek(dt)] = 3 - k;
+  }
+
+  var data = hHome.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    var estado = String(data[r][10] || '').trim();   // K = Estado Entrega
+    if (estado === 'Cancelado') continue;
+    var semana = Number(data[r][5]);                  // F = Semana ISO
+    var anio   = Number(data[r][6]);                  // G = Año
+    var slot   = idxOf[anio + '-' + semana];
+    if (slot === undefined) continue;
+    for (var col in HOME_COL_TO_ABBR) {
+      var q = Number(data[r][col - 1]) || 0;          // HOME_COL_TO_ABBR es 1-based
+      if (q) out[HOME_COL_TO_ABBR[col]].weeks[slot] += q;
+    }
+  }
+
+  Object.keys(out).forEach(function(ab){
+    var w = out[ab].weeks;
+    out[ab].avg = Math.round(((w[0] + w[1] + w[2]) / 3) * 10) / 10;
+  });
+  return out;
+}
+
 /** GET ?action=catalogo
  *  Devuelve proveedores, productos por proveedor, costos y stock.
  *  Para el formulario de "Nuevo Pedido" en busqueda.html. */
@@ -2590,6 +3091,9 @@ function _doGetCatalogo() {
       stockMap[ab] = Number(prodData[r][7]) || 0; // col H = Stock Disponible (físico - reservado)
     }
   }
+
+  // Demanda Home (3 sem) para el sugeridor de compra del depósito
+  var demMap = _homeDemandByAbbr();
 
   // Proveedores y productos
   var provData = hProv.getDataRange().getValues();
@@ -2611,7 +3115,9 @@ function _doGetCatalogo() {
       n: lastProd + (gusto ? ' \u2014 ' + gusto : ''),
       cat: lastProd,                                           // categor\u00eda = producto base (Pizza, Empanadas, etc.)
       c: costoMap[abbr] || 0,
-      s: stockMap[abbr] !== undefined ? stockMap[abbr] : null
+      s: stockMap[abbr] !== undefined ? stockMap[abbr] : null,
+      dem: demMap[abbr] ? demMap[abbr].avg : 0,                // prom semanal Home (3 sem)
+      wk:  demMap[abbr] ? demMap[abbr].weeks : [0, 0, 0]       // desglose [w-3, w-2, w-1]
     });
   }
 
@@ -2954,6 +3460,10 @@ function doPost(e) {
     if (data.action === 'marcarEntregadoAVendedor') return _doPostMarcarEntregadoAVendedor(data);
     if (data.action === 'marcarGuardadoEnStock') return _doPostMarcarGuardadoEnStock(data);
     if (data.action === 'crearSaldoCliente') return _doPostCrearSaldoCliente(data);
+    if (data.action === 'planMetaSet')     return _doPostPlanMetaSet(data);
+    if (data.action === 'planAccionAdd')   return _doPostPlanAccionAdd(data);
+    if (data.action === 'planAccionUpdate')return _doPostPlanAccionUpdate(data);
+    if (data.action === 'planAccionDelete')return _doPostPlanAccionDelete(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
@@ -3064,6 +3574,9 @@ const HOME_PRODUCT_COLS = {
   25: 58,  // BF — TJyQ  — Tarta Jamón y Queso
   26: 59,  // BG — TCa   — Tarta Calabaza
   27: 60,  // BH — TV    — Tarta Verdura
+  // Wraps Claudia Polito (27/05/2026, BJ-BK al final tras "A Favor / Aplicado")
+  28: 62,  // BJ — RC    — Wrap Carne
+  29: 63,  // BK — RP    — Wrap Pollo
 };
 
 // Mapeo id de producto (página web) → abreviatura en hoja Productos (col C)
@@ -3075,8 +3588,10 @@ const PAGE_ID_TO_ABBR = {
   19: 'PMu',  1:  'PMa',  2:  'PJyQ',  3:  'PCC',  4:  'PJyM',
   // Exclusivos de Pilar: sorrentinos adicionales
   20: 'SQB',  21: 'SL',    22: 'SPyP', 23: 'SE',
-  // Tartas Gourmet (Home/Pilar/Red, 15/05/2026)
+  // Tartas (Home/Pilar/Red, 15/05/2026)
   24: 'TP', 25: 'TJyQ', 26: 'TCa', 27: 'TV',
+  // Wraps Claudia Polito (27/05/2026)
+  28: 'RC', 29: 'RP',
 };
 
 // ── Layout NUEVO de Pilar (abr/2026 v2): 58 cols. Bloque monetario ampliado con Descuento
@@ -3111,6 +3626,9 @@ const PILAR_PRODUCT_COLS = {
   25: 61, // BI — TJyQ
   26: 62, // BJ — TCa
   27: 63, // BK — TV
+  // Wraps Claudia Polito (27/05/2026): BM-BN tras "A Favor / Aplicado" en BL
+  28: 65, // BM — RC
+  29: 66, // BN — RP
 };
 
 // Mapeo col → abreviatura para Pilar (inverso de PILAR_PRODUCT_COLS vía PAGE_ID_TO_ABBR)
@@ -3121,6 +3639,7 @@ const PILAR_COL_TO_ABBR = {
   37:'TG', 38:'TLC', 39:'TC', 40:'F',
   41:'PMu', 42:'PMa', 43:'PJyQ', 44:'PCC', 45:'PJyM',
   60:'TP', 61:'TJyQ', 62:'TCa', 63:'TV',
+  65:'RC', 66:'RP',
 };
 
 // ─── Auto-reserva Home en horario pico (Vie 15hs → Dom 23hs AR) ───
@@ -3229,15 +3748,53 @@ function _doPostHome(data, sheetName, prefix) {
   //   • Home: 10% OFF si subtotalProd >= 100k  Ó  pago = Efectivo
   //   • Pilar: idem (los pedidos Pilar con vendedor Red no entran acá, van a hoja Red)
   //   • Clubes: sin descuento
-  if (sheetName !== 'Clubes') {
-    const aplicaBulk = subtotalProd >= 100000;
-    const aplicaCash = (pago === 'Efectivo');
-    const descCorrecto = (aplicaBulk || aplicaCash) ? Math.round(subtotalProd * 0.10) : 0;
-    if (descuento !== descCorrecto) {
-      try { Logger.log('Descuento recalculado: cliente=' + data.nombre + ' subtotal=' + subtotalProd + ' pago=' + pago + ' frontend_envio=' + descuento + ' backend_corrige=' + descCorrecto); } catch(_) {}
-      descuento = descCorrecto;
-      total = subtotalProd + envio - descuento;
+  // ── DESCUENTO MANUAL AUTORITATIVO (PWA Ruta tab "+") ──
+  // Cuando Tadeo fija un descuento % explícito (global al pedido o por categoría)
+  // desde el alta express, ESE es el descuento final en pesos y REEMPLAZA al 10%
+  // automático del efectivo/bulk (no se apila). El frontend manda el flag
+  // descuentoManualEsAutoridad=true + descuento ya calculado en pesos.
+  // SÓLO este path confía en el front: la tienda online y todos los demás callers
+  // nunca setean el flag → la salvaguarda del 10% sigue intacta para ellos.
+  var descAutoritativo = (data.descuentoManualEsAutoridad === true || data.descuentoManualEsAutoridad === 'true');
+  if (descAutoritativo && sheetName !== 'Clubes') {
+    descuento = Number(data.descuento) || 0;
+    if (descuento < 0) descuento = 0;
+    if (descuento > subtotalProd) descuento = subtotalProd; // nunca descontar más que el subtotal
+    total = subtotalProd + envio - descuento;
+    try { Logger.log('Descuento autoritativo (tab +): cliente=' + data.nombre + ' subtotal=' + subtotalProd + ' pago=' + pago + ' descuento=' + descuento + ' globalPct=' + (data.descuentoGlobalPct || 0)); } catch(_) {}
+  } else if (sheetName !== 'Clubes') {
+    // Tipo: 'normal' (retail, aplica 10% OFF auto), 'costo' (familia, sin
+    // descuento), 'club' (precio Club, sin descuento). La salvaguarda 10%
+    // solo aplica al tipo 'normal'. Bug 12/06/2026: pedido al costo se
+    // cobraba con 10% encima del costo (Tadeo se autopedido 1 Franui).
+    var _tipoPedido = String(data.tipoPedido || 'normal').trim().toLowerCase();
+    if (_tipoPedido === 'normal') {
+      const aplicaBulk = subtotalProd >= 100000;
+      const aplicaCash = (pago === 'Efectivo');
+      const descCorrecto = (aplicaBulk || aplicaCash) ? Math.round(subtotalProd * 0.10) : 0;
+      if (descuento !== descCorrecto) {
+        try { Logger.log('Descuento recalculado: cliente=' + data.nombre + ' subtotal=' + subtotalProd + ' pago=' + pago + ' frontend_envio=' + descuento + ' backend_corrige=' + descCorrecto); } catch(_) {}
+        descuento = descCorrecto;
+        total = subtotalProd + envio - descuento;
+      }
+    } else if (descuento !== 0) {
+      // No-normal pero el frontend mandó descuento (legacy): forzar 0 para
+      // que "Total al costo" cuadre con lo que vio Tadeo en la pantalla.
+      descuento = 0;
+      total = subtotalProd + envio;
     }
+  }
+
+  // Descuento manual (regalo / bonificación puntual). Se suma al descuento
+  // automático del 10% y se resta del total. Cargado desde la PWA Ruta tab "+"
+  // por Tadeo cuando regala un producto o hace una bonificación fuera de regla.
+  // Caso típico: regalar 1 pizza ($11.000) → producto va igual en el pedido
+  // (cuenta para stock) pero se descuenta su valor del total.
+  var descuentoManual = Number(data.descuentoManual) || 0;
+  if (descuentoManual < 0) descuentoManual = 0;
+  if (descuentoManual > 0) {
+    descuento = descuento + descuentoManual;
+    total = Math.max(0, subtotalProd + envio - descuento);
   }
 
   // saldoAplicado: si el cliente tenía saldo a favor previo y lo aplicó en checkout,
@@ -3246,8 +3803,24 @@ function _doPostHome(data, sheetName, prefix) {
   var saldoAplicadoNum = Number(data.saldoAplicado) || 0;
   if (saldoAplicadoNum < 0) saldoAplicadoNum = 0;
   var cobroReal = Math.max(0, total - saldoAplicadoNum);
-  const efectivo        = pago === 'Efectivo'      ? cobroReal : 0;
-  const transferencia   = pago === 'Transferencia' ? cobroReal : 0;
+  // Mixto: el frontend manda data.efectivo y data.transferencia explícitos
+  // (caso "Ya me pagó" desde la tab "+" con pago=Mixto). Si no manda nada,
+  // ambos quedan 0 — el pedido se carga como Mixto pero sin cobrar (espera
+  // que Tadeo cobre desde la tab COBROS con el modal unificado).
+  var efectivo, transferencia;
+  if (pago === 'Mixto') {
+    efectivo      = Number(data.efectivo)      || 0;
+    transferencia = Number(data.transferencia) || 0;
+  } else if (pago === 'Efectivo') {
+    efectivo      = cobroReal;
+    transferencia = 0;
+  } else if (pago === 'Transferencia') {
+    efectivo      = 0;
+    transferencia = cobroReal;
+  } else {
+    efectivo      = 0;
+    transferencia = 0;
+  }
 
   // ── Cantidades de productos por id ────────────────────────
   const qtys = {};
@@ -3311,13 +3884,35 @@ function _doPostHome(data, sheetName, prefix) {
   row[14] = envio;                              // O  Envío
   row[15] = descuento;                          // P  Descuento
   row[16] = total;                              // Q  Total a cobrar
-  row[17] = efectivo;                           // R  Efectivo
-  row[18] = transferencia;                      // S  Transferencia
-  // Propina: el frontend (PWA Ruta tab "+") puede mandar data.propina. Va a la col T si pago=Efectivo,
-  // a la col U si pago=Transferencia. Si pago=Mixto u otro, no se asume nada.
+  // Propina + ajuste para Mixto: el frontend manda data.efectivo y data.transferencia
+  // como el monto FÍSICO recibido por cada método (incluyendo la parte de propina si
+  // hubo). Acá descontamos la propina del método dominante para que col R/S queden
+  // SIN propina y T/U tengan la propina aparte (convención del backend).
+  // Ejemplo Mixto: pedido $19.970, propina $30, cliente pagó $10k ef + $10k mp.
+  //   ef_físico=10000, tr_físico=10000, propina=30 → propMet=Efectivo (empate, default ef)
+  //   col R = 9970, col S = 10000, col T = 30, col U = 0.
+  //   V = Q + T + U = 19970 + 30 = $20.000 ✓ · Caja: R+T=10000, S+U=10000 ✓
   var propinaNueva = Number(data.propina) || 0;
-  row[19] = (pago === 'Efectivo'      && propinaNueva !== 0) ? propinaNueva : 0;  // T  Propina Efectivo (puede ser negativa = ajuste)
-  row[20] = (pago === 'Transferencia' && propinaNueva !== 0) ? propinaNueva : 0;  // U  Propina Transferencia
+  var propEfFinal = 0, propTrFinal = 0;
+  if (propinaNueva !== 0) {
+    if (pago === 'Efectivo')           propEfFinal = propinaNueva;
+    else if (pago === 'Transferencia') propTrFinal = propinaNueva;
+    else if (pago === 'Mixto') {
+      // Asignar al método con más monto físico (en empate, ef por default)
+      if (efectivo >= transferencia)   propEfFinal = propinaNueva;
+      else                             propTrFinal = propinaNueva;
+    }
+  }
+  // Para Mixto: restar la propina del split físico para que R/S queden netas
+  // (consistente con el contrato del backend: R/S sin propina, T/U con propina).
+  if (pago === 'Mixto') {
+    if (propEfFinal !== 0) efectivo      = Math.max(0, efectivo      - propEfFinal);
+    if (propTrFinal !== 0) transferencia = Math.max(0, transferencia - propTrFinal);
+  }
+  row[17] = efectivo;                           // R  Efectivo (sin propina)
+  row[18] = transferencia;                      // S  Transferencia (sin propina)
+  row[19] = propEfFinal;                        // T  Propina Efectivo (puede ser negativa = ajuste)
+  row[20] = propTrFinal;                        // U  Propina Transferencia
   // V (21) — Facturado: fórmula =Q+T+U (se setea post-append)
 
   var PRODUCT_COLS = isPilar ? PILAR_PRODUCT_COLS : HOME_PRODUCT_COLS;
@@ -3355,6 +3950,26 @@ function _doPostHome(data, sheetName, prefix) {
 
   sh.appendRow(row);
   var newRow = sh.getLastRow();
+
+  // ── "Ya me pagó" desde el "+": estampar Fecha de Cobro al crear el pedido ──
+  // El frontend (PWA Ruta tab "+") manda data.estadoPago='Cobrado' cuando
+  // Tadeo marca el checkbox "Ya me pagó". Como _stampFechaCobro es idempotente
+  // (no sobrescribe si ya hay fecha), es seguro llamar incondicionalmente acá.
+  if (String(data.estadoPago || '') === 'Cobrado') {
+    try { _stampFechaCobro(sh, newRow); } catch (_e) { /* nada */ }
+  }
+
+  // ── Repartidor: queda asignado al usuario que cargó el pedido desde el "+" ──
+  // El frontend manda data.repartidor con el nombre del usuario logueado en la
+  // PWA. Antes solo se escribía al marcar Entregado, así que los pedidos creados
+  // desde el "+" quedaban sin Repartidor. Ahora se asigna ya al crear (igual
+  // queda overrideable cuando se marca Entregado).
+  // Cols: Home BD=56, Pilar BG=59.
+  var _repAuto = String(data.repartidor || '').trim();
+  if (_repAuto) {
+    var _colRepAuto = (sheetName === 'Pilar') ? 59 : 56;
+    try { sh.getRange(newRow, _colRepAuto).setValue(_repAuto); } catch (_e) { /* nada */ }
+  }
 
   // ── Saldo a favor aplicado en este pedido (si el cliente tenía crédito previo) ──
   // El frontend tienda detecta saldo via GET saldoCliente y manda saldoAplicado>0.
@@ -3434,6 +4049,20 @@ function _doPostHome(data, sheetName, prefix) {
     }
   }
 
+  // ── Descuento Detalle (receta JSON) ──
+  // Para que el descuento sobreviva ediciones de productos: si vino una receta con
+  // descuento real, la guardamos en la col "Descuento Detalle" (la crea si falta).
+  var _recetaObj = _parseReceta(data.descuentoReceta);
+  if (_recetaActiva(_recetaObj)) {
+    var headersR = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    var colRec = 0;
+    for (var iR = 0; iR < headersR.length; iR++) {
+      if (String(headersR[iR]).trim() === 'Descuento Detalle') { colRec = iR + 1; break; }
+    }
+    if (!colRec) { colRec = sh.getLastColumn() + 1; sh.getRange(1, colRec).setValue('Descuento Detalle'); }
+    sh.getRange(newRow, colRec).setValue(JSON.stringify(_recetaObj));
+  }
+
   // Sync WATI desactivado (17/05/2026): permiso UrlFetchApp.fetch revocado.
   // Ensuciaba Log Errores con una excepción por pedido sin afectar el grabado.
   // Reactivar cuando se renueve OAuth del Apps Script.
@@ -3449,6 +4078,69 @@ function _colLetter(n) {
     n = Math.floor((n - 1) / 26);
   }
   return s;
+}
+
+// ════════════════════════════════════════════════════════════
+// RECETA DE DESCUENTO (col "Descuento Detalle") — tab "+" de Ruta
+// Guarda la *receta* del descuento ({g, c, r, auto10}) para que sobreviva a
+// ediciones de productos: al editar, col P se recalcula aplicando la receta al
+// NUEVO subtotal (en vez de pisar todo con la regla del 10%).
+//   g      = % global al pedido
+//   c      = { 'Tartas':20, ... } % por categoría
+//   r      = regalo $ (bonificación puntual, se suma aparte)
+//   auto10 = true si el pedido NO tiene % manual y debe seguir aplicando el 10% auto
+// ════════════════════════════════════════════════════════════
+// Mapa abbr → categoría (mismo criterio que NP_CAT del front de la tab "+").
+var DESC_CAT_OF_ABBR = {
+  PPM:'Pack Pizzas x2', PPJyQ:'Pack Pizzas x2', PPCyQ:'Pack Pizzas x2',
+  PMu:'Pizzas Individuales', PMa:'Pizzas Individuales', PJyQ:'Pizzas Individuales', PCC:'Pizzas Individuales', PJyM:'Pizzas Individuales',
+  RC:'Wraps', RP:'Wraps',
+  ECaC:'Empanadas', EJyQ:'Empanadas', ECyQ:'Empanadas', EV:'Empanadas',
+  SCo:'Sorrentinos', SJyQ:'Sorrentinos', SCa:'Sorrentinos', SQB:'Sorrentinos', SL:'Sorrentinos', SPyP:'Sorrentinos', SE:'Sorrentinos',
+  TP:'Tartas', TJyQ:'Tartas', TCa:'Tartas', TV:'Tartas',
+  F:'Franuis',
+  TG:'Tortas', TLC:'Tortas', TC:'Tortas'
+};
+
+// Parsea la receta desde el JSON guardado o desde el objeto del POST. Devuelve null si vacía.
+function _parseReceta(raw) {
+  if (!raw) return null;
+  var o = (typeof raw === 'object') ? raw : null;
+  if (!o) { try { o = JSON.parse(raw); } catch(e) { return null; } }
+  if (!o || typeof o !== 'object') return null;
+  return o;
+}
+
+// ¿La receta es "activa"? (autoritativa → se guarda y manda en la col P).
+// True si tiene descuento real (g/c/r) O si suprime el 10% auto (auto10===false,
+// caso toggle "Sin 10% OFF" que quiere cobrar precio normal aunque sea Efectivo).
+function _recetaActiva(r) {
+  if (!r) return false;
+  if (r.auto10 === false) return true;
+  return (Number(r.g) > 0) || (Number(r.r) > 0) || (r.c && Object.keys(r.c).some(function(k){return Number(r.c[k]) > 0;}));
+}
+
+// Calcula el descuento total en pesos (col P) aplicando la receta a las líneas.
+// lineas = [{abbr, qty, precio}] (precio unitario ya resuelto). Mirror EXACTO de npDiscountInfo() del front.
+function _calcDescuentoReceta(receta, lineas, pago) {
+  if (!receta) return null;
+  var sub = 0, catDiscP = 0;
+  (lineas || []).forEach(function(l){
+    var line = (Number(l.precio) || 0) * (Number(l.qty) || 0);
+    sub += line;
+    var cp = (receta.c && Number(receta.c[DESC_CAT_OF_ABBR[l.abbr]])) || 0;
+    if (cp > 0) catDiscP += line * cp / 100;
+  });
+  catDiscP = Math.round(catDiscP);
+  var g = Number(receta.g) || 0;
+  var globalDiscP = Math.round(Math.max(0, sub - catDiscP) * g / 100);
+  var pctDisc = catDiscP + globalDiscP;
+  if (pctDisc > sub) pctDisc = sub;
+  var auto = 0;
+  if (receta.auto10 && pctDisc === 0 && (pago === 'Efectivo' || sub >= 100000)) auto = Math.round(sub * 0.10);
+  var eff = pctDisc > 0 ? pctDisc : auto;
+  var regalo = Math.max(0, Number(receta.r) || 0);
+  return Math.min(sub, eff + regalo);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3472,12 +4164,18 @@ const CLUBES_PRODUCT_COLS = {
   'pp1': 28,  // AC — PPM  — Pack Muzarella x2
   'pp2': 29,  // AD — PPJyQ — Pack Jamón y Queso x2
   'pp3': 30,  // AE — PPCyQ — Pack Cebolla y Queso x2
+  // Empanadas habilitadas en Clubes (28/05/2026) — cols AL-AO (0-based 37-40)
+  'ecac': 37, // AL — ECaC — Empanadas Carne a Cuchillo x8
+  'ejyq': 38, // AM — EJyQ — Empanadas Jamón y Queso x8
+  'ecyq': 39, // AN — ECyQ — Empanadas Cebolla y Queso Azul x8
+  'evc':  40, // AO — EV   — Empanadas Verdura x8
 };
 
 // Mapeo ID producto (web clubes) → abreviatura en hoja Productos
 const CLUBES_ID_TO_ABBR = {
   'pmu':'PMu', 'pma':'PMa', 'pjq':'PJyQ', 'pcc':'PCC', 'pjm':'PJyM',
   'pp1':'PPM', 'pp2':'PPJyQ', 'pp3':'PPCyQ',
+  'ecac':'ECaC', 'ejyq':'EJyQ', 'ecyq':'ECyQ', 'evc':'EV',
 };
 
 function _doPostClubes(data) {
@@ -3660,6 +4358,9 @@ const RED_PRODUCT_COLS = {
   25: 59,  // BG — TJyQ
   26: 60,  // BH — TCa
   27: 61,  // BI — TV
+  // Wraps Claudia Polito (27/05/2026): BJ-BK al final
+  28: 62,  // BJ — RC
+  29: 63,  // BK — RP
 };
 
 // Mapeo ID producto (web Red) → abreviatura en hoja Productos
@@ -3671,6 +4372,7 @@ const RED_ID_TO_ABBR = {
   20:'SQB', 21:'SL', 22:'SPyP', 23:'SE',
   19:'PMu', 1:'PMa', 2:'PJyQ', 3:'PCC', 4:'PJyM',
   24:'TP', 25:'TJyQ', 26:'TCa', 27:'TV',
+  28:'RC', 29:'RP',
 };
 
 function _doPostRed(data) {
@@ -3969,11 +4671,14 @@ const HOME_COL_TO_ABBR = {
   39: 'PJyQ',  // AM
   40: 'PCC',   // AN
   41: 'PJyM',  // AO
-  // Tartas Gourmet (15/05/2026, cols BE-BH al final, no consecutivas)
+  // Tartas (15/05/2026, cols BE-BH al final, no consecutivas)
   57: 'TP',    // BE
   58: 'TJyQ',  // BF
   59: 'TCa',   // BG
   60: 'TV',    // BH
+  // Wraps Claudia Polito (27/05/2026, BJ-BK tras "A Favor / Aplicado" en BI)
+  62: 'RC',    // BJ
+  63: 'RP',    // BK
 };
 
 // Red: col V(22) a AR(44) = 23 productos (orden actualizado 20/04/2026)
@@ -4001,11 +4706,14 @@ const RED_COL_TO_ABBR = {
   42: 'PJyQ',  // AP
   43: 'PCC',   // AQ
   44: 'PJyM',  // AR
-  // Tartas Gourmet (15/05/2026, cols BF-BI al final, no consecutivas)
+  // Tartas (15/05/2026, cols BF-BI al final, no consecutivas)
   58: 'TP',    // BF
   59: 'TJyQ',  // BG
   60: 'TCa',   // BH
   61: 'TV',    // BI
+  // Wraps Claudia Polito (27/05/2026, BJ-BK al final)
+  62: 'RC',    // BJ
+  63: 'RP',    // BK
 };
 
 // IMPORTANTE: esta función debe configurarse SOLO como trigger instalable.
@@ -4138,6 +4846,11 @@ const CLUBES_COL_TO_ABBR = {
   29: 'PPM',   // AC
   30: 'PPJyQ', // AD
   31: 'PPCyQ', // AE
+  // Empanadas (28/05/2026) — cols AL-AO (1-based 38-41)
+  38: 'ECaC',  // AL
+  39: 'EJyQ',  // AM
+  40: 'ECyQ',  // AN
+  41: 'EV',    // AO
 };
 
 // ── Red: Origen col J(10), Estado Entrega col L(12) ──
@@ -4195,8 +4908,11 @@ function _onEditRed(e) {
   const nuevo    = String(e.value || '');
   const anterior = String(e.oldValue || '');
 
-  // → Cancelado: N° pasa a "-"
+  // → Cancelado: cancelar OCs vinculadas (antes de cambiar N° a "-") + N° pasa a "-"
   if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
+    var _nPedActualR = String(sh.getRange(row, 2).getValue() || '').trim();
+    var _cliActualR = String(sh.getRange(row, 9).getValue() || '').trim(); // Red: col 9 = Cliente
+    _cancelarOCsVinculadas('Red', _nPedActualR, _cliActualR);
     sh.getRange(row, 2).setValue('-');
   }
   // ← Sale de Cancelado: re-asignar N° siguiente de la semana (Día Entrega en col K=11)
@@ -4243,7 +4959,8 @@ function _redStockFisicoMixto(shRed, row, hProductos, signo) {
   var detalle = {};
   try { detalle = JSON.parse(jsonStr); } catch(e) { return; }
 
-  var cantidades = shRed.getRange(row, 22, 1, 23).getValues()[0];
+  // BUG 06/06/26: antes 23 cols (V–AR), excluía tartas y wraps. Ampliado a 42 (V–BK).
+  var cantidades = shRed.getRange(row, 22, 1, 42).getValues()[0];
   var prodData   = hProductos.getDataRange().getValues();
   var refPedido  = String(shRed.getRange(row, 2).getValue() || '');
 
@@ -4273,7 +4990,9 @@ function _redStockFisicoMixto(shRed, row, hProductos, signo) {
 
 // Stock para Red: 23 productos en cols V(22)-AR(44)
 function _redStockFisico(shRed, row, hProductos, signo) {
-  const cantidades = shRed.getRange(row, 22, 1, 23).getValues()[0]; // cols V–AR
+  // BUG 06/06/26: antes leía 23 cols (V–AR), excluyendo tartas (BF-BI) y wraps (BJ-BK).
+  // Ampliado a 42 cols (V=22 hasta BK=63) para cubrir todo el catálogo.
+  const cantidades = shRed.getRange(row, 22, 1, 42).getValues()[0]; // cols V–BK
   const prodData   = hProductos.getDataRange().getValues();
   const refPedido  = String(shRed.getRange(row, 2).getValue() || '');
 
@@ -4359,8 +5078,11 @@ function _onEditClubes(e) {
     const nuevo    = String(e.value || '');
     const anterior = String(e.oldValue || '');
 
-    // → Cancelado: N° pasa a "-"
+    // → Cancelado: cancelar OCs vinculadas (antes de cambiar N° a "-") + N° pasa a "-"
     if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
+      var _nPedActualC = String(sh.getRange(row, 2).getValue() || '').trim();
+      var _cliActualC = String(sh.getRange(row, 8).getValue() || '').trim(); // Clubes: col 8 = Cliente
+      _cancelarOCsVinculadas('Clubes', _nPedActualC, _cliActualC);
       sh.getRange(row, 2).setValue('-');
     }
     // ← Sale de Cancelado: re-asignar N° siguiente de la semana (Día Entrega en col M=13)
@@ -4408,7 +5130,7 @@ function _clubesStockFisicoMixto(shClubes, row, hProductos, signo) {
   var detalle = {};
   try { detalle = JSON.parse(jsonStr); } catch(e) { return; }
 
-  var cantidades = shClubes.getRange(row, 24, 1, 8).getValues()[0];
+  var cantidades = shClubes.getRange(row, 24, 1, 18).getValues()[0]; // X–AO (incluye empanadas)
   var prodData   = hProductos.getDataRange().getValues();
   var refPedido  = String(shClubes.getRange(row, 2).getValue() || '');
 
@@ -4438,7 +5160,8 @@ function _clubesStockFisicoMixto(shClubes, row, hProductos, signo) {
 
 // Ajusta Stock Físico (col F=6) de Productos desde Clubes + log Kardex. signo: -1=restar, +1=sumar
 function _clubesStockFisico(shClubes, row, hProductos, signo) {
-  const cantidades = shClubes.getRange(row, 24, 1, 8).getValues()[0]; // cols X–AE (8 productos)
+  // Leer hasta col AO (41) para incluir empanadas (cols AL-AO). X=24 → 18 cols.
+  const cantidades = shClubes.getRange(row, 24, 1, 18).getValues()[0]; // cols X–AO
   const prodData   = hProductos.getDataRange().getValues();
   const refPedido  = String(shClubes.getRange(row, 2).getValue() || ''); // B = N° Pedido
 
@@ -4589,13 +5312,19 @@ function generarOrdenDeCompra(canal, row) {
 
   // Precios especiales para Clubes (menores al retail)
   const CLUBES_PRECIOS = {
-    'PMu':7000, 'PMa':7000, 'PJyQ':7000, 'PCC':7000, 'PJyM':7800,
-    'PPM':11000, 'PPJyQ':11000, 'PPCyQ':11000
+    'PMu':7500, 'PMa':7500, 'PJyQ':7500, 'PCC':7500, 'PJyM':7800,
+    'PPM':12000, 'PPJyQ':12000, 'PPCyQ':12000,
+    'ECaC':18400, 'EJyQ':16000, 'ECyQ':16000, 'EV':16000
   };
 
+  // BUG 04/06/26: Pilar tiene layout propio (4 sorrentinos extras SQB/SL/SPyP/SE
+  // entre cols 26-31) que corre todas las cols de productos. Usar HOME_COL_TO_ABBR
+  // para Pilar generaba OCs con el producto equivocado (ej: pedido ECaC qty=1 en
+  // col AG/33 generaba OC de TG porque en Home idx 33 = TG). Fix: mapeo propio.
   const colToAbbrMap = (canal === 'Clubes')
-    ? {24:'PMu', 25:'PMa', 26:'PJyQ', 27:'PCC', 28:'PJyM', 29:'PPM', 30:'PPJyQ', 31:'PPCyQ'}
-    : (canal === 'Red') ? RED_COL_TO_ABBR
+    ? CLUBES_COL_TO_ABBR
+    : (canal === 'Red')   ? RED_COL_TO_ABBR
+    : (canal === 'Pilar') ? PILAR_COL_TO_ABBR
     : HOME_COL_TO_ABBR;
 
   const cliente    = String(rowData[colCliente] || '').trim();
@@ -4629,7 +5358,11 @@ function generarOrdenDeCompra(canal, row) {
     const colIdx = Number(colStr);
     const abbr   = colToAbbrMap[colIdx];
     const qty    = Number(rowData[colIdx - 1]) || 0;
-    if (qty === 0) return;
+    // Defensa: solo cantidades sanas (entero positivo razonable). Evita que
+    // una celda con formato fecha mal heredado (serial date → número enorme
+    // negativo) genere una OC basura. Bug detectado 28/05/2026 con empanadas
+    // Clubes recién agregadas.
+    if (!(qty > 0 && qty < 10000 && Number.isInteger(qty))) return;
 
     const ocId         = _nextId('OC-');
     const costoUnit    = abbrToCostoMap[abbr] || 0;
@@ -4698,6 +5431,36 @@ function generarOrdenDeCompra(canal, row) {
 // ── Home: sync stock + auto-generar Orden de Compra ──
 // Col I (9) = Origen → si cambia a "Orden de Compra", genera filas en OC
 // Col K (11) = Estado de Entrega → si cambia a "Entregado", descuenta stock
+/** Marca como "Cancelado" todas las OCs vinculadas a un pedido cliente
+ *  (match por Canal + N° Pedido Origen + Cliente). NO toca OCs Recibidas
+ *  (esas ya entraron al stock y no se deben revertir desde acá).
+ *  Devuelve cantidad cancelada. Llamado desde _onEditHome/_onEditRed/_onEditClubes
+ *  cuando un pedido pasa a Cancelado, ANTES de que el N° se reescriba a "-". */
+function _cancelarOCsVinculadas(canal, nPedido, cliente) {
+  if (!nPedido || nPedido === '-') return 0;
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC || shOC.getLastRow() <= 1) return 0;
+  // Lectura de cols E(Canal=5), F(NPedOrig=6), G(Cliente=7), U(EstadoOC=21)
+  var lastRow = shOC.getLastRow();
+  var data = shOC.getRange(2, 1, lastRow - 1, 21).getValues();
+  var cancelled = 0;
+  for (var i = 0; i < data.length; i++) {
+    var canalOC = String(data[i][4]).trim();
+    var nPedOC  = String(data[i][5]).trim();
+    var cliOC   = String(data[i][6]).trim();
+    var estadoOC = String(data[i][20]).trim();
+    if (canalOC === canal && nPedOC === nPedido && cliOC === cliente &&
+        estadoOC !== 'Recibido' && estadoOC !== 'Cancelado') {
+      shOC.getRange(i + 2, 21).setValue('Cancelado'); // col U = 21
+      cancelled++;
+    }
+  }
+  if (cancelled > 0) {
+    SS.toast('Canceladas ' + cancelled + ' OC vinculadas a ' + cliente + ' (' + nPedido + ')', 'OC', 5);
+  }
+  return cancelled;
+}
+
 function _onEditHome(e) {
   const col = e.range.getColumn();
   const row = e.range.getRow();
@@ -4765,8 +5528,11 @@ function _onEditHome(e) {
   const nuevo    = String(e.value || '');
   const anterior = String(e.oldValue || '');
 
-  // → Cancelado: N° pasa a "-" (no cuenta en la numeración semanal)
+  // → Cancelado: cancelar OCs vinculadas (antes de cambiar N° a "-") + N° pasa a "-"
   if (nuevo === 'Cancelado' && anterior !== 'Cancelado') {
+    var _nPedActual = String(sh.getRange(row, 2).getValue() || '').trim();
+    var _cliActual = String(sh.getRange(row, 8).getValue() || '').trim();
+    _cancelarOCsVinculadas(sh.getName(), _nPedActual, _cliActual);
     sh.getRange(row, 2).setValue('-');
   }
   // ← Sale de Cancelado: re-asignar N° siguiente de la semana (prefix según hoja: H=Home, P=Pilar)
@@ -4872,9 +5638,10 @@ function _homeStockFisico(shHome, row, hProductos, signo) {
   var isPilar = (shHome.getName() === 'Pilar');
   var prodCount = isPilar ? 23 : 19;
   var COL_MAP   = isPilar ? PILAR_COL_TO_ABBR : HOME_COL_TO_ABBR;
-  // Leer hasta la última col de tartas (Home BH=60, Pilar BK=63) para que el
-  // mapeo de tartas también caiga dentro del array de cantidades.
-  var maxColPC = isPilar ? 63 : 60;
+  // Leer hasta la última col de wraps (Home BK=63, Pilar BN=66) para que el
+  // mapeo de tartas y wraps también caiga dentro del array de cantidades.
+  // BUG 06/06/26: antes era 60/63 → no descontaba wraps RC/RP del stock físico.
+  var maxColPC = isPilar ? 66 : 63;
   const cantidades = shHome.getRange(row, 23, 1, maxColPC - 22).getValues()[0];
   const prodData   = hProductos.getDataRange().getValues();
   const refPedido  = String(shHome.getRange(row, 2).getValue() || ''); // B = N° Pedido
@@ -4918,8 +5685,8 @@ function _homeStockFisicoMixto(shHome, row, hProductos, signo) {
   var isPilarMx = (shHome.getName() === 'Pilar');
   var prodCountMx = isPilarMx ? 23 : 19;
   var COL_MAP_MX  = isPilarMx ? PILAR_COL_TO_ABBR : HOME_COL_TO_ABBR;
-  // Leer hasta la última col de tartas (Home BH=60, Pilar BK=63)
-  var maxColMX = isPilarMx ? 63 : 60;
+  // Leer hasta la última col de wraps (Home BK=63, Pilar BN=66) — antes 60/63.
+  var maxColMX = isPilarMx ? 66 : 63;
   var cantidades = shHome.getRange(row, 23, 1, maxColMX - 22).getValues()[0];
   var prodData = hProductos.getDataRange().getValues();
   var refPedido = String(shHome.getRange(row, 2).getValue() || '');
@@ -4966,6 +5733,9 @@ const ABBR_TO_HOME_COL = {
   'ECaC':'AC', 'EJyQ':'AD', 'ECyQ':'AE', 'EV':'AF',
   'TG':'AG', 'TLC':'AH', 'TC':'AI', 'F':'AJ',
   'PMu':'AK', 'PMa':'AL', 'PJyQ':'AM', 'PCC':'AN', 'PJyM':'AO',
+  // Tartas (BE-BH) y Wraps Claudia Polito (BJ-BK) — al final
+  'TP':'BE', 'TJyQ':'BF', 'TCa':'BG', 'TV':'BH',
+  'RC':'BJ', 'RP':'BK',
 };
 
 // Mapeo para Clubes: abreviatura → letra de columna en Clubes
@@ -4982,6 +5752,9 @@ const ABBR_TO_PILAR_COL = {
   'ECaC':'AG', 'EJyQ':'AH', 'ECyQ':'AI', 'EV':'AJ',
   'TG':'AK', 'TLC':'AL', 'TC':'AM', 'F':'AN',
   'PMu':'AO', 'PMa':'AP', 'PJyQ':'AQ', 'PCC':'AR', 'PJyM':'AS',
+  // Tartas (BH-BK) y Wraps Claudia Polito (BM-BN) — al final
+  'TP':'BH', 'TJyQ':'BI', 'TCa':'BJ', 'TV':'BK',
+  'RC':'BM', 'RP':'BN',
 };
 
 // Mapeo Red: abreviatura → letra de columna en Red (productos van de V(22) a AR(44))
@@ -4991,6 +5764,9 @@ const ABBR_TO_RED_COL = {
   'ECaC':'AF', 'EJyQ':'AG', 'ECyQ':'AH', 'EV':'AI',
   'TG':'AJ', 'TLC':'AK', 'TC':'AL', 'F':'AM',
   'PMu':'AN', 'PMa':'AO', 'PJyQ':'AP', 'PCC':'AQ', 'PJyM':'AR',
+  // Tartas (BF-BI) y Wraps Claudia Polito (BJ-BK) — al final
+  'TP':'BF', 'TJyQ':'BG', 'TCa':'BH', 'TV':'BI',
+  'RC':'BJ', 'RP':'BK',
 };
 
 function setupProductosFormulas() {
@@ -5064,10 +5840,14 @@ function setupProductosFormulas() {
     hProd.getRange(rowNum, 12).setFormula('=D' + rowNum + '+N' + rowNum + '-E' + rowNum + '-F' + rowNum);
 
     // Col N (Comprado Semana) — OC recibidas en la semana en curso (Lun 00:00 → Dom 23:59 AR)
+    // SOLO reposición de depósito (canal "Deposito"/"Depósito") — excluye OC pasamanos con cliente
+    // final (canal Home/Pilar/Clubes/Red). Coincide con sumarStock() que solo suma Físico si canal
+    // empieza con "Dep". Así se mantiene la identidad Inicial + Comprado - Vendidos = Físico.
     hProd.getRange(rowNum, 14).setFormula(
       '=SUMPRODUCT(' +
       "('Orden de Compra'!$L$2:$L$10000=$C" + rowNum + ')*' +
       '(\'Orden de Compra\'!$U$2:$U$10000="Recibido")*' +
+      '(LEFT(\'Orden de Compra\'!$E$2:$E$10000;3)="Dep")*' +
       "('Orden de Compra'!$W$2:$W$10000>=TODAY()-WEEKDAY(TODAY();3))*" +
       "('Orden de Compra'!$W$2:$W$10000<TODAY()-WEEKDAY(TODAY();3)+7)*" +
       "'Orden de Compra'!$M$2:$M$10000)"
@@ -7319,6 +8099,15 @@ function _doGetAdmin(opt) {
         var qtyT2 = Number(data[r][tartaStartAdm + tp2]) || 0;
         if (qtyT2 > 0) prods.push({ a: tartaAbbrsAdm[tp2], q: qtyT2 });
       }
+      // Wraps (RC, RP): cols al final tras "A Favor / Aplicado". Home idx 61-62, Pilar 64-65.
+      // Sin esto un pedido SOLO de wraps (caso Simón Panelo 05/06) aparece sin productos
+      // en el Panel y el editor abre vacío. (El Ruta ya se arregló en _doGetEntregas.)
+      var wrapStartAdm = isPilarAdm ? 64 : 61;
+      var wrapAbbrsAdm = ['RC', 'RP'];
+      for (var wp2 = 0; wp2 < 2; wp2++) {
+        var qtyW2 = Number(data[r][wrapStartAdm + wp2]) || 0;
+        if (qtyW2 > 0) prods.push({ a: wrapAbbrsAdm[wp2], q: qtyW2 });
+      }
 
       var formaPago = String(data[r][11] || '').trim();
       var costoPed = Number(data[r][IX.costo]) || 0;
@@ -7372,21 +8161,32 @@ function _doGetAdmin(opt) {
         if (String(headersH[hd]).trim() === 'Origen Detalle') { oDetStr = String(data[r][hd] || '').trim(); break; }
       }
 
+      // Descuento Detalle (receta JSON): para que el panel/editor muestren y ajusten el descuento
+      var ddStr = '';
+      for (var hdd = 0; hdd < headersH.length; hdd++) {
+        if (String(headersH[hdd]).trim() === 'Descuento Detalle') { ddStr = String(data[r][hdd] || '').trim(); break; }
+      }
+
       // Repartidor: Home col 56 (BD, idx 55), Pilar col 59 (idx 58). Leer por header para resiliencia.
       var repStr = '';
       for (var hr2 = 0; hr2 < headersH.length; hr2++) {
         if (String(headersH[hr2]).trim() === 'Repartidor') { repStr = String(data[r][hr2] || '').trim(); break; }
       }
 
+      // Barrio principal (Home: Estancias del Pilar / Los Alcanfores / Estancias del Río · Pilar: barrio privado).
+      // Va en campo `bar` para que el panel pueda filtrar por barrio sin meterse con sub-barrios.
+      var barStr = String(data[r][IX.barrio] || '').trim();
+
       pedidos.push({
         n: nPedido, h: hoja, c: cliente, f: fechaStr, de: diaEntrega, dee: diaEntregaISO,
         es: estado, o: origen, ep: estadoPago, fp: formaPago,
-        $: facturado, co: costoPed, mg: margenPed, br: subBarrio, p: prods,
+        $: facturado, co: costoPed, mg: margenPed, br: subBarrio, bar: barStr, p: prods,
         hr: horaStr, dia: diaPedido,
         ef: efR, tr: trR, pef: pefR, ptr: ptrR,
         fe: feStr, fed: feDiaStr,
         fc: fcStr, fcd: fcDiaStr,
         oDet: oDetStr,
+        dd: ddStr,
         rep: repStr,
         r: r + _rOffH
       });
@@ -7441,6 +8241,12 @@ function _doGetAdmin(opt) {
       for (var pc = 0; pc < 8; pc++) {
         var qtyC = Number(dataClubes[rc][23 + pc]) || 0;
         if (qtyC > 0) prodsC.push({ a: ABBRS_CLUB[pc], q: qtyC });
+      }
+      // Empanadas Clubes (28/05/2026): cols AL-AO = idx 37-40
+      var ABBRS_CLUB_EMP2 = ['ECaC','EJyQ','ECyQ','EV'];
+      for (var ec2 = 0; ec2 < 4; ec2++) {
+        var qtyEc2 = Number(dataClubes[rc][37 + ec2]) || 0;
+        if (qtyEc2 > 0) prodsC.push({ a: ABBRS_CLUB_EMP2[ec2], q: qtyEc2 });
       }
 
       var formaPagoC = String(dataClubes[rc][14] || '').trim();
@@ -7538,14 +8344,39 @@ function _doGetAdmin(opt) {
       else if (estadoR === 'Reservado') statsRed.reservados++;
       else statsRed.pendientes++;
 
+      // Liquidación de Marcos a Maleu: cols BA/BB/BC (52/53/54). Es la plata
+      // que efectivamente entra a la caja de Maleu, no lo que el cliente final
+      // le paga a Marcos (cols 12-17). Para el resumen de cobros del panel
+      // usamos estos valores como ep/fp/fc del pedido.
+      var fpMaleuR     = String(dataRed[rr][52] || '').trim();
+      var estadoMaleuR = String(dataRed[rr][53] || '').trim();
+      var epMaleuR     = (estadoMaleuR === 'Pagado') ? 'Cobrado' : 'No Cobrado';
+      var fcRawR       = dataRed[rr][54];
+      var fcMaleuR     = '';
+      if (fcRawR) {
+        if (fcRawR instanceof Date) {
+          fcMaleuR = Utilities.formatDate(fcRawR, 'America/Argentina/Buenos_Aires', 'dd/MM');
+        } else {
+          var mFc = String(fcRawR).match(/^(\d{1,2})\/(\d{1,2})/);
+          if (mFc) fcMaleuR = ('0'+mFc[1]).slice(-2) + '/' + ('0'+mFc[2]).slice(-2);
+        }
+      }
+
       statsRed.facturado += aPagarR;
-      if (estadoPagoR === 'Cobrado') statsRed.cobrado += aPagarR;
+      if (epMaleuR === 'Cobrado') statsRed.cobrado += aPagarR;
       else statsRed.noCobrado += aPagarR;
 
       var prodsR = [];
       for (var prr = 0; prr < 23; prr++) {
         var qtyR = Number(dataRed[rr][21 + prr]) || 0;
         if (qtyR > 0) prodsR.push({ a: ABBRS_RED_DASH[prr], q: qtyR });
+      }
+      // Tartas Red: cols BF-BI (idx 57-60), al final tras las cols de control.
+      // No son consecutivas con el bloque de productos viejo, por eso van aparte.
+      var TARTA_ABBRS_RED_DASH = ['TP', 'TJyQ', 'TCa', 'TV'];
+      for (var ptr = 0; ptr < 4; ptr++) {
+        var qtyRT = Number(dataRed[rr][57 + ptr]) || 0;
+        if (qtyRT > 0) prodsR.push({ a: TARTA_ABBRS_RED_DASH[ptr], q: qtyRT });
       }
 
       var formaPagoR = String(dataRed[rr][12] || '').trim();
@@ -7568,7 +8399,9 @@ function _doGetAdmin(opt) {
         n: nPedidoR, h: 'Red',
         c: clienteR + (vendedorR ? ' (Red: ' + vendedorR + ')' : ''),
         f: fechaStrR, de: diaEntregaR, dee: diaEntregaISOR, es: estadoR, o: origenR,
-        ep: estadoPagoR, fp: formaPagoR, $: aPagarR,
+        // ep/fp/fc reflejan la liquidación de Marcos a Maleu (BA/BB/BC), no el
+        // cobro del cliente final a Marcos. Es lo que entra a la caja de Maleu.
+        ep: epMaleuR, fp: fpMaleuR || formaPagoR, fc: fcMaleuR, $: aPagarR,
         co: costoR, mg: margenR, br: vendedorR, p: prodsR,
         hr: horaStrRd, dia: diaPedRd,
         ef: efRd, tr: trRd, pef: pefRd, ptr: ptrRd,
@@ -7765,13 +8598,18 @@ function _doGetAdmin(opt) {
     // Buscar columnas por header
     var hdr = dataProd[0];
     var colNombre = -1, colAbbr = -1, colFisico = -1, colReservado = -1, colDisp = -1;
+    var colIni = -1, colVen = -1, colComp = -1, colInv = -1;
     for (var h = 0; h < hdr.length; h++) {
-      var hv = String(hdr[h]).trim().toLowerCase();
+      var hv = String(hdr[h]).replace(/\n/g,' ').trim().toLowerCase();
       if (hv === 'producto' || hv === 'nombre') colNombre = h;
       if (hv === 'abreviatura') colAbbr = h;
       if (hv === 'stock físico' || hv === 'stock fisico') colFisico = h;
       if (hv === 'reservado') colReservado = h;
-      if (hv === 'disponible') colDisp = h;
+      if (hv === 'stock disponible' || hv === 'disponible') colDisp = h;
+      if (hv === 'stock inicial semana' || hv === 'inicial semana') colIni = h;
+      if (hv === 'vendidos semana') colVen = h;
+      if (hv === 'comprado semana') colComp = h;
+      if (hv === 'invertido') colInv = h;
     }
     for (var rp = 1; rp < dataProd.length; rp++) {
       var nombre = colNombre >= 0 ? String(dataProd[rp][colNombre]).trim() : '';
@@ -7780,10 +8618,14 @@ function _doGetAdmin(opt) {
       var fisico = colFisico >= 0 ? (Number(dataProd[rp][colFisico]) || 0) : 0;
       var reservado = colReservado >= 0 ? (Number(dataProd[rp][colReservado]) || 0) : 0;
       var disponible = colDisp >= 0 ? (Number(dataProd[rp][colDisp]) || 0) : fisico - reservado;
+      var inicialSem = colIni >= 0 ? (Number(dataProd[rp][colIni]) || 0) : 0;
+      var vendidosSem = colVen >= 0 ? (Number(dataProd[rp][colVen]) || 0) : 0;
+      var compradoSem = colComp >= 0 ? (Number(dataProd[rp][colComp]) || 0) : 0;
       // Precio y costo (cols I=8, J=9 0-based) — usados por el editor de pedidos para defaults
       var precio = parseFloat(String(dataProd[rp][8] || '').replace(/[$.]/g,'').replace(/,/g,'')) || 0;
       var costoU = parseFloat(String(dataProd[rp][9] || '').replace(/[$.]/g,'').replace(/,/g,'')) || 0;
-      stock.push({ n: nombre, a: abbr, f: fisico, r: reservado, d: disponible, p: precio, co: costoU });
+      var invertido = colInv >= 0 ? (parseFloat(String(dataProd[rp][colInv] || '').replace(/[$.]/g,'').replace(/,/g,'')) || 0) : (fisico * costoU);
+      stock.push({ n: nombre, a: abbr, f: fisico, r: reservado, d: disponible, p: precio, co: costoU, i: inicialSem, v: vendidosSem, c: compradoSem, iv: invertido });
     }
   }
 
@@ -7953,7 +8795,18 @@ function _doGetAdmin(opt) {
       var efTotal = 0, mpTotal = 0;
       if (netoCierre > 0) {
         if (fpVal === 'Efectivo') efTotal = netoCierre;
-        else mpTotal = netoCierre;
+        else if (fpVal === 'Mixto') {
+          // Bug Gonzalo 05/06: fp=Mixto mandaba TODO el facturado a MP en libro diario.
+          // Usar la composición real de las cols Ef/Tr del pedido, escalando por si hubo parciales.
+          if (facturado > 0 && (ef + tr) > 0) {
+            efTotal = Math.round(netoCierre * (ef / (ef + tr)));
+            mpTotal = netoCierre - efTotal;
+          } else {
+            mpTotal = netoCierre;
+          }
+        } else {
+          mpTotal = netoCierre;
+        }
       }
       if (efTotal > 0 || mpTotal > 0) {
         cobrosDetalle.push({
@@ -8032,6 +8885,25 @@ function _doGetAdmin(opt) {
         cat: String(dataIng[ri][3] || '').trim(),
         con: String(dataIng[ri][4] || '').trim(), met: metodoI,
         $: montoI, not: String(dataIng[ri][7] || '').trim()
+      });
+    }
+  }
+
+  // ── Vueltos desde la billetera (para el desglose por día del Resumen) ──
+  // Permite explicar por qué el efectivo cobrado (neto) es menor a los billetes que
+  // entraron en mano: EF neto + vuelto = recibido. Agrupado por día (dd/MM).
+  var vueltos = [];
+  var shCbV = SS.getSheetByName('Cambios Billetera');
+  if (shCbV && shCbV.getLastRow() > 1) {
+    var dCbV = shCbV.getDataRange().getValues();
+    for (var rcb = 1; rcb < dCbV.length; rcb++) {
+      var fCbRaw = dCbV[rcb][0];
+      var mCb = Number(dCbV[rcb][4]) || 0;
+      if (mCb <= 0) continue;
+      var fCbDt = _parseDateAny(fCbRaw);
+      vueltos.push({
+        f: fCbDt ? Utilities.formatDate(fCbDt, 'America/Argentina/Buenos_Aires', 'dd/MM') : String(fCbRaw || ''),
+        h: String(dCbV[rcb][1] || ''), c: String(dCbV[rcb][3] || ''), $: mCb
       });
     }
   }
@@ -8135,7 +9007,8 @@ function _doGetAdmin(opt) {
       gastos: gastos,
       ingresos: ingresos,
       gastosHist: gastosHist,
-      movimientos: movimientos
+      movimientos: movimientos,
+      vueltos: vueltos
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -8287,7 +9160,7 @@ function _doPostSetOrigenProductos(data) {
   // Para el viejo necesitamos saber la cantidad total del producto en el pedido.
   // Determinar columnas de productos según hoja para resolver cantidades del pedido.
   var COL_MAP = (hoja === 'Pilar')  ? PILAR_COL_TO_ABBR
-              : (hoja === 'Clubes') ? { 24:'PMu',25:'PMa',26:'PJyQ',27:'PCC',28:'PJyM',29:'PPM',30:'PPJyQ',31:'PPCyQ' }
+              : (hoja === 'Clubes') ? CLUBES_COL_TO_ABBR
               : (hoja === 'Red')    ? RED_COL_TO_ABBR
                                     : HOME_COL_TO_ABBR;
   var ABBR_TO_COL = {};
@@ -8340,22 +9213,33 @@ function _doPostSetOrigenProductos(data) {
   prodsNorm.forEach(function(p){ detailObj[p.a] = { d: p.d, oc: p.oc }; });
   sh.getRange(row, colDetalle).setValue(JSON.stringify(detailObj));
 
-  // Generar OC para los productos con cantOC > 0 (con cantidad explícita)
+  // Generar OC para los productos con cantOC > 0 (con cantidad explícita).
+  // Anti-duplicado POR PRODUCTO: no regenera la OC de un abbr que el pedido ya
+  // tiene, pero SÍ genera las de los abbrs que aún no tienen OC. Esto permite
+  // agregar productos nuevos (ej. tartas) a un pedido que ya tenía OC sin
+  // duplicar las existentes.
+  // Antes era un guard global ("si existe CUALQUIER OC del pedido, no generar
+  // NINGUNA") que dejaba sin OC a las tartas agregadas al re-confirmar el origen
+  // de un pedido Red que ya tenía OC de otros productos.
   var ocProds = prodsNorm.filter(function(p){ return p.oc > 0; });
   if (ocProds.length > 0) {
     var clienteOrig = String(sh.getRange(row, hoja === 'Red' ? 9 : 8).getValue() || '').trim();
     var shOC = SS.getSheetByName('Orden de Compra');
-    var yaExiste = false;
+    var abbrsConOC = {};
     if (shOC && shOC.getLastRow() > 1) {
-      var existentes = shOC.getRange(2, 5, shOC.getLastRow() - 1, 3).getValues();
+      // E..L (canal, N° pedido, cliente, tel, dir, prov, producto, abreviatura)
+      var existentes = shOC.getRange(2, 5, shOC.getLastRow() - 1, 8).getValues();
       for (var i = 0; i < existentes.length; i++) {
-        if (String(existentes[i][0]).trim() === hoja &&
-            String(existentes[i][1]).trim() === pedidoId &&
-            String(existentes[i][2]).trim() === clienteOrig) { yaExiste = true; break; }
+        if (String(existentes[i][0]).trim() === hoja &&        // E canal
+            String(existentes[i][1]).trim() === pedidoId &&     // F N° pedido
+            String(existentes[i][2]).trim() === clienteOrig) {  // G cliente
+          abbrsConOC[String(existentes[i][7]).trim()] = true;   // L abreviatura
+        }
       }
     }
-    if (!yaExiste) {
-      _generarOCSelectiva(hoja, row, ocProds.map(function(p){ return { a: p.a, qty: p.oc, prov: p.prov }; }));
+    var faltantes = ocProds.filter(function(p){ return !abbrsConOC[p.a]; });
+    if (faltantes.length > 0) {
+      _generarOCSelectiva(hoja, row, faltantes.map(function(p){ return { a: p.a, qty: p.oc, prov: p.prov }; }));
     }
   }
 
@@ -8457,7 +9341,7 @@ function _doPostEditarPedido(data) {
   if (hoja === 'Clubes') {
     colEst = 14; colOrigen = 12; colPago = 16;
     colTotal = 17; colCosto = 32; colMargen = 33;
-    COL_MAP = { 24:'PMu',25:'PMa',26:'PJyQ',27:'PCC',28:'PJyM',29:'PPM',30:'PPJyQ',31:'PPCyQ' };
+    COL_MAP = CLUBES_COL_TO_ABBR;
     prodStartCol = 24; prodEndCol = 31;
     colEnvio = 18; colFacturado = 23; // R envio (0 generalmente), W Facturado
   } else if (hoja === 'Red') {
@@ -8486,11 +9370,19 @@ function _doPostEditarPedido(data) {
 
   var est = String(sh.getRange(row, colEst).getValue()).trim();
   var pago = String(sh.getRange(row, colPago).getValue()).trim();
-  if (est === 'Entregado' || est === 'Cancelado') {
-    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'No se puede editar: el pedido está ' + est })).setMimeType(ContentService.MimeType.JSON);
+  if (est === 'Cancelado') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'No se puede editar: el pedido está Cancelado' })).setMimeType(ContentService.MimeType.JSON);
   }
   if (pago === 'Cobrado') {
     return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'No se puede editar: el pedido ya está Cobrado' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  // ── Edición de un pedido YA ENTREGADO ──
+  // Permitida solo para Home/Pilar no cobrados. El stock físico ya se descontó al
+  // entregar, así que la edición lo reajusta por la diferencia (ver más abajo).
+  // Se bloquea si tiene OC vinculada (la reasignación de OC no aplica a un entregado).
+  var isEntregado = (est === 'Entregado');
+  if (isEntregado && hoja !== 'Home' && hoja !== 'Pilar') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'Solo se pueden editar pedidos entregados de Home o Pilar' })).setMimeType(ContentService.MimeType.JSON);
   }
 
   var origenActual = String(sh.getRange(row, colOrigen).getValue()).trim();
@@ -8548,6 +9440,15 @@ function _doPostEditarPedido(data) {
     }
   }
 
+  // Entregado con OC vinculada: bloquear (la reasignación de OC no aplica a un entregado).
+  if (isEntregado && ocsDelPedido.length > 0) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'No se puede editar un entregado con OC vinculada. Reasigná la OC a mano.' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Reset/preserve de origen + OCs: SOLO para pedidos NO entregados. Un entregado
+  // mantiene su origen/estado tal cual; el ajuste de stock se hace por diferencia abajo.
+  var origenReseteado = false;
+  if (!isEntregado) {
   // ¿Podemos preservar el origen?
   // Sí, si: hadOrigen + sin productos nuevos + sin aumentos + ninguna OC ya pasó
   // del estado Pendiente (si ya se pidió/recibió, hay que reasignar manual).
@@ -8568,7 +9469,6 @@ function _doPostEditarPedido(data) {
     }
   }
 
-  var origenReseteado = false;
   if (hadOrigen && !canPreserve) {
     // RESET completo: borrar TODAS las OCs y poner Pendiente
     if (shOC) {
@@ -8628,6 +9528,7 @@ function _doPostEditarPedido(data) {
       est = 'Pendiente';
     }
   }
+  } // fin if(!isEntregado) — reset/preserve de origen solo para no entregados
 
   // Catálogo de Productos: precio retail + costo por abbr
   var hProd = SS.getSheetByName('Productos');
@@ -8641,31 +9542,42 @@ function _doPostEditarPedido(data) {
       costoUnit[ab]    = parseFloat(String(prodData[rp][9]).replace(/[$.]/g,'').replace(/,/g,'')) || 0;
     }
   }
-  var CLUBES_PRECIOS = {'PMu':7000,'PMa':7000,'PJyQ':7000,'PCC':7000,'PJyM':7800,'PPM':11000,'PPJyQ':11000,'PPCyQ':11000};
+  var CLUBES_PRECIOS = {'PMu':7500,'PMa':7500,'PJyQ':7500,'PCC':7500,'PJyM':7800,'PPM':12000,'PPJyQ':12000,'PPCyQ':12000,'ECaC':18400,'EJyQ':16000,'ECyQ':16000,'EV':16000};
 
   // Reescribir cantidades en TODAS las columnas de productos del bloque
   var nProds = prodEndCol - prodStartCol + 1;
   var newQty = new Array(nProds).fill(0);
-  // Tartas (cols al final, no consecutivas) — se manejan aparte:
-  // Home BE-BH 57-60, Pilar BH-BK 60-63, Red BF-BI 58-61. Clubes no tiene tartas.
+  // Cols extra al final, no consecutivas con el bloque principal — se manejan aparte:
+  // Tartas: Home BE-BH 57-60, Pilar BH-BK 60-63, Red BF-BI 58-61.
+  // Empanadas Clubes: AL-AO 38-41 (28/05/2026).
   var tartaColsByHoja = {
-    'Home':  [57, 58, 59, 60],
-    'Pilar': [60, 61, 62, 63],
-    'Red':   [58, 59, 60, 61]
+    'Home':   [57, 58, 59, 60],
+    'Pilar':  [60, 61, 62, 63],
+    'Red':    [58, 59, 60, 61],
+    'Clubes': [38, 39, 40, 41]
   };
   var TARTA_ABBRS = ['TP', 'TJyQ', 'TCa', 'TV'];
   var tartaCols = tartaColsByHoja[hoja] || [];
   var newTartaQty = [0, 0, 0, 0];
+  // Wraps (RC, RP): en Home/Pilar van al final, fuera del bloque principal (igual que tartas).
+  // Home BJ-BK 62-63, Pilar BM-BN 65-66. En Red/Clubes están dentro del bloque principal.
+  var wrapColsByHoja = { 'Home': [62, 63], 'Pilar': [65, 66] };
+  var wrapCols = wrapColsByHoja[hoja] || [];
+  var newWrapQty = [0, 0];
   var subtotal = 0, costo = 0;
+  var _recipeLines = [];   // [{abbr, qty, precio}] para recalcular la receta de descuento
   Object.keys(COL_MAP).forEach(function(colStr){
     var colIdx = Number(colStr);
     var abbr = COL_MAP[colIdx];
     var info = lineasMap[abbr];
     var qty = (info && info.q > 0) ? info.q : 0;
-    // Determinar si esta col es tarta y dónde escribirla
+    // Determinar si esta col es tarta o wrap (cols separadas al final) y dónde escribirla
     var tartaIdx = tartaCols.indexOf(colIdx);
+    var wrapIdx = wrapCols.indexOf(colIdx);
     if (tartaIdx >= 0) {
       newTartaQty[tartaIdx] = qty;
+    } else if (wrapIdx >= 0) {
+      newWrapQty[wrapIdx] = qty;
     } else if (colIdx >= prodStartCol && colIdx <= prodEndCol) {
       newQty[colIdx - prodStartCol] = qty;
     }
@@ -8676,14 +9588,36 @@ function _doPostEditarPedido(data) {
       var costoLinea = info.costo != null ? info.costo : (costoUnit[abbr] || 0);
       subtotal += qty * precio;
       costo    += qty * costoLinea;
+      _recipeLines.push({ abbr: abbr, qty: qty, precio: precio });
     }
   });
+
+  // ── Ajuste de stock físico para pedidos ENTREGADOS (Home/Pilar) ──
+  // El físico ya se descontó al entregar. Para reflejar la edición lo reajustamos por
+  // la DIFERENCIA: devolvemos las cantidades VIEJAS (+1, lee la fila antes de pisarla) y
+  // luego descontamos las NUEVAS (-1, lee la fila ya actualizada). Neto: físico += viejo − nuevo.
+  var _origenFis = isEntregado ? String(sh.getRange(row, colOrigen).getValue()).trim() : '';
+  var _ajustaFis = isEntregado && hProd && (hoja === 'Home' || hoja === 'Pilar') && (_origenFis === 'Deposito' || _origenFis === 'Mixto');
+  if (_ajustaFis) {
+    if (_origenFis === 'Deposito') _homeStockFisico(sh, row, hProd, +1);
+    else                          _homeStockFisicoMixto(sh, row, hProd, +1);
+  }
 
   // Escribir cantidades en batch
   sh.getRange(row, prodStartCol, 1, nProds).setValues([newQty]);
   // Tartas: escribir las 4 cols (consecutivas entre sí pero en otro rango)
   if (tartaCols.length === 4) {
     sh.getRange(row, tartaCols[0], 1, 4).setValues([newTartaQty]);
+  }
+  // Wraps: escribir las 2 cols (Home 62-63 / Pilar 65-66, consecutivas)
+  if (wrapCols.length === 2) {
+    sh.getRange(row, wrapCols[0], 1, 2).setValues([newWrapQty]);
+  }
+
+  if (_ajustaFis) {
+    SpreadsheetApp.flush(); // asegurar que el -1 lea las cantidades nuevas ya escritas
+    if (_origenFis === 'Deposito') _homeStockFisico(sh, row, hProd, -1);
+    else                          _homeStockFisicoMixto(sh, row, hProd, -1);
   }
 
   // ── Recalcular subtotal / descuento / total / facturado / margen ──
@@ -8696,9 +9630,34 @@ function _doPostEditarPedido(data) {
   var descuentoNuevo = 0;
   if (colDescuento && (hoja === 'Home' || hoja === 'Pilar')) {
     var formaPago = String(sh.getRange(row, colFormaPago).getValue()).trim();
-    var aplicaBulk = subtotal >= 100000;
-    var aplicaCash = (formaPago === 'Efectivo');
-    descuentoNuevo = (aplicaBulk || aplicaCash) ? Math.round(subtotal * 0.10) : 0;
+    // ── Receta de descuento (tab "+") ──
+    // Si el pedido tiene una receta guardada (o el editor mandó una nueva), col P se
+    // recalcula APLICANDO LA RECETA al nuevo subtotal — así el descuento sobrevive el
+    // cambio de productos. Si no hay receta, cae a la regla histórica del 10%.
+    var colRecEd = 0;
+    for (var hr = 0; hr < headers.length; hr++) {
+      if (String(headers[hr]).trim() === 'Descuento Detalle') { colRecEd = hr + 1; break; }
+    }
+    // El editor del panel puede mandar una receta nueva (Tadeo ajustó el %) con el flag
+    // descuentoRecetaEditor=true. Si el editor la mandó (aunque sea null = borró el
+    // descuento), respetamos eso y NO revivimos la guardada. Si no la mandó (ej: edición
+    // vieja sin descuento), usamos la receta guardada para que el descuento sobreviva.
+    var editorSetReceta = (data.descuentoRecetaEditor === true || data.descuentoRecetaEditor === 'true');
+    var recetaEd = _parseReceta(data.descuentoReceta);
+    if (!recetaEd && !editorSetReceta && colRecEd) recetaEd = _parseReceta(sh.getRange(row, colRecEd).getValue());
+    var descReceta = _recetaActiva(recetaEd) ? _calcDescuentoReceta(recetaEd, _recipeLines, formaPago) : null;
+    if (descReceta != null) {
+      descuentoNuevo = descReceta;
+      // Persistir la receta (crea la col si falta) para futuras ediciones
+      if (!colRecEd) { colRecEd = sh.getLastColumn() + 1; sh.getRange(1, colRecEd).setValue('Descuento Detalle'); }
+      sh.getRange(row, colRecEd).setValue(JSON.stringify(recetaEd));
+    } else {
+      var aplicaBulk = subtotal >= 100000;
+      var aplicaCash = (formaPago === 'Efectivo');
+      descuentoNuevo = (aplicaBulk || aplicaCash) ? Math.round(subtotal * 0.10) : 0;
+      // Si el editor borró el descuento, limpiar la receta guardada para que no reviva.
+      if (editorSetReceta && colRecEd) sh.getRange(row, colRecEd).setValue('');
+    }
     sh.getRange(row, colDescuento).setValue(descuentoNuevo);
   }
   var totalNuevo = subtotal + envio - descuentoNuevo;
@@ -9001,9 +9960,9 @@ function _generarOCSelectiva(canal, row, abbrs) {
     }
   }
 
-  var CLUBES_PRECIOS = {'PMu':7000,'PMa':7000,'PJyQ':7000,'PCC':7000,'PJyM':7800,'PPM':11000,'PPJyQ':11000,'PPCyQ':11000};
+  var CLUBES_PRECIOS = {'PMu':7500,'PMa':7500,'PJyQ':7500,'PCC':7500,'PJyM':7800,'PPM':12000,'PPJyQ':12000,'PPCyQ':12000,'ECaC':18400,'EJyQ':16000,'ECyQ':16000,'EV':16000};
   var colToAbbrMap = (canal === 'Clubes')
-    ? {24:'PMu',25:'PMa',26:'PJyQ',27:'PCC',28:'PJyM',29:'PPM',30:'PPJyQ',31:'PPCyQ'}
+    ? CLUBES_COL_TO_ABBR
     : (canal === 'Pilar') ? PILAR_COL_TO_ABBR
     : (canal === 'Red')   ? RED_COL_TO_ABBR
     : HOME_COL_TO_ABBR;
@@ -9278,6 +10237,9 @@ function _doPostMarcarCobrado(data) {
   else cols = {fp:12, estPago:13, sub:14, env:15, desc:16, total:17, ef:18, tr:19, propEf:20, propTr:21}; // Home/Pilar v2
 
   // Marcar Cobrado + estampar fecha de cobro
+  // IMPORTANTE: el flujo de Cobros del Panel/Ruta SOLO toca Estado de Pago + ef/tr.
+  // NO debe tocar Estado de Entrega — eso es una acción aparte (Ruta → entregar).
+  // Tadeo lo aclaró 27/05/2026.
   sh.getRange(row, cols.estPago).setValue('Cobrado');
   _stampFechaCobro(sh, row);
 
@@ -9297,11 +10259,34 @@ function _doPostMarcarCobrado(data) {
     var subtotal = Number(sh.getRange(row, cols.sub).getValue()) || 0;
     var envio    = Number(sh.getRange(row, cols.env).getValue()) || 0;
     if (subtotal > 0) {
-      var nuevoDesc  = (formaPago === 'Efectivo') ? Math.round(subtotal * 0.10) : 0;
+      // data.descuentoManual: Tadeo aplicó un descuento libre (% o $) al cobrar.
+      // Gana sobre cualquier otra regla. Cobra subtotal+envío-monto. Si monto<=0,
+      // se ignora.
+      // data.noDescuento: Tadeo quitó manualmente el 10% en el cuadro de Cobros
+      // (cobra precio normal aunque sea Efectivo o supere $100K).
+      var nuevoDesc;
+      if (data.descuentoManual && Number(data.descuentoManual.monto) > 0) {
+        nuevoDesc = Math.min(Number(data.descuentoManual.monto), subtotal + envio);
+      } else if (formaPago === 'Efectivo' && !data.noDescuento) {
+        nuevoDesc = Math.round(subtotal * 0.10);
+      } else {
+        nuevoDesc = 0;
+      }
       var nuevoTotal = subtotal + envio - nuevoDesc;
       sh.getRange(row, cols.desc).setValue(nuevoDesc);
       sh.getRange(row, cols.total).setValue(nuevoTotal);
       totalRecalculado = nuevoTotal;
+    }
+  }
+  // Mixto + descuento manual: Mixto no entra al bloque de arriba pero igual hay que
+  // bajar el Descuento y Total a cobrar de la hoja para que el Facturado quede correcto.
+  if (isVD && formaPago === 'Mixto' && data.descuentoManual && Number(data.descuentoManual.monto) > 0) {
+    var subM = Number(sh.getRange(row, cols.sub).getValue()) || 0;
+    var envM = Number(sh.getRange(row, cols.env).getValue()) || 0;
+    if (subM > 0) {
+      var descM = Math.min(Number(data.descuentoManual.monto), subM + envM);
+      sh.getRange(row, cols.desc).setValue(descM);
+      sh.getRange(row, cols.total).setValue(subM + envM - descM);
     }
   }
 
@@ -9336,13 +10321,38 @@ function _doPostMarcarCobrado(data) {
       else ef = Math.max(0, ef + ajuste);
     }
   }
-  if (ef > 0 || tr > 0) {
-    sh.getRange(row, cols.ef).setValue(ef);
-    sh.getRange(row, cols.tr).setValue(tr);
+  // ── SUMAR COBROS PARCIALES PREVIOS ──
+  // Si el pedido tuvo pagos parciales (ej. Cristina Plate: $28K MP el sábado + $30.700 Ef hoy),
+  // hay que sumar la composición real (ef/tr) de cada parcial al cobro final. Sin esto el
+  // backend escribía solo el último ef/tr y ocultaba que hubo otro método antes.
+  // Bug Cristina Plate 01/06/2026: cierre mostraba Ef $53.430 / Tr $0 cuando en realidad
+  // fueron $28.000 Tr (sáb) + $31.000 Ef (hoy + propina).
+  var sumEfPrev = 0, sumTrPrev = 0;
+  var propEfPrev = 0, propTrPrev = 0;
+  var shCP_prev = SS.getSheetByName('Cobros Parciales');
+  if (shCP_prev && shCP_prev.getLastRow() > 1) {
+    var dataCPprev = shCP_prev.getDataRange().getValues();
+    for (var rcpP = 1; rcpP < dataCPprev.length; rcpP++) {
+      if (String(dataCPprev[rcpP][1]).trim() === hoja && String(dataCPprev[rcpP][2]).trim() === pedidoId) {
+        var mP = Number(dataCPprev[rcpP][5]) || 0;
+        var fpP = String(dataCPprev[rcpP][4]).trim();
+        if (fpP === 'Efectivo') sumEfPrev += mP;
+        else sumTrPrev += mP;
+      }
+    }
+  }
+  var efFinal = ef + sumEfPrev;
+  var trFinal = tr + sumTrPrev;
+  if (efFinal > 0 || trFinal > 0) {
+    sh.getRange(row, cols.ef).setValue(efFinal);
+    sh.getRange(row, cols.tr).setValue(trFinal);
+  }
+  // Si la composición real es Mixta (hubo ef Y tr en algún momento), forzar fp = Mixto.
+  if (efFinal > 0 && trFinal > 0 && formaPago !== 'Mixto') {
+    sh.getRange(row, cols.fp).setValue('Mixto');
   }
   if (propina !== 0 && propMet) {
-    // Propina puede ser negativa (ajuste de redondeo) — ej. -30 cuando el cliente
-    // pago $10.550 de un total de $10.580.
+    // Propina puede ser negativa (ajuste de redondeo).
     var colProp = propMet === 'Efectivo' ? cols.propEf : cols.propTr;
     sh.getRange(row, colProp).setValue(propina);
   }
@@ -9352,6 +10362,44 @@ function _doPostMarcarCobrado(data) {
     var colAFav = (hoja === 'Pilar') ? 64 : 61;
     var actual = Number(sh.getRange(row, colAFav).getValue()) || 0;
     sh.getRange(row, colAFav).setValue(actual + deltaAFavor);
+  }
+
+  // ── RECALCULAR FACTURADO (V=22) tras el cobro ──
+  // Facturado = Total a cobrar (Q) + Propina Ef (T) + Propina Tr (U) + A Favor/Aplicado (BI/BL).
+  // Se re-setea como fórmula en cada cobro de VD para que SIEMPRE descuente el saldo
+  // a favor aplicado. Bug De Bary (08/06/2026): el a favor se aplicaba al cobrar pero
+  // el Facturado no lo restaba (quedó $69k en vez de $60k) cuando el pedido se había
+  // creado sin saldo a favor (la fórmula original no tenía el término del a favor).
+  if (isVD) {
+    var afLetter = (hoja === 'Pilar') ? 'BL' : 'BI';
+    sh.getRange(row, 22).setFormula('=Q' + row + '+T' + row + '+U' + row + '+' + afLetter + row);
+  }
+
+  // ── CAMBIO DESDE LA BILLETERA (mismo método: pagó efectivo, le di vuelto) ──
+  // El billete recibido va a caja fuerte; el vuelto sale de la billetera (fondo de cambio).
+  // Bajamos la col D del último Saldo Base EN SU LUGAR (no append) para NO resetear el
+  // cutoff de los cobros vivos. El total de efectivo no cambia por esta resta (el cobro
+  // ya registró el neto); solo se reasigna el sub-saldo billetera.
+  var cambioBilletera = Number(data.cambioBilletera) || 0;
+  if (cambioBilletera > 0) {
+    var shSBcb = SS.getSheetByName('Saldo Base');
+    if (shSBcb && shSBcb.getLastRow() > 1 && shSBcb.getLastColumn() >= 4) {
+      var lrSBcb = shSBcb.getLastRow();
+      var bilActCb = Number(shSBcb.getRange(lrSBcb, 4).getValue()) || 0;
+      shSBcb.getRange(lrSBcb, 4).setValue(Math.max(0, bilActCb - cambioBilletera));
+    }
+    // Log del vuelto (fecha + pedido) para que el desglose por día explique por qué el
+    // efectivo cobrado (neto) es menor a los billetes que recibiste en mano.
+    var shCb = SS.getSheetByName('Cambios Billetera');
+    if (!shCb) {
+      shCb = SS.insertSheet('Cambios Billetera');
+      shCb.getRange(1, 1, 1, 5).setValues([['Fecha', 'Hoja', 'Pedido', 'Cliente', 'Monto']]);
+      shCb.setFrozenRows(1);
+    }
+    var argNowCb = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+    shCb.appendRow([argNowCb, hoja, String(pedidoId), String(data.cliente || ''), cambioBilletera]);
+    shCb.getRange(shCb.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    shCb.getRange(shCb.getLastRow(), 5).setNumberFormat('$#,##0');
   }
 
   // ── CAMBIO CRUZADO (Ef↔MP) ──
@@ -9618,6 +10666,21 @@ function _doGetVentas() {
     return s;
   }
 
+  // Devuelve el nombre del mes (ej. "Mayo") desde una fecha Date o string "dd/MM/yyyy".
+  // Es la base del criterio de reconocimiento: la venta cuenta en el mes en que se ENTREGÓ,
+  // no en el mes en que se pidió. Aplica a todos los canales por consistencia.
+  function _mesFromAny(raw) {
+    var d = null;
+    if (raw instanceof Date) d = raw;
+    else if (raw) {
+      var s = String(raw).trim().split(' ')[0];
+      var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    }
+    if (!d || isNaN(d.getTime())) return '';
+    return MVAL[d.getMonth()];
+  }
+
   // ── Helper: parsear fila VD (Home, Pilar) — v2 abr/2026 ──
   // Home v2: Facturado V(21), Ef R(17), Tr S(18), Costo AP(41), Margen AQ(42), FechaEnt AX(49), MesEnt AY(50), SemEnt AZ(51)
   // Pilar v2: Facturado V(21), Ef R(17), Tr S(18), Costo AT(45), Margen AU(46), FechaEnt BA(52), MesEnt BB(53), SemEnt BC(54)
@@ -9626,9 +10689,10 @@ function _doGetVentas() {
     if (!cliente) return null;
     var isP = (zona === 'Pilar');
     // Home: fCob=54 (col BC). Pilar: fCob=57 (col BF).
+    // Home: barrio=43 (AR), subBarrio=44 (AS). Pilar: barrio=47 (AV), no tiene sub.
     var IDX = isP
-      ? { fact:21, totalAlt:16, ef:17, tr:18, costo:45, margen:46, fechaEnt:52, mesEnt:53, semEnt:54, fCob:57 }
-      : { fact:21, totalAlt:16, ef:17, tr:18, costo:41, margen:42, fechaEnt:49, mesEnt:50, semEnt:51, fCob:54 };
+      ? { fact:21, totalAlt:16, ef:17, tr:18, costo:45, margen:46, fechaEnt:52, mesEnt:53, semEnt:54, fCob:57, barrio:47, subBarrio:-1 }
+      : { fact:21, totalAlt:16, ef:17, tr:18, costo:41, margen:42, fechaEnt:49, mesEnt:50, semEnt:51, fCob:54, barrio:43, subBarrio:44 };
     var facturado = Number(data[r][IDX.fact]) || Number(data[r][IDX.totalAlt]) || 0;
     if (facturado === 0) return null;
     var fechaEnt = data[r][IDX.fechaEnt];
@@ -9641,6 +10705,8 @@ function _doGetVentas() {
     var semPed = Number(data[r][5]) || 0;
     var mes = MVAL.indexOf(mesEnt) >= 0 ? mesEnt : mesPed;
     var sem = semEnt > 0 ? semEnt : semPed;
+    var barrio = IDX.barrio >= 0 ? String(data[r][IDX.barrio] || '').trim() : '';
+    var subBarrio = IDX.subBarrio >= 0 ? String(data[r][IDX.subBarrio] || '').trim() : '';
     // Propinas: Home/Pilar tienen Propina Ef en col T (idx 19) y Propina Tr en col U (idx 20).
     // El facturado (col V) las suma; ef/tr NO. Exponemos pEf/pTr para que el cliente
     // pueda reconciliar Cobrado = ef + tr + pEf + pTr = Facturado.
@@ -9650,7 +10716,8 @@ function _doGetVentas() {
       fp: String(data[r][11] || '').trim(), ep: String(data[r][12] || '').trim(),
       $: facturado, ef: Number(data[r][IDX.ef]) || 0, tr: Number(data[r][IDX.tr]) || 0,
       pEf: Number(data[r][19]) || 0, pTr: Number(data[r][20]) || 0,
-      costo: Number(data[r][IDX.costo]) || 0, margen: Number(data[r][IDX.margen]) || 0
+      costo: Number(data[r][IDX.costo]) || 0, margen: Number(data[r][IDX.margen]) || 0,
+      barrio: barrio, subBarrio: subBarrio
     };
   }
 
@@ -9664,9 +10731,14 @@ function _doGetVentas() {
     var fCS = _fmtF(data[r][3]);
     // Clubes: Propina Ef en col U (idx 20), Propina Tr en col V (idx 21). Fecha de Cobro col 35 (idx 34).
     var fCobCS = _fmtF(data[r][34]);
+    // Mes de la venta = mes de ENTREGA (col 12 = M = Día de Entrega), no mes del pedido.
+    // Criterio consistente con Home/Pilar. Fallback al mes del pedido si la fecha de entrega
+    // no está cargada (típico de pedidos recién entrados sin agendar).
+    var mesEntC = _mesFromAny(data[r][12]);
+    var mesPedC = String(data[r][4] || '').trim();
     return {
       canal: 'Clubes', zona: club, fecha: fCS, fCob: fCobCS,
-      mes: String(data[r][4] || '').trim(), sem: Number(data[r][5]) || 0,
+      mes: mesEntC || mesPedC, sem: Number(data[r][5]) || 0,
       cliente: cli + (club ? ' (' + club + ')' : ''),
       estado: String(data[r][13] || '').trim(),
       fp: String(data[r][14] || '').trim(), ep: String(data[r][15] || '').trim(),
@@ -9729,9 +10801,15 @@ function _doGetVentas() {
       // Dejamos pEf/pTr en 0 para no inflar el "Cobrado" de Red con plata que no es nuestra.
       // Fecha Pago a Maleu: idx 54 (col BC).
       var fCobRS = _fmtF(dRd[rr][54]);
+      // Mes de la venta = mes de ENTREGA (col K idx 10 = Día de Entrega), no mes del pedido.
+      // Criterio consistente con Home/Pilar/Clubes: la venta cuenta en el mes en que
+      // efectivamente se entregó la mercadería al cliente final. Fallback al mes del pedido
+      // si la fecha de entrega no está cargada.
+      var mesEntR = _mesFromAny(dRd[rr][10]);
+      var mesPedR = String(dRd[rr][4] || '').trim();
       ventas.push({
         canal: 'Red', zona: String(dRd[rr][7] || '').trim(), fecha: fRS, fCob: fCobRS,
-        mes: String(dRd[rr][4] || '').trim(), sem: Number(dRd[rr][5]) || 0,
+        mes: mesEntR || mesPedR, sem: Number(dRd[rr][5]) || 0,
         cliente: cliR, estado: estadoR,
         fp: String(dRd[rr][12] || '').trim(),
         ep: String(dRd[rr][13] || '').trim(),
@@ -10063,7 +11141,7 @@ function _resumenCfgCanales() {
     { canal:'Clubes', sheet:'Clubes',
       cFecha:3, cCliente:7, cClub:8, cDeporte:9, cGrupo:10, cOrigen:11, cEstEnt:13, cEstPago:15,
       cTotal:16, cEf:18, cTr:19, cPropEf:20, cPropTr:21, cFacturado:22,
-      cCosto:31, cTel:33, cFechaCobro:34, prodStart:23, prodEnd:30 },
+      cCosto:31, cTel:33, cFechaCobro:34, prodStart:23, prodEnd:30, tartaStart:37, tartaEnd:40 },
     { canal:'Red', sheet:'Red',
       cFecha:3, cVendedor:7, cCliente:8, cOrigen:9, cEstEnt:11, cEstPago:13,
       cTotal:14, cEf:16, cTr:17, cPropEf:18, cPropTr:19, cFacturado:20,
@@ -10698,7 +11776,8 @@ function _crmHojasConfig() {
     {
       name: 'Clubes', cliente: 7, dia: 12, fecha: 3, est: 13, pago: 15, fp: 14,
       total: 22, costo: 31, barrio: -1, subBarrio: -1, domicilio: -1, tel: 33,
-      prodStart: 23, prodEnd: 30, fechaCobro: 34, club: 8, deporte: 9, grupo: 10
+      prodStart: 23, prodEnd: 30, fechaCobro: 34, club: 8, deporte: 9, grupo: 10,
+      tartaStart: 37, tartaEnd: 40
     },
     {
       name: 'Red', cliente: 8, dia: 10, fecha: 3, est: 11, pago: 13, fp: 12,
@@ -10954,7 +12033,19 @@ function _crmTopValue(map) {
 }
 
 // Endpoint: lista resumida de todos los clientes para la grilla.
-function _doGetCrmClientes() {
+// Cache server-side 120s (TTL).
+// ?lite=1 → devuelve solo campos que necesita el buscador de la PWA (nombre,
+// tel, barrio, subBarrio, lote, club, canalDom, pedidos, nombresAlt). El
+// response baja de ~110KB a ~30KB y entra en CacheService (límite 100KB).
+// Sin lite=1, devuelve el response completo para el panel CRM.
+function _doGetCrmClientes(e) {
+  var _lite = !!(e && e.parameter && e.parameter.lite);
+  var _ck = _lite ? 'crm_clientes_lite_v1' : 'crm_clientes_v1';
+  try {
+    var _c = CacheService.getScriptCache();
+    var _h = _c.get(_ck);
+    if (_h) return ContentService.createTextOutput(_h).setMimeType(ContentService.MimeType.JSON);
+  } catch (_e) { /* sin cache no rompe */ }
   var index = _crmBuildClientesIndex();
   var meta = _crmGetClientesMeta();
   var lista = [];
@@ -10966,6 +12057,10 @@ function _doGetCrmClientes() {
     var barrioRep = _crmTopValue(c.barrios);
     var subRep = _crmTopValue(c.subBarrios);
     var clubRep = _crmTopValue(c.clubes);
+    // Lote/domicilio dominante — el cliente recurrente típicamente tiene el
+    // mismo lote en todos los pedidos. Para invitados/familia varía, pero el
+    // valor dominante es el correcto el 95% del tiempo.
+    var loteRep = _crmTopValue(c.domicilios);
     var canalDom = _crmTopValue(c.canales);
     var nombresAlt = Object.keys(c.nombres).filter(function(n) { return n !== nombreRep; });
     var telRep = c.tel || _crmTopValue(c.telefonos);
@@ -10978,6 +12073,7 @@ function _doGetCrmClientes() {
       nombresAlt: nombresAlt, // para detectar tipeos: Marcos / Marcps
       barrio: barrioRep,
       subBarrio: subRep,
+      lote: loteRep,
       club: clubRep,
       canalDom: canalDom,
       canales: Object.keys(c.canales),
@@ -11005,8 +12101,35 @@ function _doGetCrmClientes() {
     var fb = b.ultimaFecha ? b.ultimaFecha.split('/').reverse().join('') : '0';
     return fb.localeCompare(fa);
   });
-  return ContentService.createTextOutput(JSON.stringify({ts: Date.now(), clientes: lista}))
-    .setMimeType(ContentService.MimeType.JSON);
+  // En modo lite, dejamos solo lo que el buscador de la PWA usa para autocompletar.
+  // Esto baja el response de ~110KB a ~30KB y entra en CacheService.
+  var listaOut;
+  if (_lite) {
+    listaOut = lista.map(function(c){
+      return {
+        nombre: c.nombre,
+        tel: c.tel,
+        telDisplay: c.telDisplay,
+        nombresAlt: c.nombresAlt,
+        barrio: c.barrio,
+        subBarrio: c.subBarrio,
+        lote: c.lote,
+        club: c.club,
+        canalDom: c.canalDom,
+        pedidos: c.pedidos
+      };
+    });
+  } else {
+    listaOut = lista;
+  }
+  var _resp = JSON.stringify({ts: Date.now(), clientes: listaOut, lite: _lite});
+  // TTL: el buscador de la PWA (lite) tolera estar varias horas viejo — solo
+  // autocompleta nombre/barrio/lote y un cliente nuevo se tipea a mano igual —
+  // así que cacheamos 6h para que el rebuild pesado (~7-10s, escanea todas las
+  // hojas) casi nunca corra. El CRM del Panel (no-lite) pide datos frescos → 120s.
+  var _ttl = _lite ? 21600 : 120;
+  try { CacheService.getScriptCache().put(_ck, _resp, _ttl); } catch (_e) { /* nada */ }
+  return ContentService.createTextOutput(_resp).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Endpoint: ficha completa de un cliente por key (telNorm o NOMBRE:xxx).
@@ -11793,16 +12916,19 @@ function _doGetAnalisisProveedor(e) {
   // Cols hoja Proveedores: N°(0) Producto(1) Proveedor(2) Gustos(3) Abrev(4)
   //                       Info(5) Canales(6) Costo(7) VentaDirecta(8) Clubes(9) WhatsApp(10)
   var catalogo = [];
-  var costoByAbr = {}; // para expandir RECs en filas con costo unitario coherente
+  var costoByAbr = {};   // para expandir RECs en filas con costo unitario coherente
+  var whatsappByProv = {}; // proveedor → tel WhatsApp (primer no-vacío visto)
   if (shProv) {
     var pd = shProv.getDataRange().getValues();
     for (var i = 1; i < pd.length; i++) {
       var r = pd[i];
       if (!r[2]) continue;
       var abrC = String(r[4] || '');
+      var provN = String(r[2] || '');
+      var wa = String(r[10] || '').trim();
       var c = {
         producto: String(r[1] || ''),
-        proveedor: String(r[2] || ''),
+        proveedor: provN,
         gustos: String(r[3] || ''),
         abr: abrC,
         canales: String(r[6] || ''),
@@ -11812,6 +12938,39 @@ function _doGetAnalisisProveedor(e) {
       };
       catalogo.push(c);
       if (abrC) costoByAbr[abrC] = c.costo;
+      if (wa && !whatsappByProv[provN]) whatsappByProv[provN] = wa;
+    }
+  }
+
+  // ── Pagos a proveedores (hoja Pagos Proveedores) ──
+  // Cols: Fecha(0) Proveedor(1) Efectivo(2) MercadoPago(3) Total(4) SemImputada(5) Notas(6) Bonificación(7)
+  var pagos = [];
+  var pagosByProv = {}; // proveedor → { total, ultimaFecha, count, totalEf, totalMP, ytd }
+  var shPagos = SS.getSheetByName('Pagos Proveedores');
+  if (shPagos && shPagos.getLastRow() > 1) {
+    var dataPg = shPagos.getDataRange().getValues();
+    for (var rp2 = 1; rp2 < dataPg.length; rp2++) {
+      var row2 = dataPg[rp2];
+      if (!row2[0] || !row2[1]) continue;
+      var fechaPag = _fmtF(row2[0]);
+      var provPag = String(row2[1] || '').trim();
+      var ef = _money(row2[2]);
+      var mp = _money(row2[3]);
+      var tot = _money(row2[4]) || (ef + mp);
+      var dtPag = _parseAR(fechaPag);
+      var anioPag = dtPag ? dtPag.getFullYear() : 0;
+      pagos.push({ fecha: fechaPag, proveedor: provPag, ef: ef, mp: mp, total: tot,
+                   semImputada: String(row2[5] || ''), notas: String(row2[6] || ''),
+                   bonif: _money(row2[7]) });
+      if (!pagosByProv[provPag]) pagosByProv[provPag] = { total: 0, totalEf: 0, totalMP: 0, ytd: 0, count: 0, ultimaFecha: '' };
+      pagosByProv[provPag].total += tot;
+      pagosByProv[provPag].totalEf += ef;
+      pagosByProv[provPag].totalMP += mp;
+      if (anioPag === new Date().getFullYear()) pagosByProv[provPag].ytd += tot;
+      pagosByProv[provPag].count += 1;
+      if (!pagosByProv[provPag].ultimaFecha || _parseAR(pagosByProv[provPag].ultimaFecha) < dtPag) {
+        pagosByProv[provPag].ultimaFecha = fechaPag;
+      }
     }
   }
 
@@ -11849,18 +13008,27 @@ function _doGetAnalisisProveedor(e) {
       if (!byCatProv[catKey]) byCatProv[catKey] = [];
       byCatProv[catKey].push(c);
     });
-    // Alias categoría texto histórico → catálogo
+    // Alias categoría texto histórico → catálogo canonical (Sheets Proveedores col B)
     var catAliases = {
-      'Packs': 'Pack Pizza',
-      'Pack': 'Pack Pizza',
+      'Packs': 'Pack Pizzas x2',
+      'Pack': 'Pack Pizzas x2',
+      'Pack Pizza': 'Pack Pizzas x2',
+      'Pack Pizzas': 'Pack Pizzas x2',
       'Empanadas': 'Empanadas',
       'Sorrentinos': 'Sorrentinos',
       'Tortas': 'Tortas',
-      'Tartas': 'Tartas Gourmet',
+      'Tartas': 'Tartas',
+      'Tartas Gourmet': 'Tartas',
       'Franuis': 'Franuis',
       'Franui': 'Franuis',
-      'Pizza Premium': 'Pizza Premium',
-      'Pizzas Premium': 'Pizza Premium'
+      'Pote de Franui': 'Franuis',
+      'Pizza Premium': 'Pizzas Individuales',
+      'Pizzas Premium': 'Pizzas Individuales',
+      'Pizzas': 'Pizzas Individuales',
+      'Pizzas Individuales': 'Pizzas Individuales',
+      'Rolls': 'Wraps',
+      'Rolls Gourmet': 'Wraps',
+      'Wraps': 'Wraps'
     };
 
     var virtuales = [];
@@ -11980,20 +13148,86 @@ function _doGetAnalisisProveedor(e) {
   // Cuenta de OCs únicas (no de filas, porque las RECs expandidas comparten N°).
   var resumen = {};
   var seenOrden = {};
+  var anioAct = new Date().getFullYear();
+  var mesAct = new Date().getMonth() + 1;
   ocs.forEach(function(oc) {
     if (!oc.proveedor) return;
-    if (!resumen[oc.proveedor]) resumen[oc.proveedor] = { qty: 0, costo: 0, ocs: 0 };
-    resumen[oc.proveedor].qty += oc.cantidad;
-    resumen[oc.proveedor].costo += oc.costoTotal;
+    if (!resumen[oc.proveedor]) resumen[oc.proveedor] = {
+      qty: 0, costo: 0, ocs: 0,
+      costoYtd: 0, qtyYtd: 0,
+      costoMesAct: 0, qtyMesAct: 0,
+      costoMesAnt: 0, qtyMesAnt: 0,
+      ultimaFecha: ''
+    };
+    var R = resumen[oc.proveedor];
+    R.qty += oc.cantidad;
+    R.costo += oc.costoTotal;
     var key = oc.proveedor + '::' + oc.nOrden;
     if (!seenOrden[key]) {
       seenOrden[key] = true;
-      resumen[oc.proveedor].ocs += 1;
+      R.ocs += 1;
+    }
+    var dtOc = _parseAR(oc.fecha);
+    if (dtOc) {
+      if (dtOc.getFullYear() === anioAct) { R.costoYtd += oc.costoTotal; R.qtyYtd += oc.cantidad; }
+      if (dtOc.getFullYear() === anioAct && dtOc.getMonth() + 1 === mesAct) {
+        R.costoMesAct += oc.costoTotal; R.qtyMesAct += oc.cantidad;
+      }
+      var mesAntNum = mesAct === 1 ? 12 : mesAct - 1;
+      var anioMesAnt = mesAct === 1 ? anioAct - 1 : anioAct;
+      if (dtOc.getFullYear() === anioMesAnt && dtOc.getMonth() + 1 === mesAntNum) {
+        R.costoMesAnt += oc.costoTotal; R.qtyMesAnt += oc.cantidad;
+      }
+      if (!R.ultimaFecha || _parseAR(R.ultimaFecha) < dtOc) R.ultimaFecha = oc.fecha;
     }
   });
 
+  // Deuda viva por proveedor = compras YTD recibidas + pendientes - pagos YTD
+  // (aproximación buena para dashboard; FIFO exacto en endpoint busqueda)
+  Object.keys(resumen).forEach(function(prov) {
+    var pag = pagosByProv[prov] || { ytd: 0 };
+    resumen[prov].pagadoYtd = pag.ytd || 0;
+    resumen[prov].deudaCalc = Math.max(0, resumen[prov].costoYtd - (pag.ytd || 0));
+    resumen[prov].ultimoPago = pag.ultimaFecha || '';
+  });
+
+  // Evolución de costo unitario por (proveedor, abr): primer y último costo del año + delta
+  // Útil para detectar aumentos silenciosos.
+  var costoEvol = {}; // key proveedor::abr → { primero, ultimo, qtyOcs, fechaPrim, fechaUlt }
+  ocs.forEach(function(oc) {
+    if (!oc.proveedor || !oc.abr || oc.costoUnit <= 0) return;
+    var dtOc = _parseAR(oc.fecha);
+    if (!dtOc || dtOc.getFullYear() !== anioAct) return;
+    var k = oc.proveedor + '::' + oc.abr;
+    if (!costoEvol[k]) costoEvol[k] = {
+      proveedor: oc.proveedor, abr: oc.abr, producto: oc.producto, gustos: '',
+      primero: oc.costoUnit, ultimo: oc.costoUnit, fechaPrim: oc.fecha, fechaUlt: oc.fecha, ocsCount: 1
+    };
+    var E = costoEvol[k];
+    E.ocsCount++;
+    var dtPrim = _parseAR(E.fechaPrim);
+    var dtUlt = _parseAR(E.fechaUlt);
+    if (dtPrim && dtOc < dtPrim) { E.primero = oc.costoUnit; E.fechaPrim = oc.fecha; }
+    if (dtUlt && dtOc > dtUlt) { E.ultimo = oc.costoUnit; E.fechaUlt = oc.fecha; }
+  });
+  var evolArr = Object.keys(costoEvol).map(function(k) {
+    var E = costoEvol[k];
+    var delta = E.primero > 0 ? (E.ultimo - E.primero) / E.primero : 0;
+    return { proveedor: E.proveedor, abr: E.abr, producto: E.producto,
+             primero: E.primero, ultimo: E.ultimo, deltaPct: delta,
+             fechaPrim: E.fechaPrim, fechaUlt: E.fechaUlt, ocsCount: E.ocsCount };
+  });
+
   return ContentService
-    .createTextOutput(JSON.stringify({ ocs: ocs, catalogo: catalogo, resumen: resumen }))
+    .createTextOutput(JSON.stringify({
+      ocs: ocs,
+      catalogo: catalogo,
+      resumen: resumen,
+      pagos: pagos,
+      whatsappByProv: whatsappByProv,
+      costoEvolucion: evolArr,
+      meta: { anio: anioAct, mes: mesAct, ts: Date.now() }
+    }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -12288,3 +13522,828 @@ function _doGetProductosAnalytics(e) {
     mixCategorias: mixCat
   })).setMimeType(ContentService.MimeType.JSON);
 }
+
+// ════════════════════════════════════════════════════════════
+//  CIERRE MENSUAL — Subtab Inicio → CIERRE del Panel
+//  GET ?action=cierreMensual&mes=YYYY-MM  (default: mes en curso)
+//  Devuelve TODOS los datos del mes en un solo JSON:
+//  resumen, eerr, tendencia6m, canales, productos, clientes, caja, insights
+// ════════════════════════════════════════════════════════════
+
+function _parseMesParam(s) {
+  if (!s) {
+    var d = new Date();
+    return { y: d.getFullYear(), m: d.getMonth() };
+  }
+  var m = String(s).match(/^(\d{4})-(\d{1,2})$/);
+  if (!m) {
+    var d2 = new Date();
+    return { y: d2.getFullYear(), m: d2.getMonth() };
+  }
+  return { y: +m[1], m: +m[2] - 1 };
+}
+
+function _rangoMes(y, m) {
+  var ini = new Date(y, m, 1, 0, 0, 0);
+  var fin = new Date(y, m + 1, 0, 23, 59, 59);
+  return { ini: ini, fin: fin, dias: fin.getDate() };
+}
+
+function _labelMes(y, m) {
+  var meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  return meses[m] + ' ' + y;
+}
+
+// Lee todos los pedidos entregados de Home/Pilar/Clubes/Red en el rango.
+// Devuelve array de {hoja, fecha, cliente, telefono, total, costo, margen, productos, barrio}.
+function _leerPedidosEntregados(ini, fin) {
+  var out = [];
+  var hojas = _crmHojasConfig();
+  hojas.forEach(function(cfg) {
+    var sh = SS.getSheetByName(cfg.name);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd, cfg.tartaStart, cfg.tartaEnd);
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var estado = String(row[cfg.est] || '').trim();
+      if (estado !== 'Entregado') continue;
+      var fecha = _crmToDate(row[cfg.fecha]);
+      if (!fecha || fecha < ini || fecha > fin) continue;
+      var total = Number(row[cfg.total]) || 0;
+      var costo = Number(row[cfg.costo]) || 0;
+      var nombreCli = String(row[cfg.cliente] || '').trim();
+      var tel = cfg.tel >= 0 ? String(row[cfg.tel] || '').trim() : '';
+      var barrio = cfg.barrio >= 0 ? String(row[cfg.barrio] || '').trim() : '';
+      var estadoPago = String(row[cfg.pago] || '').trim();
+      var prods = [];
+      Object.keys(prodMap).forEach(function(idx) {
+        var cant = Number(row[idx]) || 0;
+        if (cant > 0) prods.push({ abrev: prodMap[idx], cant: cant });
+      });
+      out.push({
+        hoja: cfg.name,
+        fecha: fecha,
+        cliente: nombreCli,
+        tel: tel,
+        total: total,
+        costo: costo,
+        margen: total - costo,
+        productos: prods,
+        barrio: barrio,
+        estadoPago: estadoPago
+      });
+    }
+  });
+  return out;
+}
+
+// Lee TODOS los entregados de todas las hojas operativas UNA sola vez.
+// Permite filtrar localmente para múltiples meses sin re-leer (Cierre Mensual).
+function _leerTodosEntregados() {
+  var out = [];
+  var hojas = _crmHojasConfig();
+  hojas.forEach(function(cfg) {
+    var sh = SS.getSheetByName(cfg.name);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var prodMap = _crmProductHeaders(sh, cfg.prodStart, cfg.prodEnd, cfg.tartaStart, cfg.tartaEnd);
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var estado = String(row[cfg.est] || '').trim();
+      if (estado !== 'Entregado') continue;
+      var fecha = _crmToDate(row[cfg.fecha]);
+      if (!fecha) continue;
+      var total = Number(row[cfg.total]) || 0;
+      var costo = Number(row[cfg.costo]) || 0;
+      var nombreCli = String(row[cfg.cliente] || '').trim();
+      var tel = cfg.tel >= 0 ? String(row[cfg.tel] || '').trim() : '';
+      var barrio = cfg.barrio >= 0 ? String(row[cfg.barrio] || '').trim() : '';
+      var estadoPago = String(row[cfg.pago] || '').trim();
+      var prods = [];
+      Object.keys(prodMap).forEach(function(idx) {
+        var cant = Number(row[idx]) || 0;
+        if (cant > 0) prods.push({ abrev: prodMap[idx], cant: cant });
+      });
+      out.push({
+        hoja: cfg.name, fecha: fecha, fechaTs: fecha.getTime(),
+        cliente: nombreCli, tel: tel,
+        total: total, costo: costo, margen: total - costo,
+        productos: prods, barrio: barrio, estadoPago: estadoPago
+      });
+    }
+  });
+  return out;
+}
+
+function _doGetCierreMensual(e) {
+  var prm = (e && e.parameter) || {};
+  var mesP = _parseMesParam(prm.mes);
+  var rango = _rangoMes(mesP.y, mesP.m);
+  var ini = rango.ini, fin = rango.fin;
+  var iniTs = ini.getTime(), finTs = fin.getTime();
+
+  // Mes anterior (comparar)
+  var prevM = mesP.m - 1, prevY = mesP.y;
+  if (prevM < 0) { prevM = 11; prevY--; }
+  var rangoPrev = _rangoMes(prevY, prevM);
+  var iniPrev = rangoPrev.ini, finPrev = rangoPrev.fin;
+  var iniPrevTs = iniPrev.getTime(), finPrevTs = finPrev.getTime();
+
+  // ── 1 SOLA LECTURA de todas las hojas operativas ──
+  // (antes leía 4 hojas x 8 períodos = 32 lecturas. Ahora 4 lecturas totales.)
+  var allEntregados = _leerTodosEntregados();
+  var pedidos = allEntregados.filter(function(p) { return p.fechaTs >= iniTs && p.fechaTs <= finTs; });
+  var pedidosPrev = allEntregados.filter(function(p) { return p.fechaTs >= iniPrevTs && p.fechaTs <= finPrevTs; });
+
+  // ── RESUMEN ──
+  var resumen = {
+    facturado: 0, costo: 0, margen: 0,
+    pedidos: pedidos.length,
+    cobrado: 0, sin_cobrar: 0, sin_cobrar_cant: 0
+  };
+  pedidos.forEach(function(p) {
+    resumen.facturado += p.total;
+    resumen.costo += p.costo;
+    resumen.margen += p.margen;
+    if (p.estadoPago.toLowerCase() === 'cobrado') resumen.cobrado += p.total;
+    else { resumen.sin_cobrar += p.total; resumen.sin_cobrar_cant++; }
+  });
+  resumen.margen_pct = resumen.facturado > 0 ? resumen.margen / resumen.facturado : 0;
+  resumen.ticket = resumen.pedidos > 0 ? resumen.facturado / resumen.pedidos : 0;
+
+  var resumenPrev = { facturado: 0, margen: 0, pedidos: pedidosPrev.length };
+  pedidosPrev.forEach(function(p) {
+    resumenPrev.facturado += p.total;
+    resumenPrev.margen += p.margen;
+  });
+  resumen.pct_facturado = resumenPrev.facturado > 0 ? (resumen.facturado - resumenPrev.facturado) / resumenPrev.facturado : null;
+  resumen.pct_margen = resumenPrev.margen > 0 ? (resumen.margen - resumenPrev.margen) / resumenPrev.margen : null;
+  resumen.pct_pedidos = resumenPrev.pedidos > 0 ? (resumen.pedidos - resumenPrev.pedidos) / resumenPrev.pedidos : null;
+  resumen.facturado_prev = resumenPrev.facturado;
+  resumen.margen_prev = resumenPrev.margen;
+  resumen.pedidos_prev = resumenPrev.pedidos;
+
+  // ── TENDENCIA 6 MESES (filtra del array en memoria, NO re-lee Sheets) ──
+  var tendencia6m = [];
+  for (var i = 5; i >= 0; i--) {
+    var ty = mesP.y, tm = mesP.m - i;
+    while (tm < 0) { tm += 12; ty--; }
+    var rt = _rangoMes(ty, tm);
+    var rtIniTs = rt.ini.getTime(), rtFinTs = rt.fin.getTime();
+    var f = 0, mar = 0, pedCount = 0;
+    for (var ai = 0; ai < allEntregados.length; ai++) {
+      var ap = allEntregados[ai];
+      if (ap.fechaTs < rtIniTs || ap.fechaTs > rtFinTs) continue;
+      f += ap.total; mar += ap.margen; pedCount++;
+    }
+    tendencia6m.push({
+      mes: _labelMes(ty, tm),
+      mes_corto: _labelMes(ty, tm).split(' ')[0].slice(0, 3),
+      yyyymm: ty + '-' + String(tm + 1).padStart(2, '0'),
+      facturado: f,
+      margen: mar,
+      pedidos: pedCount
+    });
+  }
+
+  // ── CANALES ──
+  var canales = { Home: { p: 0, f: 0, m: 0 }, Pilar: { p: 0, f: 0, m: 0 }, Clubes: { p: 0, f: 0, m: 0 }, Red: { p: 0, f: 0, m: 0 } };
+  pedidos.forEach(function(p) {
+    if (canales[p.hoja]) {
+      canales[p.hoja].p++;
+      canales[p.hoja].f += p.total;
+      canales[p.hoja].m += p.margen;
+    }
+  });
+  var canalesPrev = { Home: 0, Pilar: 0, Clubes: 0, Red: 0 };
+  pedidosPrev.forEach(function(p) { if (p.hoja in canalesPrev) canalesPrev[p.hoja] += p.total; });
+  var canalesArr = Object.keys(canales).map(function(k) {
+    var c = canales[k];
+    var prev = canalesPrev[k] || 0;
+    return {
+      canal: k,
+      pedidos: c.p,
+      facturado: c.f,
+      margen: c.m,
+      ticket: c.p > 0 ? c.f / c.p : 0,
+      pct_vs_prev: prev > 0 ? (c.f - prev) / prev : (c.f > 0 ? null : 0),
+      facturado_prev: prev
+    };
+  });
+
+  // ── PRODUCTOS ──
+  var prodMap = {}; // abrev → {unidades, facturado, ped_count}
+  pedidos.forEach(function(p) {
+    var totalCant = 0;
+    p.productos.forEach(function(pr) { totalCant += pr.cant; });
+    if (totalCant === 0) return;
+    p.productos.forEach(function(pr) {
+      if (!prodMap[pr.abrev]) prodMap[pr.abrev] = { abrev: pr.abrev, unidades: 0, facturado: 0, pedidos: 0 };
+      prodMap[pr.abrev].unidades += pr.cant;
+      prodMap[pr.abrev].facturado += Math.round((pr.cant / totalCant) * p.total);
+      prodMap[pr.abrev].pedidos++;
+    });
+  });
+  var prodPrevMap = {};
+  pedidosPrev.forEach(function(p) {
+    var tc = 0;
+    p.productos.forEach(function(pr) { tc += pr.cant; });
+    p.productos.forEach(function(pr) {
+      if (!prodPrevMap[pr.abrev]) prodPrevMap[pr.abrev] = 0;
+      prodPrevMap[pr.abrev] += pr.cant;
+    });
+  });
+  // Cruzar con hoja Productos para nombre/categoria
+  var shP = SS.getSheetByName('Productos');
+  var nombreByAbr = {}, costoByAbr = {};
+  if (shP) {
+    var dpP = shP.getDataRange().getValues();
+    for (var rp = 1; rp < dpP.length; rp++) {
+      var ab = String(dpP[rp][2] || '').trim();
+      if (!ab) continue;
+      nombreByAbr[ab] = String(dpP[rp][1] || '').trim();
+      costoByAbr[ab] = Number(dpP[rp][9]) || 0;
+    }
+  }
+  var prodsArr = Object.keys(prodMap).map(function(ab) {
+    var p = prodMap[ab];
+    var prevU = prodPrevMap[ab] || 0;
+    p.nombre = nombreByAbr[ab] || ab;
+    p.categoria = _prodCategoria(ab);
+    p.unidades_prev = prevU;
+    p.tendenciaPct = prevU > 0 ? (p.unidades - prevU) / prevU : (p.unidades > 0 ? 999 : null);
+    return p;
+  });
+  var topVendidos = prodsArr.slice().sort(function(a, b) { return b.unidades - a.unidades; }).slice(0, 10);
+  var topCrecimiento = prodsArr.filter(function(p) { return p.tendenciaPct !== null && p.tendenciaPct !== 999 && p.unidades_prev >= 3; }).sort(function(a, b) { return b.tendenciaPct - a.tendenciaPct; }).slice(0, 5);
+  var topCaida = prodsArr.filter(function(p) { return p.tendenciaPct !== null && p.tendenciaPct !== 999 && p.unidades_prev >= 3; }).sort(function(a, b) { return a.tendenciaPct - b.tendenciaPct; }).slice(0, 5);
+  // Mix categorías
+  var mixCat = {};
+  prodsArr.forEach(function(p) {
+    if (!mixCat[p.categoria]) mixCat[p.categoria] = { unidades: 0, facturado: 0 };
+    mixCat[p.categoria].unidades += p.unidades;
+    mixCat[p.categoria].facturado += p.facturado;
+  });
+
+  // ── CLIENTES ──
+  // Únicos del mes (por nombre lowercased, agrupando Red por vendedor descartado: usamos cliente final)
+  var clientesMes = {};
+  pedidos.forEach(function(p) {
+    var c = (p.cliente || '').toLowerCase();
+    if (!c) return;
+    if (!clientesMes[c]) clientesMes[c] = { nombre: p.cliente, total: 0, pedidos: 0 };
+    clientesMes[c].total += p.total;
+    clientesMes[c].pedidos++;
+  });
+  // Histórico previo al mes — reusa allEntregados (NO re-lee Sheets)
+  var histClientes = {};
+  for (var hi = 0; hi < allEntregados.length; hi++) {
+    var hp = allEntregados[hi];
+    if (hp.fechaTs >= iniTs) continue; // solo histórico previo al mes en curso
+    var hc = (hp.cliente || '').toLowerCase();
+    if (!hc) continue;
+    if (!histClientes[hc]) histClientes[hc] = { ultima: hp.fecha, total: 0 };
+    histClientes[hc].total += hp.total;
+    if (hp.fecha > histClientes[hc].ultima) histClientes[hc].ultima = hp.fecha;
+  }
+  var nuevos = 0, recurrentes = 0;
+  Object.keys(clientesMes).forEach(function(c) {
+    if (histClientes[c]) recurrentes++; else nuevos++;
+  });
+  // Dormidos: compraron mes anterior, NO este mes
+  var clientesPrev = {};
+  pedidosPrev.forEach(function(p) {
+    var c = (p.cliente || '').toLowerCase();
+    if (c) clientesPrev[c] = true;
+  });
+  var dormidos = 0;
+  Object.keys(clientesPrev).forEach(function(c) {
+    if (!clientesMes[c]) dormidos++;
+  });
+  // Top VIP del mes (mayor facturación)
+  var topVip = Object.keys(clientesMes).map(function(c) { return clientesMes[c]; })
+    .sort(function(a, b) { return b.total - a.total; }).slice(0, 10);
+
+  // ── CAJA: leer Ingresos y Egresos del mes ──
+  var ingresos = 0, ingresosCount = 0;
+  var egresosPorCat = {};
+  var egresosTotal = 0, egresosCount = 0;
+  var shIng = SS.getSheetByName('Ingresos');
+  if (shIng && shIng.getLastRow() > 1) {
+    var dIng = shIng.getDataRange().getValues();
+    for (var ri = 1; ri < dIng.length; ri++) {
+      var fI = _crmToDate(dIng[ri][0]);
+      if (!fI || fI < ini || fI > fin) continue;
+      var monto = Number(dIng[ri][5]) || 0;
+      ingresos += monto;
+      ingresosCount++;
+    }
+  }
+  var shEgr = SS.getSheetByName('Egresos');
+  if (shEgr && shEgr.getLastRow() > 1) {
+    var dEgr = shEgr.getDataRange().getValues();
+    for (var re = 1; re < dEgr.length; re++) {
+      var fE = _crmToDate(dEgr[re][0]);
+      if (!fE || fE < ini || fE > fin) continue;
+      var cat = String(dEgr[re][2] || '').trim() || 'Otro';
+      var mE = Number(dEgr[re][5]) || 0;
+      if (!egresosPorCat[cat]) egresosPorCat[cat] = 0;
+      egresosPorCat[cat] += mE;
+      egresosTotal += mE;
+      egresosCount++;
+    }
+  }
+  var egresosArr = Object.keys(egresosPorCat).map(function(k) { return { categoria: k, monto: egresosPorCat[k] }; }).sort(function(a, b) { return b.monto - a.monto; });
+  var ebitda = resumen.margen + ingresos - egresosTotal;
+  var ebitdaPct = resumen.facturado > 0 ? ebitda / resumen.facturado : 0;
+
+  // ── INSIGHTS AUTOMÁTICOS ──
+  var insights = [];
+  // 1. Tendencia general
+  if (resumen.pct_facturado !== null) {
+    if (resumen.pct_facturado >= 0.15) {
+      insights.push({ tipo: 'positivo', icono: '📈', titulo: 'Mes en crecimiento', msg: 'Facturado subió ' + Math.round(resumen.pct_facturado * 100) + '% vs el mes anterior. Sostené lo que funcionó.' });
+    } else if (resumen.pct_facturado <= -0.15) {
+      insights.push({ tipo: 'critico', icono: '📉', titulo: 'Caída fuerte de facturación', msg: 'Bajó ' + Math.round(Math.abs(resumen.pct_facturado) * 100) + '% vs mes anterior. Revisar canales y reactivar base.' });
+    }
+  }
+  // 2. Margen
+  if (resumen.margen_pct < 0.30 && resumen.facturado > 0) {
+    insights.push({ tipo: 'alerta', icono: '⚠️', titulo: 'Margen bajo', msg: 'Margen bruto del ' + Math.round(resumen.margen_pct * 100) + '%. Revisar precios y costos de proveedores.' });
+  }
+  // 3. Canales que cayeron fuerte
+  canalesArr.forEach(function(c) {
+    if (c.pct_vs_prev !== null && c.pct_vs_prev <= -0.30 && c.facturado_prev > 0) {
+      insights.push({ tipo: 'alerta', icono: '🚨', titulo: 'Canal ' + c.canal + ' en caída', msg: 'Cayó ' + Math.round(Math.abs(c.pct_vs_prev) * 100) + '% vs mes anterior (' + Math.round(c.facturado / 1000) + 'k vs ' + Math.round(c.facturado_prev / 1000) + 'k).' });
+    }
+  });
+  // 4. Producto en crecimiento
+  topCrecimiento.slice(0, 2).forEach(function(p) {
+    if (p.tendenciaPct >= 0.5) {
+      insights.push({ tipo: 'positivo', icono: '🌱', titulo: 'Producto en crecimiento', msg: p.nombre + ' +' + Math.round(p.tendenciaPct * 100) + '% vs mes pasado. Empujar este producto en contenido.' });
+    }
+  });
+  // 5. Producto en caída
+  topCaida.slice(0, 2).forEach(function(p) {
+    if (p.tendenciaPct <= -0.3) {
+      insights.push({ tipo: 'alerta', icono: '⬇️', titulo: 'Producto en caída', msg: p.nombre + ' ' + Math.round(p.tendenciaPct * 100) + '% vs mes pasado. ¿Cambió algo? Revisar precio/stock.' });
+    }
+  });
+  // 6. Clientes nuevos vs dormidos
+  if (dormidos > nuevos && dormidos >= 5) {
+    insights.push({ tipo: 'alerta', icono: '😴', titulo: 'Perdiendo más que ganando', msg: dormidos + ' clientes se enfriaron, ' + nuevos + ' nuevos. Priorizar reactivación.' });
+  } else if (nuevos >= 5) {
+    insights.push({ tipo: 'positivo', icono: '✨', titulo: 'Buena adquisición', msg: nuevos + ' clientes nuevos este mes. Cuidá la primera experiencia para que vuelvan.' });
+  }
+  // 7. Cobros pendientes
+  if (resumen.sin_cobrar > 50000) {
+    insights.push({ tipo: 'alerta', icono: '💰', titulo: 'Plata sin cobrar', msg: '$' + Math.round(resumen.sin_cobrar / 1000) + 'k pendientes (' + resumen.sin_cobrar_cant + ' pedidos). Pasá por la tab Cobros.' });
+  }
+  // 8. EBITDA
+  if (ebitdaPct < 0.10 && resumen.facturado > 100000) {
+    insights.push({ tipo: 'alerta', icono: '💸', titulo: 'EBITDA bajo', msg: 'EBITDA del ' + Math.round(ebitdaPct * 100) + '%. Revisar gastos operativos.' });
+  } else if (ebitdaPct >= 0.20) {
+    insights.push({ tipo: 'positivo', icono: '💎', titulo: 'EBITDA saludable', msg: Math.round(ebitdaPct * 100) + '% sobre facturado. Buen mes.' });
+  }
+
+  var tz = 'America/Argentina/Buenos_Aires';
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    ts: Date.now(),
+    mes: { yyyymm: mesP.y + '-' + String(mesP.m + 1).padStart(2, '0'), label: _labelMes(mesP.y, mesP.m), dias: rango.dias, desde: Utilities.formatDate(ini, tz, 'yyyy-MM-dd'), hasta: Utilities.formatDate(fin, tz, 'yyyy-MM-dd') },
+    mes_prev: { yyyymm: prevY + '-' + String(prevM + 1).padStart(2, '0'), label: _labelMes(prevY, prevM) },
+    resumen: resumen,
+    tendencia6m: tendencia6m,
+    canales: canalesArr,
+    productos: {
+      top_vendidos: topVendidos,
+      top_crecimiento: topCrecimiento,
+      top_caida: topCaida,
+      mix_categorias: mixCat
+    },
+    clientes: {
+      total_unicos: Object.keys(clientesMes).length,
+      nuevos: nuevos,
+      recurrentes: recurrentes,
+      dormidos: dormidos,
+      top_vip: topVip
+    },
+    caja: {
+      cobrado: resumen.cobrado,
+      sin_cobrar: resumen.sin_cobrar,
+      sin_cobrar_cant: resumen.sin_cobrar_cant,
+      ingresos_no_venta: ingresos,
+      egresos_total: egresosTotal,
+      egresos_por_cat: egresosArr,
+      ebitda: ebitda,
+      ebitda_pct: ebitdaPct
+    },
+    insights: insights
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  PLAN DE VENTAS (rol Gerente de Ventas)
+//  Hojas: "Plan Ventas" (metas por mes/canal/barrio)
+//         "Plan Acciones" (acciones del Gerente de Ventas)
+//  Endpoints GET: planMes
+//  Endpoints POST: planMetaSet, planAccionAdd, planAccionUpdate, planAccionDelete
+// ════════════════════════════════════════════════════════════
+
+// Asegura que existan las dos hojas con headers. Crea si faltan.
+function _planEnsureSheets() {
+  var shM = SS.getSheetByName('Plan Ventas');
+  if (!shM) {
+    shM = SS.insertSheet('Plan Ventas');
+    var hdrM = ['Mes','Canal','Barrio','Meta Facturacion','Meta Pedidos','Meta Ticket','Meta Clientes','Notas','Updated'];
+    shM.getRange(1,1,1,hdrM.length).setValues([hdrM])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    shM.setFrozenRows(1);
+    shM.setColumnWidths(1, hdrM.length, 130);
+  }
+  var shA = SS.getSheetByName('Plan Acciones');
+  if (!shA) {
+    shA = SS.insertSheet('Plan Acciones');
+    var hdrA = ['ID','Mes','Canal','Barrio','Descripcion','Responsable','Fecha Objetivo','Estado','Impacto Estimado','Impacto Real','Notas','Created','Updated'];
+    shA.getRange(1,1,1,hdrA.length).setValues([hdrA])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    shA.setFrozenRows(1);
+    shA.setColumnWidths(1, hdrA.length, 130);
+  }
+  return { metas: shM, acciones: shA };
+}
+
+// Parsea "Junio 2026" -> {year:2026, month:5 (0-indexed)} y viceversa.
+var _PLAN_MS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function _planParseMes(label) {
+  if (!label) return null;
+  var p = String(label).trim().split(/\s+/);
+  if (p.length < 2) return null;
+  var m = _PLAN_MS.indexOf(p[0]);
+  var y = parseInt(p[1], 10);
+  if (m < 0 || !y) return null;
+  return { y: y, m: m };
+}
+function _planLabelMes(y, m) { return _PLAN_MS[m] + ' ' + y; }
+
+// "Barrio canónico" — igual normalizador que el filtro Ventas.
+function _planBarrioCanon(b) {
+  if (!b) return '';
+  var s = String(b).trim();
+  if (!s || s === '-') return '';
+  var k = s.toLowerCase();
+  if (k.indexOf('estancias del r') === 0) return 'Estancias del Río';
+  if (k.indexOf('estancias del pilar') === 0) return 'Estancias del Pilar';
+  if (k.indexOf('alcanfor') >= 0) return 'Los Alcanfores';
+  return s;
+}
+
+// "Hoja" del registro de Ventas: para VD usa la zona (Home/Pilar). Para los demás canales, el propio canal.
+function _planHojaOp(canal, zona) {
+  if (canal === 'Venta Directa') return zona || '';
+  return canal || '';
+}
+
+// Lee TODAS las metas de un mes. Devuelve un map indexado por "Canal|Barrio".
+function _planReadMetas(label) {
+  var sh = SS.getSheetByName('Plan Ventas');
+  if (!sh || sh.getLastRow() <= 1) return {};
+  var data = sh.getDataRange().getValues();
+  var out = {};
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][0]).trim() !== label) continue;
+    var canal = String(data[r][1] || '').trim();
+    var barrio = String(data[r][2] || '').trim();
+    var key = canal + '|' + barrio;
+    out[key] = {
+      canal: canal, barrio: barrio,
+      metaFact:    Number(data[r][3]) || 0,
+      metaPedidos: Number(data[r][4]) || 0,
+      metaTicket:  Number(data[r][5]) || 0,
+      metaClientes:Number(data[r][6]) || 0,
+      notas: String(data[r][7] || '').trim(),
+      updated: data[r][8] || '',
+      _row: r + 1
+    };
+  }
+  return out;
+}
+
+// Lee TODAS las acciones de un mes (ordenadas por fecha objetivo).
+function _planReadAcciones(label) {
+  var sh = SS.getSheetByName('Plan Acciones');
+  if (!sh || sh.getLastRow() <= 1) return [];
+  var data = sh.getDataRange().getValues();
+  var out = [];
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][1]).trim() !== label) continue;
+    var fechaObj = data[r][6];
+    var fechaStr = (fechaObj instanceof Date)
+      ? Utilities.formatDate(fechaObj, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
+      : String(fechaObj || '').trim();
+    out.push({
+      id: String(data[r][0]).trim(),
+      mes: label,
+      canal: String(data[r][2] || '').trim(),
+      barrio: String(data[r][3] || '').trim(),
+      desc: String(data[r][4] || '').trim(),
+      responsable: String(data[r][5] || '').trim() || 'Tadeo',
+      fechaObjetivo: fechaStr,
+      estado: String(data[r][7] || '').trim() || 'Pendiente',
+      impactoEstimado: Number(data[r][8]) || 0,
+      impactoReal: Number(data[r][9]) || 0,
+      notas: String(data[r][10] || '').trim(),
+      _row: r + 1
+    });
+  }
+  // Orden: por estado (Hechas al final) y luego por fecha objetivo asc
+  var ESTADO_ORD = { 'Pendiente': 0, 'En curso': 1, 'Hecho': 2, 'Cancelado': 3 };
+  out.sort(function(a, b) {
+    var ea = ESTADO_ORD[a.estado] !== undefined ? ESTADO_ORD[a.estado] : 9;
+    var eb = ESTADO_ORD[b.estado] !== undefined ? ESTADO_ORD[b.estado] : 9;
+    if (ea !== eb) return ea - eb;
+    return (a.fechaObjetivo || '').split('/').reverse().join('').localeCompare((b.fechaObjetivo || '').split('/').reverse().join(''));
+  });
+  return out;
+}
+
+// Calcula el REAL del mes leyendo Home/Pilar/Clubes/Red. Agrupa por canal+barrio.
+function _planRealMes(yyyy, m0) {
+  var hojas = _crmHojasConfig(); // reutilizo el config del CRM
+  var real = {}; // {canal|barrio: {fact, pedidos, clientes:Set}}
+  function key(c, b) { return (c || '') + '|' + (b || ''); }
+  function bump(c, b, fact, cli) {
+    var k = key(c, b);
+    if (!real[k]) real[k] = { fact: 0, pedidos: 0, clientes: {} };
+    real[k].fact += fact;
+    real[k].pedidos++;
+    if (cli) real[k].clientes[cli.toLowerCase()] = 1;
+  }
+  hojas.forEach(function(cfg) {
+    var sh = SS.getSheetByName(cfg.name);
+    if (!sh || sh.getLastRow() <= 1) return;
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var estado = String(row[cfg.est] || '').trim();
+      if (estado === 'Cancelado') continue;
+      var fecha = _crmToDate(row[cfg.fecha]);
+      if (!fecha) continue;
+      if (fecha.getFullYear() !== yyyy || fecha.getMonth() !== m0) continue;
+      var fact = Number(row[cfg.total]) || 0;
+      if (!fact) continue;
+      var cli = String(row[cfg.cliente] || '').trim();
+      // Canal del registro: Home/Pilar = "Venta Directa"; otros = el nombre de la hoja
+      var canal;
+      if (cfg.name === 'Home' || cfg.name === 'Pilar') canal = 'Venta Directa';
+      else canal = cfg.name;
+      var barrio = '';
+      if (cfg.name === 'Home') barrio = _planBarrioCanon(cfg.barrio >= 0 ? String(row[cfg.barrio] || '') : '');
+      else if (cfg.name === 'Pilar') barrio = ''; // Pilar agregamos sin desglose barrio por ahora
+      // Para discriminar Home/Pilar también guardo en una clave por hoja operativa
+      bump(canal, barrio, fact, cli);
+      // Y una clave por "hoja operativa" (Home, Pilar) para que el frontend pueda mostrar dos cards diferentes en VD
+      if (cfg.name === 'Home' || cfg.name === 'Pilar') {
+        bump('__hoja:' + cfg.name, barrio, fact, cli);
+      }
+    }
+  });
+  // Convertir Sets de clientes a count
+  Object.keys(real).forEach(function(k) {
+    real[k].clientesUnicos = Object.keys(real[k].clientes).length;
+    delete real[k].clientes;
+  });
+  return real;
+}
+
+// Endpoint: ?action=planMes&mes=Junio%202026
+function _doGetPlanMes(e) {
+  var label = (e && e.parameter && e.parameter.mes) || '';
+  if (!label) {
+    // Default: mes actual AR
+    var now = new Date();
+    var ar = new Date(now.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+    label = _planLabelMes(ar.getFullYear(), ar.getMonth());
+  }
+  _planEnsureSheets();
+  var parsed = _planParseMes(label);
+  if (!parsed) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Mes invalido: ' + label }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var metas = _planReadMetas(label);
+  var acciones = _planReadAcciones(label);
+  var real = _planRealMes(parsed.y, parsed.m);
+
+  // Días del mes y días transcurridos (en AR)
+  var diasTot = new Date(parsed.y, parsed.m + 1, 0).getDate();
+  var ar = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var diasTrans;
+  if (ar.getFullYear() < parsed.y || (ar.getFullYear() === parsed.y && ar.getMonth() < parsed.m)) diasTrans = 0;
+  else if (ar.getFullYear() > parsed.y || (ar.getFullYear() === parsed.y && ar.getMonth() > parsed.m)) diasTrans = diasTot;
+  else diasTrans = ar.getDate();
+
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    mes: label,
+    yyyy: parsed.y,
+    mm: parsed.m + 1,
+    diasMes: diasTot,
+    diasTrans: diasTrans,
+    metas: metas,
+    acciones: acciones,
+    real: real,
+    barriosHome: ['Estancias del Pilar', 'Los Alcanfores', 'Estancias del Río', 'Pilara'],
+    canalesPrincipales: ['Venta Directa', 'Clubes', 'Red', 'Catering', 'B2B']
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// POST: setear meta de un canal+barrio para un mes (upsert).
+function _doPostPlanMetaSet(data) {
+  var sheets = _planEnsureSheets();
+  var sh = sheets.metas;
+  var label = String(data.mes || '').trim();
+  var canal = String(data.canal || '').trim();
+  var barrio = String(data.barrio || '').trim();
+  if (!label || !canal) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Faltan mes y canal' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var metaFact     = Number(data.metaFact) || 0;
+  var metaPedidos  = Number(data.metaPedidos) || 0;
+  var metaTicket   = (metaPedidos > 0) ? Math.round(metaFact / metaPedidos) : (Number(data.metaTicket) || 0);
+  var metaClientes = Number(data.metaClientes) || 0;
+  var notas        = String(data.notas || '').trim();
+  var updated      = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+
+  var lastRow = sh.getLastRow();
+  var found = -1;
+  if (lastRow > 1) {
+    var rows = sh.getRange(2, 1, lastRow - 1, 3).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === label &&
+          String(rows[i][1]).trim() === canal &&
+          String(rows[i][2]).trim() === barrio) {
+        found = i + 2;
+        break;
+      }
+    }
+  }
+  var values = [[label, canal, barrio, metaFact, metaPedidos, metaTicket, metaClientes, notas, updated]];
+  if (found > 0) sh.getRange(found, 1, 1, 9).setValues(values);
+  else sh.appendRow(values[0]);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function _planNextActionId(sh) {
+  if (sh.getLastRow() <= 1) return 'A-001';
+  var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+  var maxN = 0;
+  for (var i = 0; i < ids.length; i++) {
+    var n = parseInt(String(ids[i][0]).replace(/\D/g, ''), 10);
+    if (n > maxN) maxN = n;
+  }
+  return 'A-' + String(maxN + 1).padStart(3, '0');
+}
+
+// POST: agregar acción
+function _doPostPlanAccionAdd(data) {
+  var sheets = _planEnsureSheets();
+  var sh = sheets.acciones;
+  var label = String(data.mes || '').trim();
+  var desc = String(data.desc || '').trim();
+  if (!label || !desc) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Faltan mes y descripcion' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var id = _planNextActionId(sh);
+  var fechaObj = String(data.fechaObjetivo || '').trim();
+  var now = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+  sh.appendRow([
+    id, label,
+    String(data.canal || '').trim(),
+    String(data.barrio || '').trim(),
+    desc,
+    String(data.responsable || 'Tadeo').trim(),
+    fechaObj,
+    String(data.estado || 'Pendiente').trim(),
+    Number(data.impactoEstimado) || 0,
+    Number(data.impactoReal) || 0,
+    String(data.notas || '').trim(),
+    now, now
+  ]);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, id: id })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// POST: actualizar acción
+function _doPostPlanAccionUpdate(data) {
+  var sheets = _planEnsureSheets();
+  var sh = sheets.acciones;
+  var id = String(data.id || '').trim();
+  if (!id) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Falta id' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  if (sh.getLastRow() <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'No existe' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var all = sh.getDataRange().getValues();
+  for (var r = 1; r < all.length; r++) {
+    if (String(all[r][0]).trim() !== id) continue;
+    var row = all[r];
+    if (data.desc !== undefined)            row[4] = String(data.desc).trim();
+    if (data.responsable !== undefined)     row[5] = String(data.responsable).trim();
+    if (data.fechaObjetivo !== undefined)   row[6] = String(data.fechaObjetivo).trim();
+    if (data.estado !== undefined)          row[7] = String(data.estado).trim();
+    if (data.impactoEstimado !== undefined) row[8] = Number(data.impactoEstimado) || 0;
+    if (data.impactoReal !== undefined)     row[9] = Number(data.impactoReal) || 0;
+    if (data.notas !== undefined)           row[10] = String(data.notas).trim();
+    if (data.canal !== undefined)           row[2] = String(data.canal).trim();
+    if (data.barrio !== undefined)          row[3] = String(data.barrio).trim();
+    row[12] = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+    sh.getRange(r + 1, 1, 1, row.length).setValues([row]);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'ID no encontrado' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// POST: borrar acción
+function _doPostPlanAccionDelete(data) {
+  var sheets = _planEnsureSheets();
+  var sh = sheets.acciones;
+  var id = String(data.id || '').trim();
+  if (!id) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Falta id' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  if (sh.getLastRow() <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'No existe' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === id) {
+      sh.deleteRow(i + 2);
+      return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'ID no encontrado' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  Lista de repartidores: combina los detectados en col Repartidor
+//  de Home/Pilar/Clubes + los de hoja Usuarios con rol relevante.
+//  Usado por el selector de Mi Reparto en modo admin.
+// ════════════════════════════════════════════════════════════
+function _doGetRepartidoresList() {
+  var users = {}; // {nombre: cantEntregas}
+  var cfg = [
+    { name: 'Home',   col: 55 },  // col BD
+    { name: 'Pilar',  col: 58 },  // col BG
+    { name: 'Clubes', col: 36 }   // col AK
+  ];
+  cfg.forEach(function(c) {
+    var sh = SS.getSheetByName(c.name);
+    if (!sh || sh.getLastRow() <= 1) return;
+    if (sh.getLastColumn() <= c.col) return;
+    var data = sh.getRange(2, c.col + 1, sh.getLastRow() - 1, 1).getValues();
+    data.forEach(function(r) {
+      var u = String(r[0] || '').trim();
+      if (u) users[u] = (users[u] || 0) + 1;
+    });
+  });
+  // Sumar metadata de hoja Usuarios (si existe)
+  var meta = {};
+  var shU = SS.getSheetByName('Usuarios');
+  if (shU && shU.getLastRow() > 1) {
+    var dU = shU.getDataRange().getValues();
+    for (var r = 1; r < dU.length; r++) {
+      var nombre = String(dU[r][3] || '').trim() || String(dU[r][0] || '').trim();
+      if (!nombre) continue;
+      meta[nombre] = {
+        rol: String(dU[r][2] || '').trim().toLowerCase(),
+        activo: String(dU[r][4] || '').trim().toLowerCase() !== 'no'
+      };
+    }
+  }
+  var lista = Object.keys(users).map(function(nombre) {
+    var m = meta[nombre] || {};
+    return {
+      nombre: nombre,
+      entregas: users[nombre],
+      rol: m.rol || '',
+      activo: m.activo !== false
+    };
+  });
+  lista.sort(function(a, b) {
+    if (b.entregas !== a.entregas) return b.entregas - a.entregas;
+    return a.nombre.localeCompare(b.nombre);
+  });
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, repartidores: lista }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
