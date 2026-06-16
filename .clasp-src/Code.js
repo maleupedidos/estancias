@@ -3455,6 +3455,7 @@ function doPost(e) {
     if (data.action === 'editarPedido')    return _doPostEditarPedido(data);
     if (data.action === 'marcarSemanaPagadaRed') return _doPostMarcarSemanaPagadaRed(data);
     if (data.action === 'crmUpdateClienteMeta') return _doPostCrmUpdateClienteMeta(data);
+    if (data.action === 'guardarCumpleCliente') return _doPostGuardarCumpleCliente(data);
     if (data.action === 'crmMergeClientes')     return _doPostCrmMergeClientes(data);
     if (data.action === 'programarBusqueda')    return _doPostProgramarBusqueda(data);
     if (data.action === 'marcarEntregadoAVendedor') return _doPostMarcarEntregadoAVendedor(data);
@@ -3536,6 +3537,12 @@ function _doPostPedido(data) {
     else if (canal === 'Red')        _doPostRed(data);
     else if (canal === 'Pilar')      _doPostHome(data, 'Pilar', 'P');
     else                             _doPostHome(data, 'Home', 'H');
+
+    // Cumpleaños capturado en el form de la tienda → guardar en Clientes Meta
+    // (no destructivo). Falla silenciosa: nunca debe tumbar un pedido.
+    if (data.cumple) {
+      try { _guardarCumpleCliente(data.telefono, data.cumple); } catch (_e) {}
+    }
 
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
@@ -4508,6 +4515,14 @@ function _isoWeek(date) {
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+/** Lunes (00:00 hora local) de la semana ISO que contiene `date`. */
+function _isoWeekMondayLocal(date) {
+  var x = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  var day = x.getDay() || 7;            // domingo = 7
+  x.setDate(x.getDate() - (day - 1));
+  return x;
 }
 
 /**
@@ -11034,7 +11049,7 @@ function _doGetResumenSemanal(e) {
   var stockCritico = _resumenStockCritico();
 
   // 7. Meta
-  var metaSemanal = _resumenMeta(canales.semana);
+  var metaSemanal = _resumenMeta(canales, rango);
 
   var resp = {
     ok: true,
@@ -11439,6 +11454,16 @@ function _resumenAnalizarClientes(canales, rango) {
     }
   });
 
+  // 1b. Fecha del último pedido PREVIO a la semana (para separar recompra activa de reactivados)
+  var ultimoPrevio = {};
+  canales.anio.forEach(function(f){
+    if (f.estadoEntrega === 'Cancelado') return;
+    if (f.fecha >= rango.desde) return; // solo pedidos anteriores a la semana analizada
+    var k = _resumenClienteKey(f.canal, f);
+    if (!ultimoPrevio[k] || f.fecha > ultimoPrevio[k]) ultimoPrevio[k] = f.fecha;
+  });
+  var umbralActivo = _resumenAddDays(rango.desde, -28); // compró en las últimas 4 semanas → activo
+
   // 2. Recorrer la semana
   var unicos = {};
   var nuevos = [];
@@ -11480,11 +11505,36 @@ function _resumenAnalizarClientes(canales, rango) {
                      .sort(function(a,b){ return b.monto - a.monto; })
                      .slice(0, 5);
 
+  // Separar a los recurrentes en "recompra activa" (compró en las últimas 4 semanas)
+  // vs "reactivados" (volvió tras 5+ semanas dormido). nuevos + activa + react = unicos.
+  // Los reactivados se listan con nombre/tel/cuánto hacía que no compraban → accionable.
+  var recompraActiva = 0, reactivados = 0;
+  var reactivadosList = [];
+  unicosArr.forEach(function(u){
+    if (nuevosKeys[u.key]) return; // ya contado como nuevo
+    var ult = ultimoPrevio[u.key];
+    if (ult && ult >= umbralActivo) { recompraActiva++; return; }
+    reactivados++;
+    var semanas = ult ? Math.round((rango.desde.getTime() - ult.getTime()) / (7 * 86400000)) : null;
+    reactivadosList.push({
+      nombre: u.nombre,
+      canal: u.canal,
+      telefono: _resumenNormTel(u.telefono),
+      monto: u.monto,
+      semanasDormido: semanas,
+      ultima: ult ? Utilities.formatDate(ult, 'America/Argentina/Buenos_Aires', 'dd/MM') : ''
+    });
+  });
+  reactivadosList.sort(function(a, b){ return b.monto - a.monto; });
+
   return {
     unicos: unicosArr.length,
     nuevosCount: nuevos.length,
     nuevos: nuevos,
     recurrentes: unicosArr.length - nuevos.length,
+    recompraActiva: recompraActiva,
+    reactivados: reactivados,
+    reactivadosList: reactivadosList,
     top: top
   };
 }
@@ -11589,17 +11639,61 @@ function _resumenComparativa(filasSem, filasAnt) {
 
 // ───────── meta semanal ─────────
 
-function _resumenMeta(filas) {
-  var entregados = 0;
-  filas.forEach(function(f){
-    if (f.canal === 'Red') return;
-    if (f.estadoEntrega === 'Entregado') entregados++;
+// Lee un parámetro numérico de Config_Maleu (clave en col A, valor en col B).
+// Robusto: si falta la hoja, la fila o el valor, devuelve el default. Acepta
+// formatos "$1.500.000" / "0,08" / "50".
+function _resumenCfgNum(nombre, def) {
+  try {
+    var sh = SS.getSheetByName('Config_Maleu');
+    if (!sh || sh.getLastRow() < 2) return def;
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][0]).trim() === nombre) {
+        var v = String(data[r][1]).replace(/[^0-9.,\-]/g, '').replace(/\./g, '').replace(',', '.');
+        var n = parseFloat(v);
+        return isNaN(n) ? def : n;
+      }
+    }
+  } catch (e) {}
+  return def;
+}
+
+// Meta = pedidos entregados en Estancias del Pilar (el corazón del negocio).
+// Objetivo: 50/semana sostenido todo el año (editable en Config_Maleu).
+// Muestra el dato de la semana + el promedio semanal del mes en curso (mes a mes).
+function _resumenMeta(canales, rango) {
+  var objetivo = _resumenCfgNum('META_PED_SEM_ESTANCIAS', 50);
+  function esEst(f) {
+    return f.canal === 'Home'
+      && f.estadoEntrega === 'Entregado'
+      && String(f.barrio || '').trim().toLowerCase() === 'estancias del pilar';
+  }
+  // Esta semana
+  var semana = 0;
+  canales.semana.forEach(function(f){ if (esEst(f)) semana++; });
+
+  // Mes del informe (mes del lunes de la semana) y promedio semanal hasta el cierre del informe
+  var MS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var mesNum = rango.desde.getMonth(), anio = rango.desde.getFullYear();
+  var finMes = new Date(anio, mesNum + 1, 0);
+  var tope = (rango.hasta < finMes) ? rango.hasta : finMes; // no pasar de fin de mes
+  var semanasMes = Math.max(1, Math.round(tope.getDate() / 7));
+  var pedMes = 0;
+  canales.anio.forEach(function(f){
+    if (!esEst(f)) return;
+    if (f.fecha.getMonth() === mesNum && f.fecha.getFullYear() === anio && f.fecha <= tope) pedMes++;
   });
+  var promedioMes = Math.round((pedMes / semanasMes) * 10) / 10;
+
   return {
-    objetivo: 50,
-    alcanzado: entregados,
-    pct: Math.round((entregados / 50) * 100),
-    detalle: 'Pedidos entregados Home + Pilar + Clubes'
+    objetivo: objetivo,
+    alcanzado: semana,
+    pct: objetivo > 0 ? Math.round((semana / objetivo) * 100) : 0,
+    detalle: 'Pedidos entregados en Estancias del Pilar',
+    mes: MS[mesNum],
+    pedidosMes: pedMes,
+    semanasMes: semanasMes,
+    promedioMes: promedioMes
   };
 }
 
@@ -11660,6 +11754,29 @@ function _barrioCanon_(sub) {
     'pilara':'Pilara'
   };
   return MAP[key] || sb;
+}
+
+/** Clave normalizada de barrio para comparar (minúsculas, sin acentos, espacios colapsados). */
+function _barrioKey(s) {
+  s = String(s || '').toLowerCase()
+    .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i')
+    .replace(/ó/g, 'o').replace(/ú/g, 'u').replace(/ü/g, 'u').replace(/ñ/g, 'n');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+/** ¿Es un BARRIO PRIVADO de Home (nivel superior)? Estancias del Pilar/Río + Los Alcanfores.
+ *  Los sub-barrios (El Recuerdo, La Paz, Champagnat, Golf…) viven adentro de Estancias del Pilar. */
+function _esBarrioPriv(canon) {
+  var k = _barrioKey(canon);
+  return k === 'estancias del pilar' || k === 'estancias del rio' || k === 'los alcanfores';
+}
+
+/** Acumula un barrio en el universo para poblar los dropdowns del filtro. */
+function _accBarrio(u, canal, tipo, v) {
+  if (!v || v === '-') return;
+  var k = canal + '||' + tipo + '||' + v;
+  if (!u[k]) u[k] = { canal: canal, tipo: tipo, v: v, n: 0 };
+  u[k].n++;
 }
 
 /**
@@ -11838,6 +11955,60 @@ function _crmGetClientesMeta() {
   return map;
 }
 
+// Lee el mapa de fusiones manuales desde la hoja "Clientes Merge".
+// Cada fila: [Alias Key, Canonical Key, Updated]. Devuelve {aliasKey: canonicalKey}.
+// No destructivo: las filas operativas no se tocan; el merge se aplica al vuelo
+// al construir el índice. Para revertir una fusión, borrar su fila en la hoja.
+function _crmGetMergeMap() {
+  var sh = SS.getSheetByName('Clientes Merge');
+  if (!sh) {
+    sh = SS.insertSheet('Clientes Merge');
+    sh.getRange(1, 1, 1, 3).setValues([['Alias Key', 'Canonical Key', 'Updated']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+    sh.setColumnWidths(1, 3, 200);
+    return {};
+  }
+  if (sh.getLastRow() <= 1) return {};
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+  var map = {};
+  for (var r = 0; r < data.length; r++) {
+    var a = String(data[r][0] || '').trim();
+    var b = String(data[r][1] || '').trim();
+    if (a && b && a !== b) map[a] = b;
+  }
+  return map;
+}
+
+// Absorbe el bucket `src` dentro de `dst` (suma contadores, concatena pedidos,
+// combina totales y fechas). Usado al aplicar fusiones manuales.
+function _crmFoldBucket(dst, src) {
+  function addCounts(d, s) { Object.keys(s || {}).forEach(function(k) { d[k] = (d[k] || 0) + s[k]; }); }
+  addCounts(dst.nombres, src.nombres);
+  addCounts(dst.telefonos, src.telefonos);
+  addCounts(dst.barrios, src.barrios);
+  addCounts(dst.subBarrios, src.subBarrios);
+  addCounts(dst.domicilios, src.domicilios);
+  addCounts(dst.clubes, src.clubes);
+  addCounts(dst.canales, src.canales);
+  Object.keys(src.productos || {}).forEach(function(ab) {
+    if (!dst.productos[ab]) dst.productos[ab] = {cant: 0, monto: 0, ultimo: null};
+    dst.productos[ab].cant += src.productos[ab].cant;
+    dst.productos[ab].monto += src.productos[ab].monto;
+    var su = src.productos[ab].ultimo;
+    if (su && (!dst.productos[ab].ultimo || su > dst.productos[ab].ultimo)) dst.productos[ab].ultimo = su;
+  });
+  dst.pedidos = dst.pedidos.concat(src.pedidos || []);
+  dst.totalFacturado += src.totalFacturado;
+  dst.totalCobrado += src.totalCobrado;
+  dst.deuda += src.deuda;
+  dst.countPedidos += src.countPedidos;
+  dst.countEntregados += src.countEntregados;
+  if (src.firstFecha && (!dst.firstFecha || src.firstFecha < dst.firstFecha)) dst.firstFecha = src.firstFecha;
+  if (src.lastFecha && (!dst.lastFecha || src.lastFecha > dst.lastFecha)) dst.lastFecha = src.lastFecha;
+  if (!dst.tel && src.tel) { dst.tel = src.tel; dst.telRaw = src.telRaw; }
+}
+
 // Construye el agregado completo de clientes a partir de Home + Pilar + Clubes + Red.
 // Devuelve un map {telNorm: clienteAgregado}.
 function _crmBuildClientesIndex() {
@@ -11988,6 +12159,25 @@ function _crmBuildClientesIndex() {
 
   // Mergear sin-tel en index si hay match por nombre+barrio único
   Object.keys(sinTel).forEach(function(k) { index[k] = sinTel[k]; });
+
+  // Aplicar fusiones manuales (no destructivo: viven en hoja "Clientes Merge").
+  // Resuelve cadenas A→B→C y absorbe cada alias en su canónico final.
+  try {
+    var mergeMap = _crmGetMergeMap();
+    var resolve = function(key) {
+      var k = key, seen = {}, depth = 10;
+      while (mergeMap[k] && !seen[k] && depth-- > 0) { seen[k] = true; k = mergeMap[k]; }
+      return k;
+    };
+    Object.keys(mergeMap).forEach(function(aliasKey) {
+      if (!index[aliasKey]) return;
+      var canon = resolve(aliasKey);
+      if (canon === aliasKey) return;
+      if (!index[canon]) index[canon] = index[aliasKey];
+      else _crmFoldBucket(index[canon], index[aliasKey]);
+      delete index[aliasKey];
+    });
+  } catch (_e) { /* si el merge falla, devolvemos el índice sin fusionar */ }
 
   return index;
 }
@@ -12218,6 +12408,16 @@ function _doGetCrmProductos(e) {
   var perPrevHasta = new Date(perDesde.getTime() - 1);
   var perPrevDesde = new Date(perDesde.getTime() - perDias * 86400000);
 
+  // ─── Filtros: canal + barrio privado (sobre las VENTAS, no las compras) ───
+  var fCanal = String(prm.canal || '').trim();
+  if (!fCanal || fCanal.toLowerCase() === 'todos') fCanal = '';
+  var fBarrio = String(prm.barrio || '').trim();
+  if (!fBarrio || fBarrio.toLowerCase() === 'todos') fBarrio = '';
+  var fBarrioKey = _barrioKey(fBarrio);
+  var filtroActivo = !!(fCanal || fBarrio);
+  var barrioUniverse = {};   // para poblar el dropdown (siempre completo)
+  var canalSeen = {};
+
   var dataP = shP.getDataRange().getValues();
   var prods = [];
   for (var r = 1; r < dataP.length; r++) {
@@ -12254,6 +12454,24 @@ function _doGetCrmProductos(e) {
   var hace7 = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000);
   var hace90 = new Date(hoy.getTime() - 90 * 24 * 60 * 60 * 1000);
 
+  // ─── Desglose por semana ISO: últimas 8 COMPLETAS (excluye la en curso) ───
+  // Responde a "cuánto vendí de cada producto en la semana 24" (no solo el agregado).
+  var tzW = 'America/Argentina/Buenos_Aires';
+  var WK_N = 8;
+  var curMon = _isoWeekMondayLocal(hoy);
+  var wkTargets = [], wkIdx = {};
+  for (var iw = WK_N; iw >= 1; iw--) {
+    var wMon = new Date(curMon.getFullYear(), curMon.getMonth(), curMon.getDate() - iw * 7);
+    var wSun = new Date(wMon.getFullYear(), wMon.getMonth(), wMon.getDate() + 6);
+    wkIdx[wMon.getFullYear() + '-' + _isoWeek(wMon)] = wkTargets.length;
+    wkTargets.push({
+      w: _isoWeek(wMon),
+      desde: Utilities.formatDate(wMon, tzW, 'dd/MM'),
+      hasta: Utilities.formatDate(wSun, tzW, 'dd/MM')
+    });
+  }
+  prods.forEach(function(p) { p.wk = []; for (var z = 0; z < WK_N; z++) p.wk.push(0); });
+
   var hojas = _crmHojasConfig();
   hojas.forEach(function(cfg) {
     var sh = SS.getSheetByName(cfg.name);
@@ -12264,7 +12482,25 @@ function _doGetCrmProductos(e) {
       var row = data[r];
       var estado = String(row[cfg.est] || '').trim();
       if (estado !== 'Entregado') continue;
+      canalSeen[cfg.name] = true;
+
+      // Barrio de la fila: zona (col barrio) y privado (col subBarrio cuando existe)
+      var bCanon = cfg.barrio >= 0 ? _barrioCanon_(String(row[cfg.barrio] || '').trim()) : '';
+      var sCanon = (cfg.subBarrio != null && cfg.subBarrio >= 0) ? _barrioCanon_(String(row[cfg.subBarrio] || '').trim()) : '';
+      // Universo para el dropdown (siempre, antes de filtrar): Home → zona+privado; resto → barrio
+      _accBarrio(barrioUniverse, cfg.name, 'priv', bCanon);   // Barrio privado (col Barrio / Barrio Privado)
+      if (sCanon && !_esBarrioPriv(sCanon)) _accBarrio(barrioUniverse, cfg.name, 'sub', sCanon); // Sub barrio real (no privado leakeado)
+
+      // Aplicar filtros (sobre ventas)
+      if (fCanal && cfg.name !== fCanal) continue;
+      if (fBarrio && _barrioKey(bCanon) !== fBarrioKey && _barrioKey(sCanon) !== fBarrioKey) continue;
+
       var fecha = _crmToDate(row[cfg.fecha]);
+      var wkSlot = -1;
+      if (fecha) {
+        var rk = _isoWeekMondayLocal(fecha).getFullYear() + '-' + _isoWeek(fecha);
+        if (wkIdx[rk] !== undefined) wkSlot = wkIdx[rk];
+      }
       var total = Number(row[cfg.total]) || 0;
       var nombreCli = String(row[cfg.cliente] || '').trim();
       var totalProds = 0;
@@ -12280,6 +12516,7 @@ function _doGetCrmProductos(e) {
         var p = byAbrev[pr.abrev];
         if (!p) return;
         p.vendidosTotal += pr.cant;
+        if (wkSlot >= 0) p.wk[wkSlot] += pr.cant;
         if (fecha && fecha >= hace30) p.vendidosMes += pr.cant;
         if (fecha && fecha >= hace7) p.vendidosSemana += pr.cant;
         var monto = totalProds > 0 ? Math.round((pr.cant / totalProds) * total) : 0;
@@ -12349,10 +12586,23 @@ function _doGetCrmProductos(e) {
     delete p._clientes;
   });
 
+  // Universo de barrios para el dropdown (orden por frecuencia desc)
+  var barriosArr = Object.keys(barrioUniverse).map(function(k) { return barrioUniverse[k]; })
+    .sort(function(a, b) { return b.n - a.n; });
+  var canalesArr = ['Home', 'Pilar', 'Clubes', 'Red'].filter(function(c) { return canalSeen[c]; });
+
   var tz = 'America/Argentina/Buenos_Aires';
   return ContentService.createTextOutput(JSON.stringify({
     ts: Date.now(),
     productos: prods,
+    semanas: wkTargets,
+    filtros: {
+      canales: canalesArr,
+      barrios: barriosArr,           // [{canal, tipo:'zona'|'sub'|'barrio', v, n}]
+      canalSel: fCanal || 'todos',
+      barrioSel: fBarrio || 'todos',
+      activo: filtroActivo
+    },
     periodo: {
       dias: perDias,
       desde: Utilities.formatDate(perDesde, tz, 'yyyy-MM-dd'),
@@ -12600,23 +12850,98 @@ function _doPostCrmUpdateClienteMeta(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// Guarda el cumpleaños de un cliente en "Clientes Meta" SIN pisar el resto de la
+// ficha (nombre canónico, alias, notas, tags). A diferencia de crmUpdateClienteMeta,
+// este merge solo toca la columna Cumpleaños + Updated. Lo usa la tienda online:
+// el cliente carga su cumple en el form y viaja con el pedido (data.cumple) o por
+// la acción 'guardarCumpleCliente'. Formato esperado: "DD/MM" o "DD/MM/AAAA"
+// (el filtro 🎂 del Panel lee solo DD/MM, así que el año es compatible).
+function _guardarCumpleCliente(telRaw, cumpleRaw) {
+  var tel = _crmNormTel(telRaw);
+  var cumple = String(cumpleRaw || '').trim();
+  if (!tel || !cumple) return false;
+  var sh = SS.getSheetByName('Clientes Meta');
+  if (!sh) {
+    sh = SS.insertSheet('Clientes Meta');
+    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated'];
+    sh.getRange(1, 1, 1, hdr.length).setValues([hdr]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+  }
+  var lastRow = sh.getLastRow();
+  var found = -1;
+  if (lastRow > 1) {
+    var tels = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < tels.length; i++) {
+      if (String(tels[i][0]).trim() === tel) { found = i + 2; break; }
+    }
+  }
+  var updated = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+  if (found > 0) {
+    // MERGE: solo Cumpleaños (col 3) + Updated (col 7). NO tocar el resto.
+    sh.getRange(found, 3).setValue(cumple);
+    sh.getRange(found, 7).setValue(updated);
+  } else {
+    sh.appendRow([tel, '', cumple, '', '', '', updated]);
+  }
+  return true;
+}
+
+// POST: guardar solo el cumpleaños de un cliente (desde la tienda online).
+function _doPostGuardarCumpleCliente(data) {
+  try {
+    var ok = _guardarCumpleCliente(data.tel, data.cumple);
+    return ContentService.createTextOutput(JSON.stringify({ok: ok}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: String(err)}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 // POST: fusionar dos "clientes" (típicamente cuando son la misma persona con tipeo distinto)
 // Estrategia: anota la fusión en Clientes Meta como "alias" del telNorm canónico.
 // (El backend ya unifica por teléfono normalizado; esto cubre el caso de personas sin teléfono.)
 function _doPostCrmMergeClientes(data) {
-  var keyA = String(data.keyCanonical || '').trim();
-  var keyB = String(data.keyAlias || '').trim();
-  if (!keyA || !keyB) {
-    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'faltan keys'}))
+  var keyCanon = String(data.keyCanonical || '').trim();  // el cliente que queda
+  var keyAlias = String(data.keyAlias || '').trim();       // el que se absorbe
+  if (!keyCanon || !keyAlias || keyCanon === keyAlias) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'faltan keys o son iguales'}))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  // Por ahora solo registramos la intención en Clientes Meta como nota.
-  // En futuras iteraciones se puede aplicar el merge en las hojas operativas.
-  var sh = SS.getSheetByName('Clientes Meta');
-  if (!sh) return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'sin meta'}))
+  var sh = SS.getSheetByName('Clientes Merge');
+  if (!sh) {
+    sh = SS.insertSheet('Clientes Merge');
+    sh.getRange(1, 1, 1, 3).setValues([['Alias Key', 'Canonical Key', 'Updated']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+    sh.setColumnWidths(1, 3, 200);
+  }
+  // Evitar duplicar la misma fila alias→canónico
+  if (sh.getLastRow() > 1) {
+    var ex = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+    for (var r = 0; r < ex.length; r++) {
+      if (String(ex[r][0] || '').trim() === keyAlias) {
+        sh.getRange(r + 2, 2).setValue(keyCanon);  // re-apuntar alias existente
+        sh.getRange(r + 2, 3).setValue(new Date());
+        _crmClearCache();
+        return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'fusión actualizada'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+  sh.appendRow([keyAlias, keyCanon, new Date()]);
+  _crmClearCache();
+  return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'clientes fusionados'}))
     .setMimeType(ContentService.MimeType.JSON);
-  return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'merge anotado (fase 2)'}))
-    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Invalida el cache server-side del CRM para que la próxima lectura refleje cambios.
+function _crmClearCache() {
+  try {
+    var c = CacheService.getScriptCache();
+    c.remove('crm_clientes_v1');
+    c.remove('crm_clientes_lite_v1');
+  } catch (_e) { /* sin cache no rompe */ }
 }
 
 /** POST action=marcarEntregadoAVendedor
@@ -13285,6 +13610,12 @@ function _doGetProductosAnalytics(e) {
   var perPrevHasta = new Date(perDesde.getTime() - 1);
   var perPrevDesde = new Date(perDesde.getTime() - perDias * 86400000);
 
+  // Filtro por barrio privado (zona o sub-barrio). Reusa helpers del CRM.
+  var fBarrio = String(prm.barrio || '').trim();
+  if (!fBarrio || fBarrio.toLowerCase() === 'all' || fBarrio.toLowerCase() === 'todos') fBarrio = '';
+  var fBarrioKey = _barrioKey(fBarrio);
+  var barrioUniverse = {};
+
   var shP = SS.getSheetByName('Productos');
   if (!shP) {
     return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'no Productos sheet'}))
@@ -13347,6 +13678,14 @@ function _doGetProductosAnalytics(e) {
       if (estado !== 'Entregado') continue;
       var fecha = _crmToDate(row[cfg.fecha]);
       if (!fecha) continue;
+
+      // Barrio: universo para el dropdown (siempre) + filtro sobre ventas
+      var bCanon = cfg.barrio >= 0 ? _barrioCanon_(String(row[cfg.barrio] || '').trim()) : '';
+      var sCanon = (cfg.subBarrio != null && cfg.subBarrio >= 0) ? _barrioCanon_(String(row[cfg.subBarrio] || '').trim()) : '';
+      _accBarrio(barrioUniverse, cfg.name, 'priv', bCanon);   // Barrio privado (col Barrio / Barrio Privado)
+      if (sCanon && !_esBarrioPriv(sCanon)) _accBarrio(barrioUniverse, cfg.name, 'sub', sCanon); // Sub barrio real (no privado leakeado)
+      if (fBarrio && _barrioKey(bCanon) !== fBarrioKey && _barrioKey(sCanon) !== fBarrioKey) continue;
+
       var totalFila = Number(row[cfg.total]) || 0;
       var nombreCli = String(row[cfg.cliente] || '').trim();
 
@@ -13503,11 +13842,15 @@ function _doGetProductosAnalytics(e) {
     mixCat[p.categoria].facturado += p.facturado;
   });
 
+  var barriosArr = Object.keys(barrioUniverse).map(function(k) { return barrioUniverse[k]; })
+    .sort(function(a, b) { return b.n - a.n; });
+
   var tz = 'America/Argentina/Buenos_Aires';
   return ContentService.createTextOutput(JSON.stringify({
     ok: true,
     ts: Date.now(),
     canal: canal,
+    barrio: fBarrio || 'all',
     periodo: {
       dias: perDias,
       desde: Utilities.formatDate(perDesde, tz, 'yyyy-MM-dd'),
@@ -13515,6 +13858,8 @@ function _doGetProductosAnalytics(e) {
       desdeArg: Utilities.formatDate(perDesde, tz, 'dd/MM/yyyy'),
       hastaArg: Utilities.formatDate(perHasta, tz, 'dd/MM/yyyy')
     },
+    filtros: { barrios: barriosArr },   // [{canal, tipo:'priv'|'sub', v, n}]
+    bcgEjes: { mediaUnid: mediaUnid, mediaMargen: mediaMargen },  // umbrales de los cuadrantes (scatter)
     productos: prods,
     totales: totales,
     alertas: alertas,
