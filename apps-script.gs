@@ -288,6 +288,8 @@ function doGet(e) {
   if (action === 'crmCliente') return _doGetCrmCliente(e);
   if (action === 'crmProductos') return _doGetCrmProductos(e);
   if (action === 'crmProducto') return _doGetCrmProducto(e);
+  if (action === 'crmZonas') return _doGetCrmZonas(e);
+  if (action === 'crmInteracciones') return _doGetCrmInteracciones(e);
   if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
   if (action === 'productosAnalytics') return _doGetProductosAnalytics(e);
   if (action === 'miReparto') return _doGetMiReparto(e);
@@ -3457,6 +3459,10 @@ function doPost(e) {
     if (data.action === 'crmUpdateClienteMeta') return _doPostCrmUpdateClienteMeta(data);
     if (data.action === 'guardarCumpleCliente') return _doPostGuardarCumpleCliente(data);
     if (data.action === 'crmMergeClientes')     return _doPostCrmMergeClientes(data);
+    if (data.action === 'crmZonaSave')          return _doPostCrmZonaSave(data);
+    if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
+    if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
+    if (data.action === 'crmDeleteInteraccion') return _doPostCrmDeleteInteraccion(data);
     if (data.action === 'programarBusqueda')    return _doPostProgramarBusqueda(data);
     if (data.action === 'marcarEntregadoAVendedor') return _doPostMarcarEntregadoAVendedor(data);
     if (data.action === 'marcarGuardadoEnStock') return _doPostMarcarGuardadoEnStock(data);
@@ -8442,6 +8448,9 @@ function _doGetAdmin(opt) {
       // canales[] queda fuera en modo tail (stats no representativos). El frontend mantiene los anteriores.
     } else {
       _outObj.canales = canales;
+      // Salud de Clientes Home (identidad canónica del CRM). Solo en modo no-tail:
+      // necesita el historial completo de Home, que el tail no trae.
+      _outObj.saludHome = _saludHomeSemana(argNow);
     }
     var _outLight = JSON.stringify(_outObj);
     if (!_tail) {
@@ -9023,7 +9032,8 @@ function _doGetAdmin(opt) {
       ingresos: ingresos,
       gastosHist: gastosHist,
       movimientos: movimientos,
-      vueltos: vueltos
+      vueltos: vueltos,
+      saludHome: _saludHomeSemana(argNow)
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -11760,7 +11770,8 @@ function _barrioCanon_(sub) {
 function _barrioKey(s) {
   s = String(s || '').toLowerCase()
     .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i')
-    .replace(/ó/g, 'o').replace(/ú/g, 'u').replace(/ü/g, 'u').replace(/ñ/g, 'n');
+    .replace(/ó/g, 'o').replace(/ú/g, 'u').replace(/ü/g, 'u').replace(/ñ/g, 'n')
+    .replace(/\s*\(\d+\)\s*$/, '');   // tolera un "(444)" pegado por el front
   return s.replace(/\s+/g, ' ').trim();
 }
 
@@ -11923,6 +11934,15 @@ function _crmProductHeaders(sh, prodStart, prodEnd, tartaStart, tartaEnd) {
   return map;
 }
 
+// Convierte el valor de la celda Cumpleaños a texto "dd/MM/yyyy". Si Google Sheets
+// auto-convirtió "13/05/2002" en una fecha real (Date), lo formatea; si es texto,
+// lo devuelve tal cual. Evita el choclo "Mon May 13 2002 ... GMT-0300" y mantiene
+// el formato DD/MM que espera la regex del filtro 🎂 Cumple del mes.
+function _cumpleToStr(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+  return String(v == null ? '' : v).trim();
+}
+
 // Lee meta-data manual de clientes (cumple, notas, alias) desde hoja "Clientes Meta".
 // La hoja se crea automáticamente si no existe.
 function _crmGetClientesMeta() {
@@ -11944,7 +11964,7 @@ function _crmGetClientesMeta() {
     map[tel] = {
       tel: tel,
       nombreCanonico: String(data[r][1] || '').trim(),
-      cumple: String(data[r][2] || '').trim(),
+      cumple: _cumpleToStr(data[r][2]),
       aliasMp: String(data[r][3] || '').trim(),
       notas: String(data[r][4] || '').trim(),
       tags: String(data[r][5] || '').trim(),
@@ -11978,6 +11998,55 @@ function _crmGetMergeMap() {
     if (a && b && a !== b) map[a] = b;
   }
   return map;
+}
+
+// ── Salud de Clientes Home para la semana ISO actual ──────────────────────
+// Clasifica a los clientes Home con pedido en la semana actual en
+// Nuevos / Recompra / Reactivados, usando la MISMA identidad que el CRM
+// (teléfono normalizado + fusiones manuales de "Clientes Merge"). Así dos
+// pedidos del mismo cliente cargados con nombres distintos ("Guada" vs
+// "Guadalupe Roque Posse") cuentan como uno solo y no inflan "Nuevos".
+//   Nuevo      = sin compra Home en semanas previas.
+//   Recompra   = última compra Home en las últimas 4 semanas (>= W-4).
+//   Reactivado = compró antes, pero hace 5+ semanas.
+// Semana de cada pedido = fecha de entrega real (col 49) o, si falta, fecha de
+// pedido (col 3). Mismo criterio que usaba el chip del Panel.
+// Devuelve { sem, total, nuevos, recompra, react }.
+function _saludHomeSemana(argNow) {
+  var out = { sem: _isoWeek(argNow), total: 0, nuevos: 0, recompra: 0, react: 0 };
+  var sh = SS.getSheetByName('Home');
+  if (!sh || sh.getLastRow() <= 1) return out;
+  var I = { cli: 7, fPed: 3, estado: 10, fEnt: 49, tel: 46 };
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
+  var mergeMap = _crmGetMergeMap();
+  function resolve(key) {
+    var k = key, seen = {}, depth = 10;
+    while (mergeMap[k] && !seen[k] && depth-- > 0) { seen[k] = true; k = mergeMap[k]; }
+    return k;
+  }
+  var cliWeeks = {}; // canonKey -> { semanaISO: true }
+  for (var r = 0; r < data.length; r++) {
+    if (String(data[r][I.estado]).trim() === 'Cancelado') continue;
+    var nombre = String(data[r][I.cli] || '').trim();
+    if (!nombre) continue;
+    var d = _crmToDate(data[r][I.fEnt]) || _crmToDate(data[r][I.fPed]);
+    if (!d) continue;
+    var telNorm = _crmNormTel(data[r][I.tel]);
+    var key = resolve(telNorm || ('NOMBRE:' + _crmNormNombre(nombre)));
+    var w = _isoWeek(d);
+    if (!cliWeeks[key]) cliWeeks[key] = {};
+    cliWeeks[key][w] = true;
+  }
+  var W = out.sem;
+  Object.keys(cliWeeks).forEach(function(key) {
+    if (!cliWeeks[key][W]) return;
+    out.total++;
+    var prior = Object.keys(cliWeeks[key]).map(Number).filter(function(x) { return x < W; });
+    if (!prior.length) { out.nuevos++; return; }
+    var last = Math.max.apply(null, prior);
+    if (last >= W - 4) out.recompra++; else out.react++;
+  });
+  return out;
 }
 
 // Absorbe el bucket `src` dentro de `dst` (suma contadores, concatena pedidos,
@@ -12845,7 +12914,10 @@ function _doPostCrmUpdateClienteMeta(data) {
     sh.getRange(found, 1, 1, 7).setValues([[tel, nombreCanonico, cumple, aliasMp, notas, tags, updated]]);
   } else {
     sh.appendRow([tel, nombreCanonico, cumple, aliasMp, notas, tags, updated]);
+    found = sh.getLastRow();
   }
+  // Formato texto en la celda Cumpleaños para que Sheets no la convierta en fecha.
+  if (cumple) sh.getRange(found, 3).setNumberFormat('@').setValue(cumple);
   return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel}))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -12878,10 +12950,12 @@ function _guardarCumpleCliente(telRaw, cumpleRaw) {
   var updated = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
   if (found > 0) {
     // MERGE: solo Cumpleaños (col 3) + Updated (col 7). NO tocar el resto.
-    sh.getRange(found, 3).setValue(cumple);
+    // Formato texto ('@') para que Sheets NO convierta "13/05/2002" en fecha real.
+    sh.getRange(found, 3).setNumberFormat('@').setValue(cumple);
     sh.getRange(found, 7).setValue(updated);
   } else {
     sh.appendRow([tel, '', cumple, '', '', '', updated]);
+    sh.getRange(sh.getLastRow(), 3).setNumberFormat('@').setValue(cumple);
   }
   return true;
 }
@@ -12942,6 +13016,205 @@ function _crmClearCache() {
     c.remove('crm_clientes_v1');
     c.remove('crm_clientes_lite_v1');
   } catch (_e) { /* sin cache no rompe */ }
+}
+
+// ════════════════════════════════════════════════════════════
+//  F3 · BITÁCORA DE INTERACCIONES (CRM relacional)
+//  Hoja "Interacciones CRM": registro append-only de cada contacto con un
+//  cliente que NO es un pedido (le escribí / no contestó / quedó en pedir...).
+//  El CRM pasa de transaccional (solo veo lo que compró) a relacional (sé qué
+//  hablamos y qué sigue). Cada fila es inmutable; el estado "vivo" de un cliente
+//  (última vez contactado + próxima acción) se deriva de su fila más reciente.
+//  Columnas: ID | Fecha | Cliente Key | Tel | Nombre | Resultado |
+//            Próxima Acción | Nota | Origen
+// ════════════════════════════════════════════════════════════
+function _crmInteraccionesSheet() {
+  var sh = SS.getSheetByName('Interacciones CRM');
+  if (!sh) {
+    sh = SS.insertSheet('Interacciones CRM');
+    var hdr = ['ID', 'Fecha', 'Cliente Key', 'Tel', 'Nombre', 'Resultado', 'Próxima Acción', 'Nota', 'Origen'];
+    sh.getRange(1, 1, 1, hdr.length).setValues([hdr])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+    sh.setColumnWidths(1, 1, 150); sh.setColumnWidths(2, 1, 130); sh.setColumnWidths(3, 1, 160);
+    sh.setColumnWidths(4, 1, 110); sh.setColumnWidths(5, 1, 150); sh.setColumnWidths(6, 1, 120);
+    sh.setColumnWidths(7, 1, 110); sh.setColumnWidths(8, 1, 280); sh.setColumnWidths(9, 1, 80);
+  }
+  return sh;
+}
+
+// GET: devuelve TODAS las interacciones (compactas). El front las indexa por
+// key y por tel para (a) silenciar contactados recientes en el cockpit y (b)
+// mostrar la bitácora en cada ficha. Es un log liviano (Tadeo registra un puñado
+// por día) → no paginamos por ahora.
+function _doGetCrmInteracciones(e) {
+  var sh = _crmInteraccionesSheet();
+  var out = [];
+  if (sh.getLastRow() > 1) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues();
+    for (var r = 0; r < data.length; r++) {
+      var id = String(data[r][0] || '').trim();
+      if (!id) continue;
+      var fecha = data[r][1];
+      var fechaStr = (fecha instanceof Date)
+        ? Utilities.formatDate(fecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm')
+        : String(fecha || '').trim();
+      var prox = data[r][6];
+      var proxStr = (prox instanceof Date)
+        ? Utilities.formatDate(prox, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
+        : String(prox || '').trim();
+      out.push({
+        id: id,
+        fecha: fechaStr,
+        key: String(data[r][2] || '').trim(),
+        tel: String(data[r][3] || '').trim(),
+        nombre: String(data[r][4] || '').trim(),
+        resultado: String(data[r][5] || '').trim(),
+        prox: proxStr,
+        nota: String(data[r][7] || '').trim(),
+        origen: String(data[r][8] || '').trim()
+      });
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ts: Date.now(), interacciones: out}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// POST: registra una interacción (append). El ID es único (timestamp + random)
+// para poder borrarla después sin depender del número de fila.
+function _doPostCrmLogInteraccion(data) {
+  var key = String(data.key || '').trim();
+  var tel = String(data.tel || '').trim();
+  var resultado = String(data.resultado || '').trim();
+  if (!key && !tel) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta key o tel'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  if (!resultado) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta resultado'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = _crmInteraccionesSheet();
+  var now = new Date();
+  var id = 'I' + now.getTime() + '-' + Math.floor(Math.random() * 1000);
+  var fecha = Utilities.formatDate(now, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+  var nombre = String(data.nombre || '').trim();
+  var prox = String(data.prox || '').trim();   // dd/MM/yyyy o ''
+  var nota = String(data.nota || '').trim();
+  var origen = String(data.origen || '').trim();
+  sh.appendRow([id, fecha, key, tel, nombre, resultado, prox, nota, origen]);
+  // Fecha y Próxima Acción como texto para que Sheets no las re-interprete.
+  var row = sh.getLastRow();
+  sh.getRange(row, 2).setNumberFormat('@').setValue(fecha);
+  if (prox) sh.getRange(row, 7).setNumberFormat('@').setValue(prox);
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    interaccion: {id: id, fecha: fecha, key: key, tel: tel, nombre: nombre, resultado: resultado, prox: prox, nota: nota, origen: origen}
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// POST: borra una interacción por ID (por si fue un error de tipeo).
+function _doPostCrmDeleteInteraccion(data) {
+  var id = String(data.id || '').trim();
+  if (!id) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta id'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = _crmInteraccionesSheet();
+  if (sh.getLastRow() > 1) {
+    var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === id) {
+        sh.deleteRow(i + 2);
+        return ContentService.createTextOutput(JSON.stringify({ok: true}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'no encontrada'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  ZONAS DE LOTES (sub-barrios de Estancias dibujados en el mapa)
+//  Hoja "Lotes Zonas": [Sub Barrio, Poligono JSON ([[lat,lng],...]), Updated]
+//  El sub-barrio de cada lote se deriva por punto-en-polígono en el front.
+// ════════════════════════════════════════════════════════════
+function _crmZonasSheet() {
+  var sh = SS.getSheetByName('Lotes Zonas');
+  if (!sh) {
+    sh = SS.insertSheet('Lotes Zonas');
+    sh.getRange(1, 1, 1, 4).setValues([['Sub Barrio', 'Poligono JSON', 'Updated', 'Tipo']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+    sh.setColumnWidths(1, 1, 160); sh.setColumnWidths(2, 1, 400);
+  }
+  // Asegurar header de Tipo (col D) en hojas creadas antes de esta versión
+  if (String(sh.getRange(1, 4).getValue() || '').trim() !== 'Tipo') {
+    sh.getRange(1, 4).setValue('Tipo').setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+  }
+  return sh;
+}
+
+function _doGetCrmZonas(e) {
+  var sh = _crmZonasSheet();
+  var out = [];
+  if (sh.getLastRow() > 1) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues();
+    for (var r = 0; r < data.length; r++) {
+      var nombre = String(data[r][0] || '').trim();
+      var poly = String(data[r][1] || '').trim();
+      var tipo = String(data[r][3] || '').trim() || 'zona';
+      if (!nombre || !poly) continue;
+      try { out.push({nombre: nombre, poly: JSON.parse(poly), tipo: tipo}); } catch (_e) {}
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ok: true, zonas: out}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doPostCrmZonaSave(data) {
+  var nombre = String(data.nombre || '').trim();
+  var poly = data.poly;
+  var tipo = String(data.tipo || 'zona').trim();
+  if (!nombre || !poly || !poly.length) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'faltan datos'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = _crmZonasSheet();
+  var polyStr = JSON.stringify(poly);
+  if (sh.getLastRow() > 1) {
+    var names = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (var r = 0; r < names.length; r++) {
+      if (String(names[r][0] || '').trim() === nombre) {
+        sh.getRange(r + 2, 2).setValue(polyStr);
+        sh.getRange(r + 2, 3).setValue(new Date());
+        sh.getRange(r + 2, 4).setValue(tipo);
+        return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'zona actualizada'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+  sh.appendRow([nombre, polyStr, new Date(), tipo]);
+  return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'zona creada'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doPostCrmZonaDelete(data) {
+  var nombre = String(data.nombre || '').trim();
+  if (!nombre) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta nombre'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = _crmZonasSheet();
+  if (sh.getLastRow() > 1) {
+    var names = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (var r = names.length - 1; r >= 0; r--) {
+      if (String(names[r][0] || '').trim() === nombre) sh.deleteRow(r + 2);
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ok: true}))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=marcarEntregadoAVendedor
@@ -13567,14 +13840,22 @@ function _doGetAnalisisProveedor(e) {
 function _prodCategoria(abrev) {
   if (!abrev) return 'Otro';
   var a = String(abrev).trim();
-  if (a.indexOf('PP') === 0) return 'Packs';
-  if (a.indexOf('P') === 0 && a !== 'PP') return 'Pizzas';
+  if (a.indexOf('PP') === 0) return 'Pizzas';                 // packs de pizza → categoría Pizzas
+  if (a.indexOf('P') === 0 && a !== 'PP') return 'Pizzas';    // pizzas individuales
   if (a.indexOf('S') === 0) return 'Sorrentinos';
   if (a.indexOf('E') === 0) return 'Empanadas';
   if (a === 'TG' || a === 'TLC' || a === 'TC') return 'Tortas';
   if (a === 'TP' || a === 'TJyQ' || a === 'TCa' || a === 'TV') return 'Tartas';
   if (a === 'F') return 'Postres';
   return 'Otro';
+}
+
+// Sub-categoría: dentro de Pizzas, distingue Pack Pizzas vs Pizzas Individuales.
+function _prodSubcat(abrev) {
+  var a = String(abrev || '').trim();
+  if (a.indexOf('PP') === 0) return 'Pack Pizzas';
+  if (a.charAt(0) === 'P') return 'Pizzas Individuales';
+  return '';
 }
 
 // Asigna cuadrante BCG por volumen (unidades) y margen unit ($)
@@ -13599,7 +13880,7 @@ function _doGetProductosAnalytics(e) {
     if (pd && ph) {
       perDesde = new Date(+pd[1], +pd[2] - 1, +pd[3], 0, 0, 0);
       perHasta = new Date(+ph[1], +ph[2] - 1, +ph[3], 23, 59, 59);
-      perDias = Math.max(1, Math.round((perHasta.getTime() - perDesde.getTime()) / 86400000) + 1);
+      perDias = Math.max(1, Math.round((perHasta.getTime() - perDesde.getTime()) / 86400000));
     }
   }
   if (!perDesde || !perHasta) {
@@ -13609,6 +13890,15 @@ function _doGetProductosAnalytics(e) {
   }
   var perPrevHasta = new Date(perDesde.getTime() - 1);
   var perPrevDesde = new Date(perDesde.getTime() - perDias * 86400000);
+  // Período anterior EXPLÍCITO (ej. MoM calendario: junio 1-17 vs mayo 1-17). Pisa el rolling.
+  if (prm.prevDesde && prm.prevHasta) {
+    var ppd = String(prm.prevDesde).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    var pph = String(prm.prevHasta).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (ppd && pph) {
+      perPrevDesde = new Date(+ppd[1], +ppd[2] - 1, +ppd[3], 0, 0, 0);
+      perPrevHasta = new Date(+pph[1], +pph[2] - 1, +pph[3], 23, 59, 59);
+    }
+  }
 
   // Filtro por barrio privado (zona o sub-barrio). Reusa helpers del CRM.
   var fBarrio = String(prm.barrio || '').trim();
@@ -13633,6 +13923,7 @@ function _doGetProductosAnalytics(e) {
       abrev: abrev,
       nombre: nombre,
       categoria: _prodCategoria(abrev),
+      subcat: _prodSubcat(abrev),
       stockFisico: Number(dataP[rP][5]) || 0,
       reservado: Number(dataP[rP][6]) || 0,
       disponible: Number(dataP[rP][7]) || 0,
@@ -13647,6 +13938,7 @@ function _doGetProductosAnalytics(e) {
       porCanal: { Home: 0, Pilar: 0, Clubes: 0, Red: 0 },
       _clientes: {},
       unidadesPrev: 0,
+      facturadoPrev: 0,
       evol8sem: [0, 0, 0, 0, 0, 0, 0, 0],
       ultimaVenta: null,
       bcg: null
@@ -13725,6 +14017,7 @@ function _doGetProductosAnalytics(e) {
           if (!p.ultimaVenta || fecha > p.ultimaVenta) p.ultimaVenta = fecha;
         } else if (fecha >= perPrevDesde && fecha <= perPrevHasta) {
           p.unidadesPrev += pr.cant;
+          p.facturadoPrev += monto;
         }
         if (fecha >= inicio8sem && fecha < new Date(lunesActual.getTime() + 7 * 86400000)) {
           var diff = Math.floor((fecha.getTime() - inicio8sem.getTime()) / (7 * 86400000));
@@ -13842,6 +14135,15 @@ function _doGetProductosAnalytics(e) {
     mixCat[p.categoria].facturado += p.facturado;
   });
 
+  // Desglose de Pizzas: Pack Pizzas (×2) vs Individuales + total en pizzas físicas
+  var pizzasDetalle = { packUnidades: 0, packPizzas: 0, packFact: 0, indivUnidades: 0, indivFact: 0 };
+  prods.forEach(function(p) {
+    if (p.categoria !== 'Pizzas') return;
+    if (p.subcat === 'Pack Pizzas') { pizzasDetalle.packUnidades += p.unidades; pizzasDetalle.packPizzas += p.unidades * 2; pizzasDetalle.packFact += p.facturado; }
+    else { pizzasDetalle.indivUnidades += p.unidades; pizzasDetalle.indivFact += p.facturado; }
+  });
+  pizzasDetalle.totalPizzas = pizzasDetalle.packPizzas + pizzasDetalle.indivUnidades;  // pizzas físicas
+
   var barriosArr = Object.keys(barrioUniverse).map(function(k) { return barrioUniverse[k]; })
     .sort(function(a, b) { return b.n - a.n; });
 
@@ -13858,8 +14160,13 @@ function _doGetProductosAnalytics(e) {
       desdeArg: Utilities.formatDate(perDesde, tz, 'dd/MM/yyyy'),
       hastaArg: Utilities.formatDate(perHasta, tz, 'dd/MM/yyyy')
     },
+    periodoPrev: {
+      desdeArg: Utilities.formatDate(perPrevDesde, tz, 'dd/MM/yyyy'),
+      hastaArg: Utilities.formatDate(perPrevHasta, tz, 'dd/MM/yyyy')
+    },
     filtros: { barrios: barriosArr },   // [{canal, tipo:'priv'|'sub', v, n}]
     bcgEjes: { mediaUnid: mediaUnid, mediaMargen: mediaMargen },  // umbrales de los cuadrantes (scatter)
+    pizzasDetalle: pizzasDetalle,       // Pack Pizzas (×2) vs Individuales + total pizzas físicas
     productos: prods,
     totales: totales,
     alertas: alertas,
