@@ -289,6 +289,7 @@ function doGet(e) {
   if (action === 'crmProductos') return _doGetCrmProductos(e);
   if (action === 'crmProducto') return _doGetCrmProducto(e);
   if (action === 'crmZonas') return _doGetCrmZonas(e);
+  if (action === 'crmLotes') return _doGetCrmLotes(e);
   if (action === 'crmInteracciones') return _doGetCrmInteracciones(e);
   if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
   if (action === 'productosAnalytics') return _doGetProductosAnalytics(e);
@@ -3461,6 +3462,7 @@ function doPost(e) {
     if (data.action === 'crmMergeClientes')     return _doPostCrmMergeClientes(data);
     if (data.action === 'crmZonaSave')          return _doPostCrmZonaSave(data);
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
+    if (data.action === 'crmLoteSave')          return _doPostCrmLoteSave(data);
     if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
     if (data.action === 'crmDeleteInteraccion') return _doPostCrmDeleteInteraccion(data);
     if (data.action === 'programarBusqueda')    return _doPostProgramarBusqueda(data);
@@ -12323,6 +12325,16 @@ function _doGetCrmClientes(e) {
     var canalDom = _crmTopValue(c.canales);
     var nombresAlt = Object.keys(c.nombres).filter(function(n) { return n !== nombreRep; });
     var telRep = c.tel || _crmTopValue(c.telefonos);
+    // Producto más comprado (por unidades) — para personalizar el mensaje del
+    // Plan Semanal ("te dejo las milanesas que siempre llevás"). Solo el abrev.
+    var prodTopAbrev = '';
+    if (c.productos) {
+      var _mxc = -1;
+      Object.keys(c.productos).forEach(function(ab) {
+        var ca = (c.productos[ab] && c.productos[ab].cant) || 0;
+        if (ca > _mxc) { _mxc = ca; prodTopAbrev = ab; }
+      });
+    }
 
     lista.push({
       key: key,
@@ -12348,6 +12360,7 @@ function _doGetCrmClientes(e) {
       primeraFecha: c.firstFecha ? Utilities.formatDate(c.firstFecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
       estado: k.estado,
       vip: k.vip,
+      prodTop: prodTopAbrev,
       cumple: m ? m.cumple : '',
       notas: m ? m.notas : '',
       tags: m ? m.tags : '',
@@ -13016,6 +13029,71 @@ function _crmClearCache() {
     c.remove('crm_clientes_v1');
     c.remove('crm_clientes_lite_v1');
   } catch (_e) { /* sin cache no rompe */ }
+}
+
+// ════════════════════════════════════════════════════════════
+//  FICHA DE LOTE (Estancias) — capa editable manual por lote
+//  Hoja "Lotes Estancias": [Sub Barrio, Lote, Estado Contacto, Familia,
+//  Integrantes, Titular, Notas, Telefono, Updated]. Key = Sub Barrio + Lote.
+//  Complementa la data de ventas (CRM) con el trabajo de territorio de Tadeo.
+// ════════════════════════════════════════════════════════════
+function _crmLotesSheet() {
+  var sh = SS.getSheetByName('Lotes Estancias');
+  if (!sh) {
+    sh = SS.insertSheet('Lotes Estancias');
+    sh.getRange(1, 1, 1, 9).setValues([['Sub Barrio', 'Lote', 'Estado Contacto', 'Familia', 'Integrantes', 'Titular', 'Notas', 'Telefono', 'Updated']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function _doGetCrmLotes(e) {
+  var sh = _crmLotesSheet();
+  var out = [];
+  if (sh.getLastRow() > 1) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues();
+    for (var r = 0; r < data.length; r++) {
+      var sub = String(data[r][0] || '').trim(), lote = String(data[r][1] || '').trim();
+      if (!sub && !lote) continue;
+      out.push({
+        sub: sub, lote: lote,
+        estadoContacto: String(data[r][2] || '').trim(),
+        familia: String(data[r][3] || '').trim(),
+        integrantes: String(data[r][4] || '').trim(),
+        titular: String(data[r][5] || '').trim(),
+        notas: String(data[r][6] || '').trim(),
+        tel: String(data[r][7] || '').trim()
+      });
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ok: true, lotes: out}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doPostCrmLoteSave(data) {
+  var sub = String(data.sub || '').trim(), lote = String(data.lote || '').trim();
+  if (!sub || !lote) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'faltan sub/lote'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = _crmLotesSheet();
+  var row = [sub, lote, String(data.estadoContacto || ''), String(data.familia || ''),
+            String(data.integrantes || ''), String(data.titular || ''), String(data.notas || ''),
+            String(data.tel || ''), new Date()];
+  if (sh.getLastRow() > 1) {
+    var keys = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+    for (var r = 0; r < keys.length; r++) {
+      if (String(keys[r][0] || '').trim() === sub && String(keys[r][1] || '').trim() === lote) {
+        sh.getRange(r + 2, 1, 1, 9).setValues([row]);
+        return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'lote actualizado'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+  sh.appendRow(row);
+  return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'lote creado'}))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════
