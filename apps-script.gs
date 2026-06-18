@@ -281,6 +281,7 @@ function doGet(e) {
   if (action === 'stock_full') return _doGetStockFull();
   if (action === 'precios') return _doGetPrecios();
   if (action === 'cobrosPendientes') return _doGetCobrosPendientes(e);
+  if (action === 'billetera') return _doGetBilletera();
   if (action === 'pendientesGuardarStock') return _doGetPendientesGuardarStock();
   if (action === 'saldoCliente') return _doGetSaldoCliente(e);
   if (action === 'resumenSemanal') return _doGetResumenSemanal(e);
@@ -799,6 +800,23 @@ function _doGetCobrosPendientes(e) {
   var _resp = JSON.stringify({ts: Date.now(), cobros: out, billetera: _bilRuta});
   try { CacheService.getScriptCache().put(_ck, _resp, 30); } catch (_e) { /* nada */ }
   return ContentService.createTextOutput(_resp).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Saldo billetera (fondo de cambio) — endpoint mini sin cache. Lo usa ruta.html
+// al abrir el modal de Cobros para garantizar el saldo del momento (el modal
+// necesita saber cuánto vuelto físico podés dar). El de cobrosPendientes está
+// cacheado 30s y el sub-saldo billetera cambia con cada vuelto entregado.
+function _doGetBilletera() {
+  var bil = 0;
+  try {
+    var sh = SS.getSheetByName('Saldo Base');
+    if (sh && sh.getLastRow() > 1 && sh.getLastColumn() >= 4) {
+      bil = Number(sh.getRange(sh.getLastRow(), 4).getValue()) || 0;
+    }
+  } catch (_e) { /* nada */ }
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: true, billetera: bil, ts: Date.now() }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Precios y costos por abreviatura — consumido por ruta.html (solapa +)
@@ -11936,6 +11954,20 @@ function _crmProductHeaders(sh, prodStart, prodEnd, tartaStart, tartaEnd) {
   return map;
 }
 
+// Categoría de un producto por su abreviatura (las 6 del catálogo Maleu).
+// Para segmentos cross-sell: "compra pizzas pero nunca probó sorrentinos".
+function _crmCategoriaDe(abrev) {
+  var MAP = {
+    SCo:'Sorrentinos', SJyQ:'Sorrentinos', SCa:'Sorrentinos', SQB:'Sorrentinos', SL:'Sorrentinos', SPyP:'Sorrentinos', SE:'Sorrentinos',
+    ECaC:'Empanadas', EJyQ:'Empanadas', ECyQ:'Empanadas', EV:'Empanadas',
+    PMu:'Pizzas', PMa:'Pizzas', PJyQ:'Pizzas', PCC:'Pizzas', PJyM:'Pizzas', PPM:'Pizzas', PPJyQ:'Pizzas', PPCyQ:'Pizzas',
+    TP:'Tartas', TJyQ:'Tartas', TCa:'Tartas', TV:'Tartas',
+    RC:'Wraps', RP:'Wraps',
+    TG:'Postres', TLC:'Postres', TC:'Postres', F:'Postres'
+  };
+  return MAP[abrev] || '';
+}
+
 // Convierte el valor de la celda Cumpleaños a texto "dd/MM/yyyy". Si Google Sheets
 // auto-convirtió "13/05/2002" en una fecha real (Date), lo formatea; si es texto,
 // lo devuelve tal cual. Evita el choclo "Mon May 13 2002 ... GMT-0300" y mantiene
@@ -12328,13 +12360,17 @@ function _doGetCrmClientes(e) {
     // Producto más comprado (por unidades) — para personalizar el mensaje del
     // Plan Semanal ("te dejo las milanesas que siempre llevás"). Solo el abrev.
     var prodTopAbrev = '';
+    var _catSet = {};
     if (c.productos) {
       var _mxc = -1;
       Object.keys(c.productos).forEach(function(ab) {
         var ca = (c.productos[ab] && c.productos[ab].cant) || 0;
         if (ca > _mxc) { _mxc = ca; prodTopAbrev = ab; }
+        var cat = _crmCategoriaDe(ab);
+        if (cat) _catSet[cat] = true;
       });
     }
+    var cats = Object.keys(_catSet);  // categorías compradas (para segmentos cross-sell)
 
     lista.push({
       key: key,
@@ -12361,6 +12397,7 @@ function _doGetCrmClientes(e) {
       estado: k.estado,
       vip: k.vip,
       prodTop: prodTopAbrev,
+      cats: cats,
       cumple: m ? m.cumple : '',
       notas: m ? m.notas : '',
       tags: m ? m.tags : '',
@@ -13041,10 +13078,18 @@ function _crmLotesSheet() {
   var sh = SS.getSheetByName('Lotes Estancias');
   if (!sh) {
     sh = SS.insertSheet('Lotes Estancias');
-    sh.getRange(1, 1, 1, 9).setValues([['Sub Barrio', 'Lote', 'Estado Contacto', 'Familia', 'Integrantes', 'Titular', 'Notas', 'Telefono', 'Updated']])
+    sh.getRange(1, 1, 1, 13).setValues([['Sub Barrio', 'Lote', 'Estado Contacto', 'Familia', 'Integrantes', 'Titular', 'Notas', 'Telefono', 'Updated', 'Composicion JSON', 'Sobre Estado', 'Sobre Nota', 'Reside']])
       .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
   }
+  // Asegurar headers nuevos (cols J/K/L/M) en hojas creadas antes de esta versión
+  var hdrs = {10:'Composicion JSON', 11:'Sobre Estado', 12:'Sobre Nota', 13:'Reside'};
+  Object.keys(hdrs).forEach(function(col){
+    col = Number(col);
+    if (String(sh.getRange(1, col).getValue() || '').trim() !== hdrs[col]) {
+      sh.getRange(1, col).setValue(hdrs[col]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    }
+  });
   return sh;
 }
 
@@ -13052,10 +13097,13 @@ function _doGetCrmLotes(e) {
   var sh = _crmLotesSheet();
   var out = [];
   if (sh.getLastRow() > 1) {
-    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues();
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 13).getValues();
     for (var r = 0; r < data.length; r++) {
       var sub = String(data[r][0] || '').trim(), lote = String(data[r][1] || '').trim();
       if (!sub && !lote) continue;
+      var comp = null;
+      var compRaw = String(data[r][9] || '').trim();
+      if (compRaw) { try { comp = JSON.parse(compRaw); } catch (_e) {} }
       out.push({
         sub: sub, lote: lote,
         estadoContacto: String(data[r][2] || '').trim(),
@@ -13063,7 +13111,11 @@ function _doGetCrmLotes(e) {
         integrantes: String(data[r][4] || '').trim(),
         titular: String(data[r][5] || '').trim(),
         notas: String(data[r][6] || '').trim(),
-        tel: String(data[r][7] || '').trim()
+        tel: String(data[r][7] || '').trim(),
+        composicion: comp,
+        sobreEstado: String(data[r][10] || '').trim(),
+        sobreNota: String(data[r][11] || '').trim(),
+        reside: String(data[r][12] || '').trim()
       });
     }
   }
@@ -13078,14 +13130,16 @@ function _doPostCrmLoteSave(data) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   var sh = _crmLotesSheet();
+  var compStr = data.composicion ? (typeof data.composicion === 'string' ? data.composicion : JSON.stringify(data.composicion)) : '';
   var row = [sub, lote, String(data.estadoContacto || ''), String(data.familia || ''),
             String(data.integrantes || ''), String(data.titular || ''), String(data.notas || ''),
-            String(data.tel || ''), new Date()];
+            String(data.tel || ''), new Date(), compStr,
+            String(data.sobreEstado || ''), String(data.sobreNota || ''), String(data.reside || '')];
   if (sh.getLastRow() > 1) {
     var keys = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
     for (var r = 0; r < keys.length; r++) {
       if (String(keys[r][0] || '').trim() === sub && String(keys[r][1] || '').trim() === lote) {
-        sh.getRange(r + 2, 1, 1, 9).setValues([row]);
+        sh.getRange(r + 2, 1, 1, 13).setValues([row]);
         return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'lote actualizado'}))
           .setMimeType(ContentService.MimeType.JSON);
       }
