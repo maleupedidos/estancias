@@ -291,6 +291,7 @@ function doGet(e) {
   if (action === 'crmProducto') return _doGetCrmProducto(e);
   if (action === 'crmZonas') return _doGetCrmZonas(e);
   if (action === 'crmLotes') return _doGetCrmLotes(e);
+  if (action === 'crmPuntos') return _doGetCrmPuntos(e);
   if (action === 'crmInteracciones') return _doGetCrmInteracciones(e);
   if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
   if (action === 'productosAnalytics') return _doGetProductosAnalytics(e);
@@ -2698,6 +2699,27 @@ function _doPostPagarProveedor(postData) {
     shEg.getRange(lastRow, 7).setNumberFormat('$#,##0');
   });
 
+  // El pago en EFECTIVO a un proveedor consume el/los sobre(s) que Tadeo dejó
+  // preparado(s) para ese proveedor: los marca "Pagado" en la hoja Sobres y baja el
+  // sub-saldo Sobres (col E) por el monto de esos sobres. Si no había sobre, no baja
+  // (el gasto sale de la caja fuerte). El total de efectivo ya lo descuenta el Egreso.
+  if (montoEf > 0) {
+    var shSob = SS.getSheetByName('Sobres');
+    var sobreConsumido = 0;
+    if (shSob && shSob.getLastRow() > 1) {
+      var normProv = _normNombre(proveedor);
+      var dSob = shSob.getDataRange().getValues();
+      for (var rsob = 1; rsob < dSob.length; rsob++) {
+        if (String(dSob[rsob][3] || '').trim() !== 'Activo') continue;
+        if (_normNombre(String(dSob[rsob][1] || '')) !== normProv) continue;
+        shSob.getRange(rsob + 1, 4).setValue('Pagado');
+        shSob.getRange(rsob + 1, 5).setValue(argNow);
+        sobreConsumido += Number(dSob[rsob][2]) || 0;
+      }
+    }
+    if (sobreConsumido > 0) _ajustarColSobres(-sobreConsumido);
+  }
+
   return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalPago, bonif: montoBonif, filas: pagos.length })).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -3455,6 +3477,9 @@ function doPost(e) {
     if (data.action === 'ingreso')         return _doPostIngreso(data);
     if (data.action === 'ajusteSaldo')     return _doPostAjusteSaldo(data);
     if (data.action === 'moverBilletera')  return _doPostMoverBilletera(data);
+    if (data.action === 'moverEfectivo')   return _doPostMoverEfectivo(data);
+    if (data.action === 'prepararSobre')   return _doPostPrepararSobre(data);
+    if (data.action === 'eliminarSobre')   return _doPostEliminarSobre(data);
     if (data.action === 'marcarCobrado')   return _doPostMarcarCobrado(data);
     if (data.action === 'cobrarParcial')   return _doPostCobrarParcial(data);
     if (data.action === 'pagarVendedor')   return _doPostPagarVendedor(data);
@@ -3481,8 +3506,10 @@ function doPost(e) {
     if (data.action === 'crmZonaSave')          return _doPostCrmZonaSave(data);
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
     if (data.action === 'crmLoteSave')          return _doPostCrmLoteSave(data);
+    if (data.action === 'crmPuntoSave')         return _doPostCrmPuntoSave(data);
     if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
     if (data.action === 'crmDeleteInteraccion') return _doPostCrmDeleteInteraccion(data);
+    if (data.action === 'crmLogCampania')       return _doPostCrmLogCampania(data);
     if (data.action === 'programarBusqueda')    return _doPostProgramarBusqueda(data);
     if (data.action === 'marcarEntregadoAVendedor') return _doPostMarcarEntregadoAVendedor(data);
     if (data.action === 'marcarGuardadoEnStock') return _doPostMarcarGuardadoEnStock(data);
@@ -8033,15 +8060,20 @@ function _doGetAdmin(opt) {
   // bil = sub-saldo "Billetera" (lo que llevas encima para cambio). Es subconjunto
   // del Efectivo total — caja fuerte se deriva como ef - bil. Default 0 si la col
   // todavía no se llenó.
-  var saldoBase = { ef: 0, mp: 0, bil: 0, fecha: '', fechaDate: null };
+  // sob = sub-saldo "Sobres": efectivo apartado en sobres para pagar proveedores (no
+  // está en la caja fuerte ni en la billetera). Caja fuerte = ef - bil - sob.
+  var saldoBase = { ef: 0, mp: 0, bil: 0, sob: 0, fecha: '', fechaDate: null };
   var shSaldoSnap = (!_lightOnly) ? SS.getSheetByName('Saldo Base') : null;
   if (shSaldoSnap && shSaldoSnap.getLastRow() > 1) {
     var lastRowSB = shSaldoSnap.getLastRow();
     saldoBase.ef = Number(shSaldoSnap.getRange(lastRowSB, 2).getValue()) || 0;
     saldoBase.mp = Number(shSaldoSnap.getRange(lastRowSB, 3).getValue()) || 0;
-    // Lectura defensiva de col D: puede no existir en hojas viejas
+    // Lectura defensiva de col D/E: pueden no existir en hojas viejas
     if (shSaldoSnap.getLastColumn() >= 4) {
       saldoBase.bil = Number(shSaldoSnap.getRange(lastRowSB, 4).getValue()) || 0;
+    }
+    if (shSaldoSnap.getLastColumn() >= 5) {
+      saldoBase.sob = Number(shSaldoSnap.getRange(lastRowSB, 5).getValue()) || 0;
     }
     var fSB = shSaldoSnap.getRange(lastRowSB, 1).getValue();
     var fSBd = _parseDateAny(fSB);
@@ -8952,6 +8984,19 @@ function _doGetAdmin(opt) {
     }
   }
 
+  // ── Sobres activos (detalle: a qué proveedor va cada sobre) ──
+  var sobresLista = [];
+  var shSobL = SS.getSheetByName('Sobres');
+  if (shSobL && shSobL.getLastRow() > 1) {
+    var dSobL = shSobL.getDataRange().getValues();
+    for (var rsl = 1; rsl < dSobL.length; rsl++) {
+      if (String(dSobL[rsl][3] || '').trim() !== 'Activo') continue;
+      var mSob = Number(dSobL[rsl][2]) || 0;
+      if (mSob <= 0) continue;
+      sobresLista.push({ r: rsl + 1, prov: String(dSobL[rsl][1] || '').trim(), monto: mSob });
+    }
+  }
+
   // ── Gastos por mes (para P&L) — fuente única: hoja Egresos ──
   var gastosHist = {};
   gastos.forEach(function(g) {
@@ -9016,6 +9061,7 @@ function _doGetAdmin(opt) {
       ingresos: ingresos,
       gastosHist: gastosHist,
       movimientos: movimientos,
+      sobres: sobresLista,
       cajaMode: true
     });
     try { CacheService.getScriptCache().put('admin_caja_v1', _outCaja, 5); } catch (e) {}
@@ -9053,6 +9099,7 @@ function _doGetAdmin(opt) {
       gastosHist: gastosHist,
       movimientos: movimientos,
       vueltos: vueltos,
+      sobres: sobresLista,
       saludHome: _saludHomeSemana(argNow)
     }))
     .setMimeType(ContentService.MimeType.JSON);
@@ -10604,31 +10651,32 @@ function _doPostAjusteSaldo(data) {
   var shSaldo = SS.getSheetByName('Saldo Base');
   if (!shSaldo) {
     shSaldo = SS.insertSheet('Saldo Base');
-    shSaldo.getRange(1, 1, 1, 4).setValues([['Fecha', 'Efectivo', 'Mercado Pago', 'Billetera']]);
+    shSaldo.getRange(1, 1, 1, 5).setValues([['Fecha', 'Efectivo', 'Mercado Pago', 'Billetera', 'Sobres']]);
     shSaldo.setFrozenRows(1);
-    shSaldo.getRange(1, 1, 1, 4).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
+    shSaldo.getRange(1, 1, 1, 5).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
   }
-  // Billetera: si el cliente la manda, la usa; sino hereda el último valor (no resetear).
-  // Cap: billetera no puede ser mayor al efectivo total (no tiene sentido).
-  var deseadoBil;
-  if (data.billetera !== undefined && data.billetera !== null) {
-    deseadoBil = Number(data.billetera) || 0;
-  } else {
-    var lastRow = shSaldo.getLastRow();
-    deseadoBil = (lastRow > 1 && shSaldo.getLastColumn() >= 4)
-      ? (Number(shSaldo.getRange(lastRow, 4).getValue()) || 0)
-      : 0;
+  // Migración suave: si la hoja no tiene la col E (Sobres), agregar el header.
+  if (shSaldo.getLastColumn() < 5) shSaldo.getRange(1, 5).setValue('Sobres');
+  var lastRow = shSaldo.getLastRow();
+  // Billetera y Sobres: si el cliente los manda, los usa; sino hereda el último valor.
+  function _heredar(col) {
+    return (lastRow > 1 && shSaldo.getLastColumn() >= col) ? (Number(shSaldo.getRange(lastRow, col).getValue()) || 0) : 0;
   }
-  if (deseadoBil > deseadoEf) deseadoBil = deseadoEf;
+  var deseadoBil = (data.billetera !== undefined && data.billetera !== null) ? (Number(data.billetera) || 0) : _heredar(4);
+  var deseadoSob = (data.sobres !== undefined && data.sobres !== null) ? (Number(data.sobres) || 0) : _heredar(5);
   if (deseadoBil < 0) deseadoBil = 0;
+  if (deseadoSob < 0) deseadoSob = 0;
+  // Caja fuerte = ef - bil - sob >= 0. Si la suma de sub-saldos excede el efectivo, capar.
+  if (deseadoBil > deseadoEf) deseadoBil = deseadoEf;
+  if (deseadoBil + deseadoSob > deseadoEf) deseadoSob = Math.max(0, deseadoEf - deseadoBil);
 
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  shSaldo.appendRow([argNow, deseadoEf, deseadoMP, deseadoBil]);
+  shSaldo.appendRow([argNow, deseadoEf, deseadoMP, deseadoBil, deseadoSob]);
   shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
   // Sin flush(): UI optimista en frontend.
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP, bil: deseadoBil })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP, bil: deseadoBil, sob: deseadoSob })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=moverBilletera — transferir plata entre Caja Fuerte y Billetera.
@@ -10650,6 +10698,8 @@ function _doPostMoverBilletera(data) {
   if (lastRow < 2) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin snapshot previo — ajusta saldo primero' })).setMimeType(ContentService.MimeType.JSON);
 
   var bilActual = (shSaldo.getLastColumn() >= 4) ? (Number(shSaldo.getRange(lastRow, 4).getValue()) || 0) : 0;
+  // Preservar Sobres (col E) al appendear — si no, se perdería el sub-saldo de sobres.
+  var sobActual = (shSaldo.getLastColumn() >= 5) ? (Number(shSaldo.getRange(lastRow, 5).getValue()) || 0) : 0;
 
   // BUG FIX 18/05/2026: antes heredábamos ef/mp del snapshot anterior, lo que
   // descartaba todos los cobros/gastos posteriores (caja vivía caía al valor
@@ -10680,10 +10730,104 @@ function _doPostMoverBilletera(data) {
 
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  shSaldo.appendRow([argNow, efAUsar, mpAUsar, bilNuevo]);
+  shSaldo.appendRow([argNow, efAUsar, mpAUsar, bilNuevo, sobActual]);
   shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: efAUsar, mp: mpAUsar, bil: bilNuevo })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: efAUsar, mp: mpAUsar, bil: bilNuevo, sob: sobActual })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=moverEfectivo — mover plata entre las 3 cuentas de efectivo
+ *  (cajaFuerte / billetera / sobres) SIN cambiar el total. Edita los sub-saldos
+ *  (col D billetera, col E sobres) del ÚLTIMO Saldo Base EN SU LUGAR — no appendea,
+ *  así NO resetea el cutoff de cobros vivos. Caja fuerte se deriva (ef - bil - sob).
+ *  Body: { monto:N, desde:'cajaFuerte'|'billetera'|'sobres', hacia:'...' } */
+function _doPostMoverEfectivo(data) {
+  var monto = Math.round(Number(data.monto) || 0);
+  var desde = String(data.desde || '').trim();
+  var hacia = String(data.hacia || '').trim();
+  var validos = { cajaFuerte: 1, billetera: 1, sobres: 1 };
+  if (monto <= 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto invalido' })).setMimeType(ContentService.MimeType.JSON);
+  if (!validos[desde] || !validos[hacia] || desde === hacia) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'origen/destino invalido' })).setMimeType(ContentService.MimeType.JSON);
+
+  var shSaldo = SS.getSheetByName('Saldo Base');
+  if (!shSaldo || shSaldo.getLastRow() < 2) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin snapshot previo — ajusta saldo primero' })).setMimeType(ContentService.MimeType.JSON);
+  if (shSaldo.getLastColumn() < 5) shSaldo.getRange(1, 5).setValue('Sobres');
+  var lr = shSaldo.getLastRow();
+  var ef  = Number(shSaldo.getRange(lr, 2).getValue()) || 0;
+  var bil = Number(shSaldo.getRange(lr, 4).getValue()) || 0;
+  var sob = Number(shSaldo.getRange(lr, 5).getValue()) || 0;
+  var cf  = ef - bil - sob;
+  var saldos = { cajaFuerte: cf, billetera: bil, sobres: sob };
+  if (saldos[desde] < monto) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no hay suficiente en ' + desde })).setMimeType(ContentService.MimeType.JSON);
+  saldos[desde] -= monto;
+  saldos[hacia] += monto;
+  // CF se deriva: solo persistimos billetera (col D) y sobres (col E). El total (ef) no cambia.
+  shSaldo.getRange(lr, 4).setValue(saldos.billetera);
+  shSaldo.getRange(lr, 5).setValue(saldos.sobres);
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, cf: saldos.cajaFuerte, bil: saldos.billetera, sob: saldos.sobres })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Normaliza un nombre para comparar (minúsculas, sin tildes, sin espacios extra).
+function _normNombre(s) {
+  s = String(s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  if (s.normalize) s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return s;
+}
+
+// Asegura la hoja "Sobres" (detalle de sobres preparados para proveedores).
+function _ensureSobresSheet() {
+  var sh = SS.getSheetByName('Sobres');
+  if (!sh) {
+    sh = SS.insertSheet('Sobres');
+    sh.getRange(1, 1, 1, 6).setValues([['Fecha', 'Proveedor', 'Monto', 'Estado', 'Fecha Pago', 'Notas']]);
+    sh.setFrozenRows(1);
+    if (typeof BROWN !== 'undefined') sh.getRange(1, 1, 1, 6).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
+  }
+  return sh;
+}
+// Suma el sub-saldo Sobres (col E del último Saldo Base) en su lugar.
+function _ajustarColSobres(delta) {
+  var shSB = SS.getSheetByName('Saldo Base');
+  if (!shSB || shSB.getLastRow() < 2) return null;
+  if (shSB.getLastColumn() < 5) shSB.getRange(1, 5).setValue('Sobres');
+  var lr = shSB.getLastRow();
+  var sob = Number(shSB.getRange(lr, 5).getValue()) || 0;
+  var nuevo = Math.max(0, sob + delta);
+  shSB.getRange(lr, 5).setValue(nuevo);
+  return nuevo;
+}
+
+/** POST action=prepararSobre — aparta efectivo en un sobre para un proveedor.
+ *  Mueve plata de Caja fuerte → Sobres (el total de efectivo NO cambia) y registra
+ *  el detalle (a quién va) en la hoja "Sobres". Body: { proveedor, monto, notas? } */
+function _doPostPrepararSobre(data) {
+  var prov = String(data.proveedor || '').trim();
+  var monto = Math.round(Number(data.monto) || 0);
+  if (!prov) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'falta proveedor' })).setMimeType(ContentService.MimeType.JSON);
+  if (monto <= 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto invalido' })).setMimeType(ContentService.MimeType.JSON);
+  var sh = _ensureSobresSheet();
+  var argNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  sh.appendRow([argNow, prov, monto, 'Activo', '', String(data.notas || '')]);
+  var lr = sh.getLastRow();
+  sh.getRange(lr, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+  sh.getRange(lr, 3).setNumberFormat('$#,##0');
+  var sobTotal = _ajustarColSobres(monto); // CF → Sobres
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, proveedor: prov, monto: monto, sobTotal: sobTotal, row: lr })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=eliminarSobre — cancela un sobre activo (la plata vuelve a Caja fuerte).
+ *  Body: { row } (fila en la hoja Sobres) */
+function _doPostEliminarSobre(data) {
+  var row = Number(data.row) || 0;
+  var sh = SS.getSheetByName('Sobres');
+  if (!sh || row < 2 || row > sh.getLastRow()) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sobre invalido' })).setMimeType(ContentService.MimeType.JSON);
+  var estado = String(sh.getRange(row, 4).getValue()).trim();
+  if (estado !== 'Activo') return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'el sobre ya no esta activo' })).setMimeType(ContentService.MimeType.JSON);
+  var monto = Number(sh.getRange(row, 3).getValue()) || 0;
+  sh.getRange(row, 4).setValue('Cancelado');
+  var sobTotal = _ajustarColSobres(-monto); // Sobres → CF
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, sobTotal: sobTotal })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -13151,6 +13295,68 @@ function _doPostCrmLoteSave(data) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  PUNTOS DE LOTE (correcciones de geometría sobre el GeoJSON base)
+//  Hoja "Lotes Puntos": [ID, Lote, Lat, Lng, Borrado, Updated]. ID 'b<i>' = override
+//  de un punto base (movido/renombrado); 'a<ts>' = punto agregado. Borrado=TRUE lo
+//  oculta. El front carga el GeoJSON y aplica estas correcciones encima.
+// ════════════════════════════════════════════════════════════
+function _crmPuntosSheet() {
+  var sh = SS.getSheetByName('Lotes Puntos');
+  if (!sh) {
+    sh = SS.insertSheet('Lotes Puntos');
+    sh.getRange(1, 1, 1, 6).setValues([['ID', 'Lote', 'Lat', 'Lng', 'Borrado', 'Updated']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function _doGetCrmPuntos(e) {
+  var sh = _crmPuntosSheet();
+  var out = [];
+  if (sh.getLastRow() > 1) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+    for (var r = 0; r < data.length; r++) {
+      var id = String(data[r][0] || '').trim();
+      if (!id) continue;
+      out.push({
+        id: id,
+        lote: String(data[r][1] || '').trim(),
+        lat: Number(data[r][2]),
+        lng: Number(data[r][3]),
+        borrado: String(data[r][4] || '').trim().toUpperCase() === 'TRUE'
+      });
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ok: true, puntos: out}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _doPostCrmPuntoSave(data) {
+  var id = String(data.id || '').trim();
+  if (!id) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta id'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = _crmPuntosSheet();
+  var borrado = (data.borrado === 1 || data.borrado === '1' || data.borrado === true) ? 'TRUE' : '';
+  var row = [id, String(data.lote || ''), Number(data.lat) || '', Number(data.lng) || '', borrado, new Date()];
+  if (sh.getLastRow() > 1) {
+    var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (var r = 0; r < ids.length; r++) {
+      if (String(ids[r][0] || '').trim() === id) {
+        sh.getRange(r + 2, 1, 1, 6).setValues([row]);
+        return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'punto actualizado'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+  sh.appendRow(row);
+  return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'punto guardado'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
 //  F3 · BITÁCORA DE INTERACCIONES (CRM relacional)
 //  Hoja "Interacciones CRM": registro append-only de cada contacto con un
 //  cliente que NO es un pedido (le escribí / no contestó / quedó en pedir...).
@@ -13264,6 +13470,46 @@ function _doPostCrmDeleteInteraccion(data) {
     }
   }
   return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'no encontrada'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// POST: registra una CAMPAÑA enviada a una lista de clientes (difusión WATI).
+// Escribe una fila por cliente en "Interacciones CRM" con origen='campaña' →
+// el ERP usa eso para que un cliente NO entre en 2 difusiones el mismo día.
+// data: {template, items:[{key,tel,nombre}]}
+function _doPostCrmLogCampania(data) {
+  var template = String(data.template || '').trim();
+  var items = data.items;
+  if (!template || !items || !items.length) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta template o items'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = _crmInteraccionesSheet();
+  var now = new Date();
+  var fecha = Utilities.formatDate(now, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+  var base = now.getTime();
+  var rows = [], out = [];
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i] || {};
+    var key = String(it.key || '').trim();
+    var tel = String(it.tel || '').trim();
+    if (!key && !tel) continue;
+    var id = 'C' + base + '-' + i;
+    var nombre = String(it.nombre || '').trim();
+    var res = '📣 Campaña';
+    var nota = 'Campaña: ' + template;
+    rows.push([id, fecha, key, tel, nombre, res, '', nota, 'campaña']);
+    out.push({id: id, fecha: fecha, key: key, tel: tel, nombre: nombre, resultado: res, prox: '', nota: nota, origen: 'campaña'});
+  }
+  if (!rows.length) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'sin clientes válidos'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var startRow = sh.getLastRow() + 1;
+  sh.getRange(startRow, 1, rows.length, 9).setValues(rows);
+  // Fecha como texto en todo el bloque para que Sheets no la re-interprete.
+  sh.getRange(startRow, 2, rows.length, 1).setNumberFormat('@');
+  return ContentService.createTextOutput(JSON.stringify({ok: true, n: rows.length, interacciones: out}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
