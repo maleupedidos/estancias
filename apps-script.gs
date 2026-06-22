@@ -280,6 +280,7 @@ function doGet(e) {
   if (action === 'stock') return _doGetStock();
   if (action === 'stock_full') return _doGetStockFull();
   if (action === 'precios') return _doGetPrecios();
+  if (action === 'validarCupon') return _doGetValidarCupon(e);
   if (action === 'cobrosPendientes') return _doGetCobrosPendientes(e);
   if (action === 'billetera') return _doGetBilletera();
   if (action === 'pendientesGuardarStock') return _doGetPendientesGuardarStock();
@@ -818,6 +819,136 @@ function _doGetBilletera() {
   return ContentService
     .createTextOutput(JSON.stringify({ ok: true, billetera: bil, ts: Date.now() }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CUPONES (campañas WATI con descuento en la tienda online)
+// ════════════════════════════════════════════════════════════
+//
+//  Hoja 'Cupones' columnas:
+//    A Codigo · B Tipo · C Valor · D Scope · E Vence · F UsosMax ·
+//    G UsosActuales · H Segmento · I Mensaje · J Activo · K Stack · L Notas
+//
+//  Tipo:  PCT  → % sobre el scope (valor 0-100)
+//         ARS  → $ fijo de descuento
+//         ENVIO → anula el envío (valor ignorado)
+//
+//  Scope: TODO  → todo el subtotal
+//         CATEGORIA:Sorrentinos → solo productos de esa categoría (cat del item)
+//         PRODUCTO:SCo → solo ese abbr
+//
+//  Lee 'codigo' (case-insensitive) y opcionalmente 'itemsJson' (JSON con
+//  [{abbr, cat, precio, qty}]). Si vienen items, calcula el descuento concreto;
+//  si no vienen, solo valida que el cupón existe y está activo.
+
+function _leerCupon(codigo) {
+  var hCup = SS.getSheetByName('Cupones');
+  if (!hCup) return null;
+  var data = hCup.getDataRange().getValues();
+  var key = String(codigo || '').trim().toUpperCase();
+  if (!key) return null;
+  for (var r = 1; r < data.length; r++) {
+    var c = String(data[r][0] || '').trim().toUpperCase();
+    if (c === key) {
+      return {
+        row:     r + 1,
+        codigo:  c,
+        tipo:    String(data[r][1] || '').trim().toUpperCase(),
+        valor:   Number(data[r][2]) || 0,
+        scope:   String(data[r][3] || 'TODO').trim(),
+        vence:   data[r][4],
+        usosMax: data[r][5] === '' || data[r][5] === null ? null : Number(data[r][5]),
+        usosAct: Number(data[r][6]) || 0,
+        segmento: String(data[r][7] || ''),
+        mensaje: String(data[r][8] || ''),
+        activo:  /^s[ií]|^yes|^true|^1/i.test(String(data[r][9] || '')),
+        stack:   /^s[ií]|^yes|^true|^1/i.test(String(data[r][10] || ''))
+      };
+    }
+  }
+  return null;
+}
+
+function _doGetValidarCupon(e) {
+  var codigo = (e && e.parameter && e.parameter.codigo) || '';
+  var itemsJson = (e && e.parameter && e.parameter.itemsJson) || '';
+  var resp = { ok: false, codigo: codigo };
+
+  var cup = _leerCupon(codigo);
+  if (!cup) {
+    resp.error = 'Código no encontrado';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (!cup.activo) {
+    resp.error = 'Cupón no disponible';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (cup.vence instanceof Date && cup.vence.getTime() < Date.now()) {
+    resp.error = 'Cupón vencido';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (cup.usosMax !== null && cup.usosAct >= cup.usosMax) {
+    resp.error = 'Cupón agotado';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Validación + cálculo del descuento si vienen items
+  var items = [];
+  if (itemsJson) { try { items = JSON.parse(itemsJson) || []; } catch(_e) { items = []; } }
+
+  var scope = cup.scope || 'TODO';
+  var scopeKey = '', scopeVal = '';
+  var ix = scope.indexOf(':');
+  if (ix >= 0) { scopeKey = scope.substring(0, ix).trim().toUpperCase(); scopeVal = scope.substring(ix + 1).trim(); }
+  else scopeKey = scope.trim().toUpperCase();
+
+  // Subtotal de los items que matchean el scope
+  var subtotalScope = 0;
+  items.forEach(function(it) {
+    var pr = Number(it.precio) || 0;
+    var qt = Number(it.qty) || 0;
+    var monto = pr * qt;
+    if (scopeKey === 'TODO') { subtotalScope += monto; return; }
+    if (scopeKey === 'CATEGORIA' && String(it.cat || '') === scopeVal) { subtotalScope += monto; return; }
+    if (scopeKey === 'PRODUCTO' && String(it.abbr || '') === scopeVal) { subtotalScope += monto; return; }
+  });
+
+  var descuento = 0;
+  if (cup.tipo === 'PCT') descuento = Math.round(subtotalScope * (cup.valor / 100));
+  else if (cup.tipo === 'ARS') descuento = Math.min(cup.valor, subtotalScope);
+  else if (cup.tipo === 'ENVIO') descuento = 0; // la tienda lo maneja anulando shipping
+
+  // Si todavía no hay productos del scope, el cupón se acepta igual (queda "pending").
+  // La tienda muestra un card invitando a sumar el producto. Cuando el cliente lo
+  // agrega, updateUI recalcula el descuento sin re-llamar al backend.
+  resp.ok = true;
+  resp.codigo = cup.codigo;
+  resp.tipo = cup.tipo;
+  resp.valor = cup.valor;
+  resp.scope = cup.scope;
+  resp.mensaje = cup.mensaje;
+  resp.stack = cup.stack;
+  resp.subtotalScope = subtotalScope;
+  resp.descuento = descuento;
+  resp.segmento = cup.segmento;
+  resp.pending = (subtotalScope === 0 && cup.tipo !== 'ENVIO');
+  return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Suma un uso al cupón. Se llama desde la tienda al confirmar pedido. No falla
+// si el código no existe (silent ok) — el tracking es best-effort.
+function _doPostUsarCupon(data) {
+  var resp = { ok: true };
+  try {
+    var cup = _leerCupon(data && data.codigo);
+    if (cup) {
+      var hCup = SS.getSheetByName('Cupones');
+      hCup.getRange(cup.row, 7).setValue(cup.usosAct + 1);
+      resp.codigo = cup.codigo;
+      resp.usosActuales = cup.usosAct + 1;
+    }
+  } catch (_e) { /* best-effort */ }
+  return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Precios y costos por abreviatura — consumido por ruta.html (solapa +)
@@ -3502,6 +3633,7 @@ function doPost(e) {
     if (data.action === 'marcarSemanaPagadaRed') return _doPostMarcarSemanaPagadaRed(data);
     if (data.action === 'crmUpdateClienteMeta') return _doPostCrmUpdateClienteMeta(data);
     if (data.action === 'guardarCumpleCliente') return _doPostGuardarCumpleCliente(data);
+    if (data.action === 'usarCupon')            return _doPostUsarCupon(data);
     if (data.action === 'crmMergeClientes')     return _doPostCrmMergeClientes(data);
     if (data.action === 'crmZonaSave')          return _doPostCrmZonaSave(data);
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
@@ -8454,7 +8586,11 @@ function _doGetAdmin(opt) {
 
       var formaPagoR = String(dataRed[rr][12] || '').trim();
       var costoR = Number(dataRed[rr][44]) || 0;
-      var margenR = Number(dataRed[rr][45]) || 0;
+      // Margen NETO (col AV/48, índice 47) = Margen Bruto − Comisión 17%. Es el margen
+      // real de Maleu en Red: el Facturado de la hoja es BRUTO, pero acá mandamos $ neto
+      // (A Pagar, 83%), así que el margen también debe ser neto. Antes leía índice 45
+      // (col AT Margen Bruto) e ignoraba la comisión → margen Red inflado ~$709k/año.
+      var margenR = Number(dataRed[rr][47]) || 0;
 
       var efRd  = Number(dataRed[rr][16]) || 0; // Q = Efectivo
       var trRd  = Number(dataRed[rr][17]) || 0; // R = Transferencia
