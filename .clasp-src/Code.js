@@ -533,6 +533,7 @@ function _doGetMiReparto(e) {
   var cruzadoEfTot = 0;     // Σ CruzadoEf: efectivo que diste de vuelto por un pago MP
   var usuarioLowBil = usuario.toLowerCase();
   var shCBil = SS.getSheetByName('Cambios Billetera');
+  var vueltoPorPed = {}; // { pedidoId: vuelto efectivo dado en ese pedido } para el desglose
   if (shCBil && shCBil.getLastRow() > 1) {
     var cbVals = shCBil.getDataRange().getValues();
     for (var icb = 1; icb < cbVals.length; icb++) {
@@ -554,6 +555,11 @@ function _doGetMiReparto(e) {
       if (cbTipo === 'CruzadoEf') cruzadoEfTot += cbMonto;
       else if (cbTipo === 'CambioMP') cambioMPTot += cbMonto;
       else vueltosBilletera += cbMonto; // 'Billetera' (default)
+      // Vuelto en efectivo por pedido (billetera + cruzado; CambioMP es vuelto por MP, no efectivo).
+      if (cbTipo !== 'CambioMP') {
+        var cbPed = String(cbVals[icb][2] || '').trim();
+        if (cbPed) vueltoPorPed[cbPed] = (vueltoPorPed[cbPed] || 0) + cbMonto;
+      }
     }
   }
   var ajusteCruzado = cambioMPTot - cruzadoEfTot; // efectivo en mano que no quedó en el cobro
@@ -684,6 +690,7 @@ function _doGetMiReparto(e) {
       n: nPed, c: cliente, $: total,
       pEf: propEf, pTr: propTr,
       ef: ef, tr: tr,
+      vto: vueltoPorPed[nPed] || 0,   // vuelto en efectivo dado en este pedido
       sb: subBarrio, l: lote,
       ep: estPag, cb: cobrado
     });
