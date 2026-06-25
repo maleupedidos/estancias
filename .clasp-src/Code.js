@@ -280,6 +280,7 @@ function doGet(e) {
   if (action === 'stock') return _doGetStock();
   if (action === 'stock_full') return _doGetStockFull();
   if (action === 'precios') return _doGetPrecios();
+  if (action === 'validarCupon') return _doGetValidarCupon(e);
   if (action === 'cobrosPendientes') return _doGetCobrosPendientes(e);
   if (action === 'billetera') return _doGetBilletera();
   if (action === 'pendientesGuardarStock') return _doGetPendientesGuardarStock();
@@ -423,6 +424,79 @@ function _doGetMiRepartoHistorial(e) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  POST cerrarDiaReparto — el repartidor cierra el día.
+//  Body: { usuario, fecha (ISO), billeteraIni, cobradoEf, esperado, real, notas? }
+//  Escribe fila en hoja "Cierres Reparto". Si para esa combinación (usuario, fecha)
+//  ya hay cierre previo, lo sobrescribe (no duplica).
+// ════════════════════════════════════════════════════════════
+function _doPostCerrarDiaReparto(data) {
+  var usuario = String(data.usuario || '').trim();
+  var fechaISO = String(data.fecha || '').trim();
+  if (!usuario || !fechaISO) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false, err:'Faltan usuario o fecha'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  var billeteraIni = Number(data.billeteraIni) || 0;
+  var cobradoEf    = Number(data.cobradoEf) || 0;
+  var esperado     = Number(data.esperado) || 0;
+  var real         = Number(data.real) || 0;
+  var notas        = String(data.notas || '').trim();
+  var diferencia   = real - esperado;
+
+  var sh = SS.getSheetByName('Cierres Reparto');
+  if (!sh) {
+    sh = SS.insertSheet('Cierres Reparto');
+    sh.getRange(1, 1, 1, 9).setValues([[
+      'Fecha Cierre','Usuario','Fecha Reparto','Billetera Inicial','Cobrado Efectivo',
+      'Esperado','Real','Diferencia','Notas'
+    ]]);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:I1').setFontWeight('bold').setBackground('#331C1C').setFontColor('#fff');
+    sh.setColumnWidths(1, 9, 130);
+  }
+
+  var ahora = new Date();
+  var fechaRepDate = (function(){
+    var p = fechaISO.split('-');
+    return new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+  })();
+
+  // Upsert: sobreescribir cierre previo del mismo (usuario, fecha) en vez de duplicar.
+  var rowToWrite = -1;
+  if (sh.getLastRow() > 1) {
+    var vals = sh.getRange(2, 1, sh.getLastRow()-1, 3).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var u = String(vals[i][1] || '').trim().toLowerCase();
+      var fr = vals[i][2];
+      var frISO = '';
+      if (fr instanceof Date) {
+        frISO = Utilities.formatDate(fr, 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+      } else if (fr) {
+        var sFR = String(fr).trim().split(' ')[0];
+        var mFR = sFR.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (mFR) frISO = mFR[3]+'-'+(mFR[2].length===1?'0'+mFR[2]:mFR[2])+'-'+(mFR[1].length===1?'0'+mFR[1]:mFR[1]);
+      }
+      if (u === usuario.toLowerCase() && frISO === fechaISO) {
+        rowToWrite = i + 2;
+        break;
+      }
+    }
+  }
+
+  var rowData = [[ahora, usuario, fechaRepDate, billeteraIni, cobradoEf, esperado, real, diferencia, notas]];
+  if (rowToWrite > 0) {
+    sh.getRange(rowToWrite, 1, 1, 9).setValues(rowData);
+  } else {
+    sh.appendRow(rowData[0]);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true, usuario: usuario, fecha: fechaISO,
+    billeteraIni: billeteraIni, cobradoEf: cobradoEf,
+    esperado: esperado, real: real, diferencia: diferencia
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
 //  Mi Reparto — resumen del día para rol Repartidor.
 //  Params: usuario (nombre exacto col Repartidor), fecha (ISO YYYY-MM-DD).
 //  Solo Home (los Pilar/Clubes/Red no van con repartidor delegado por ahora).
@@ -440,10 +514,87 @@ function _doGetMiReparto(e) {
 
   var FIJO_DIA = 50000;
 
+  // ── Saldo billetera (caja Maleu) ── desde último snapshot Saldo Base col D.
+  // Tadeo lo edita en Panel→Caja→Ajustar. El repartidor ve este valor al refrescar.
+  var saldoBilletera = 0;
+  var shSB = SS.getSheetByName('Saldo Base');
+  if (shSB && shSB.getLastRow() > 1 && shSB.getLastColumn() >= 4) {
+    saldoBilletera = Number(shSB.getRange(shSB.getLastRow(), 4).getValue()) || 0;
+  }
+
+  // ── Reconstruir la billetera INICIAL del día + ajustes de efectivo en mano ──
+  // El arqueo necesita la billetera con la que ARRANCASTE el día, no la actual: cada
+  // vuelto de billetera bajó la col D, así que lo sumamos de vuelta. Además los cambios
+  // cruzados mueven efectivo en mano sin pasar por el cobro (CruzadoEf resta, CambioMP suma).
+  // Fuente: hoja "Cambios Billetera" (Fecha|Hoja|Pedido|Cliente|Monto|Repartidor|Tipo),
+  // filtrada por la fecha de reparto y el repartidor (filas viejas sin repartidor cuentan).
+  var vueltosBilletera = 0; // Σ vuelto de billetera de hoy → reconstruye la billetera inicial
+  var ajusteCruzado = 0;    // +CambioMP −CruzadoEf → efectivo en mano que no quedó en el cobro
+  var usuarioLowBil = usuario.toLowerCase();
+  var shCBil = SS.getSheetByName('Cambios Billetera');
+  if (shCBil && shCBil.getLastRow() > 1) {
+    var cbVals = shCBil.getDataRange().getValues();
+    for (var icb = 1; icb < cbVals.length; icb++) {
+      var cbF = cbVals[icb][0];
+      var cbISO = '';
+      if (cbF instanceof Date) {
+        cbISO = Utilities.formatDate(cbF, 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+      } else if (cbF) {
+        var sCB = String(cbF).trim().split(' ')[0];
+        var mCB = sCB.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (mCB) cbISO = mCB[3] + '-' + (mCB[2].length === 1 ? '0' + mCB[2] : mCB[2]) + '-' + (mCB[1].length === 1 ? '0' + mCB[1] : mCB[1]);
+        else if (/^\d{4}-\d{2}-\d{2}/.test(sCB)) cbISO = sCB.substring(0, 10);
+      }
+      if (cbISO !== fechaISO) continue;
+      var cbRep = String(cbVals[icb][5] || '').trim().toLowerCase(); // col F (puede faltar en filas viejas)
+      if (cbRep && cbRep !== usuarioLowBil) continue;
+      var cbTipo = String(cbVals[icb][6] || 'Billetera').trim();     // col G
+      var cbMonto = Number(cbVals[icb][4]) || 0;                      // col E
+      if (cbTipo === 'CruzadoEf') ajusteCruzado -= cbMonto;
+      else if (cbTipo === 'CambioMP') ajusteCruzado += cbMonto;
+      else vueltosBilletera += cbMonto; // 'Billetera' (default)
+    }
+  }
+  var billeteraIni = saldoBilletera + vueltosBilletera;
+
+  // ── Cierre del día (si ya cerró). Hoja "Cierres Reparto": Fecha cierre, Usuario, Fecha reparto, Billetera ini, Cobrado Ef, Esperado, Real, Diferencia, Notas.
+  var cierreDia = null;
+  var shCR = SS.getSheetByName('Cierres Reparto');
+  if (shCR && shCR.getLastRow() > 1) {
+    var crVals = shCR.getRange(2, 1, shCR.getLastRow()-1, 9).getValues();
+    for (var ic = crVals.length - 1; ic >= 0; ic--) {
+      var uCR = String(crVals[ic][1] || '').trim().toLowerCase();
+      var fRep = crVals[ic][2];
+      var fRepISO = '';
+      if (fRep instanceof Date) {
+        fRepISO = Utilities.formatDate(fRep, 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+      } else if (fRep) {
+        var sFR = String(fRep).trim().split(' ')[0];
+        var mFR = sFR.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (mFR) fRepISO = mFR[3]+'-'+(mFR[2].length===1?'0'+mFR[2]:mFR[2])+'-'+(mFR[1].length===1?'0'+mFR[1]:mFR[1]);
+        else if (/^\d{4}-\d{2}-\d{2}/.test(sFR)) fRepISO = sFR.substring(0,10);
+      }
+      if (uCR === usuario.toLowerCase() && fRepISO === fechaISO) {
+        cierreDia = {
+          billeteraIni: Number(crVals[ic][3]) || 0,
+          cobradoEf:    Number(crVals[ic][4]) || 0,
+          esperado:     Number(crVals[ic][5]) || 0,
+          real:         Number(crVals[ic][6]) || 0,
+          diferencia:   Number(crVals[ic][7]) || 0,
+          notas:        String(crVals[ic][8] || '')
+        };
+        break;
+      }
+    }
+  }
+
   var sh = SS.getSheetByName('Home');
   if (!sh || sh.getLastRow() <= 1) {
     return ContentService.createTextOutput(JSON.stringify({
-      ok:true, usuario:usuario, fecha:fechaISO, fijo:FIJO_DIA, propinas:0, total:FIJO_DIA, entregas:[]
+      ok:true, usuario:usuario, fecha:fechaISO, fijo:FIJO_DIA, propinas:0, total:FIJO_DIA,
+      saldoBilletera:saldoBilletera, billeteraIni:billeteraIni, vueltosBilletera:vueltosBilletera,
+      ajusteCruzado:ajusteCruzado, cobradoEfHoy:0, cobradoTrHoy:0,
+      plataEnMano:billeteraIni+ajusteCruzado, cierreDia:cierreDia, entregas:[]
     })).setMimeType(ContentService.MimeType.JSON);
   }
 
@@ -481,6 +632,7 @@ function _doGetMiReparto(e) {
   var usuarioLow = usuario.toLowerCase();
   var entregas = [];
   var sumPropEf = 0, sumPropTr = 0;
+  var sumCobEf = 0, sumCobTr = 0;
 
   for (var r = 1; r < data.length; r++) {
     var row = data[r];
@@ -508,21 +660,27 @@ function _doGetMiReparto(e) {
     var nPed   = String(row[iN] || '').trim();
     var cliente= String(row[iCliente] || '').trim();
     var total  = Number(row[iTotal]) || 0;
-    // Propinas: clamp a >=0. Valores negativos en el Sheets son data sucia (descuentos
-    // mal cargados, ajustes); no deben restar del fijo del repartidor.
     var propEf = Math.max(0, Number(row[iPropEf]) || 0);
     var propTr = Math.max(0, Number(row[iPropTr]) || 0);
+    var ef     = Number(row[iEf]) || 0;
+    var tr     = Number(row[iTr]) || 0;
     var subBarrio = (iSubBarrio != null) ? String(row[iSubBarrio] || '').trim() : '';
     var lote   = (iDomLote >= 0) ? String(row[iDomLote] || '').trim() : '';
     var estPag = String(row[iEstadoPago] || '').trim();
+    var cobrado = (estPag === 'Cobrado');
 
     sumPropEf += propEf;
     sumPropTr += propTr;
+    // Solo cuenta para la billetera lo cobrado en efectivo.
+    // Propina ef se incluye aparte porque se suma al cobro físico que recibe el repartidor.
+    if (cobrado) { sumCobEf += ef + propEf; sumCobTr += tr + propTr; }
+
     entregas.push({
       n: nPed, c: cliente, $: total,
       pEf: propEf, pTr: propTr,
+      ef: ef, tr: tr,
       sb: subBarrio, l: lote,
-      ep: estPag
+      ep: estPag, cb: cobrado
     });
   }
 
@@ -537,6 +695,14 @@ function _doGetMiReparto(e) {
     propinas: propinasTot,
     total: FIJO_DIA + propinasTot,
     cantidad: entregas.length,
+    saldoBilletera: saldoBilletera,        // billetera ACTUAL (la usa el modal de cobro)
+    billeteraIni: billeteraIni,            // billetera INICIAL del día (la usa el arqueo)
+    vueltosBilletera: vueltosBilletera,    // vueltos de billetera dados hoy
+    ajusteCruzado: ajusteCruzado,          // +CambioMP −CruzadoEf (efectivo en mano fuera del cobro)
+    cobradoEfHoy: sumCobEf,
+    cobradoTrHoy: sumCobTr,
+    plataEnMano: billeteraIni + sumCobEf + ajusteCruzado,
+    cierreDia: cierreDia,
     entregas: entregas
   })).setMimeType(ContentService.MimeType.JSON);
 }
@@ -818,6 +984,136 @@ function _doGetBilletera() {
   return ContentService
     .createTextOutput(JSON.stringify({ ok: true, billetera: bil, ts: Date.now() }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CUPONES (campañas WATI con descuento en la tienda online)
+// ════════════════════════════════════════════════════════════
+//
+//  Hoja 'Cupones' columnas:
+//    A Codigo · B Tipo · C Valor · D Scope · E Vence · F UsosMax ·
+//    G UsosActuales · H Segmento · I Mensaje · J Activo · K Stack · L Notas
+//
+//  Tipo:  PCT  → % sobre el scope (valor 0-100)
+//         ARS  → $ fijo de descuento
+//         ENVIO → anula el envío (valor ignorado)
+//
+//  Scope: TODO  → todo el subtotal
+//         CATEGORIA:Sorrentinos → solo productos de esa categoría (cat del item)
+//         PRODUCTO:SCo → solo ese abbr
+//
+//  Lee 'codigo' (case-insensitive) y opcionalmente 'itemsJson' (JSON con
+//  [{abbr, cat, precio, qty}]). Si vienen items, calcula el descuento concreto;
+//  si no vienen, solo valida que el cupón existe y está activo.
+
+function _leerCupon(codigo) {
+  var hCup = SS.getSheetByName('Cupones');
+  if (!hCup) return null;
+  var data = hCup.getDataRange().getValues();
+  var key = String(codigo || '').trim().toUpperCase();
+  if (!key) return null;
+  for (var r = 1; r < data.length; r++) {
+    var c = String(data[r][0] || '').trim().toUpperCase();
+    if (c === key) {
+      return {
+        row:     r + 1,
+        codigo:  c,
+        tipo:    String(data[r][1] || '').trim().toUpperCase(),
+        valor:   Number(data[r][2]) || 0,
+        scope:   String(data[r][3] || 'TODO').trim(),
+        vence:   data[r][4],
+        usosMax: data[r][5] === '' || data[r][5] === null ? null : Number(data[r][5]),
+        usosAct: Number(data[r][6]) || 0,
+        segmento: String(data[r][7] || ''),
+        mensaje: String(data[r][8] || ''),
+        activo:  /^s[ií]|^yes|^true|^1/i.test(String(data[r][9] || '')),
+        stack:   /^s[ií]|^yes|^true|^1/i.test(String(data[r][10] || ''))
+      };
+    }
+  }
+  return null;
+}
+
+function _doGetValidarCupon(e) {
+  var codigo = (e && e.parameter && e.parameter.codigo) || '';
+  var itemsJson = (e && e.parameter && e.parameter.itemsJson) || '';
+  var resp = { ok: false, codigo: codigo };
+
+  var cup = _leerCupon(codigo);
+  if (!cup) {
+    resp.error = 'Código no encontrado';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (!cup.activo) {
+    resp.error = 'Cupón no disponible';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (cup.vence instanceof Date && cup.vence.getTime() < Date.now()) {
+    resp.error = 'Cupón vencido';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (cup.usosMax !== null && cup.usosAct >= cup.usosMax) {
+    resp.error = 'Cupón agotado';
+    return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Validación + cálculo del descuento si vienen items
+  var items = [];
+  if (itemsJson) { try { items = JSON.parse(itemsJson) || []; } catch(_e) { items = []; } }
+
+  var scope = cup.scope || 'TODO';
+  var scopeKey = '', scopeVal = '';
+  var ix = scope.indexOf(':');
+  if (ix >= 0) { scopeKey = scope.substring(0, ix).trim().toUpperCase(); scopeVal = scope.substring(ix + 1).trim(); }
+  else scopeKey = scope.trim().toUpperCase();
+
+  // Subtotal de los items que matchean el scope
+  var subtotalScope = 0;
+  items.forEach(function(it) {
+    var pr = Number(it.precio) || 0;
+    var qt = Number(it.qty) || 0;
+    var monto = pr * qt;
+    if (scopeKey === 'TODO') { subtotalScope += monto; return; }
+    if (scopeKey === 'CATEGORIA' && String(it.cat || '') === scopeVal) { subtotalScope += monto; return; }
+    if (scopeKey === 'PRODUCTO' && String(it.abbr || '') === scopeVal) { subtotalScope += monto; return; }
+  });
+
+  var descuento = 0;
+  if (cup.tipo === 'PCT') descuento = Math.round(subtotalScope * (cup.valor / 100));
+  else if (cup.tipo === 'ARS') descuento = Math.min(cup.valor, subtotalScope);
+  else if (cup.tipo === 'ENVIO') descuento = 0; // la tienda lo maneja anulando shipping
+
+  // Si todavía no hay productos del scope, el cupón se acepta igual (queda "pending").
+  // La tienda muestra un card invitando a sumar el producto. Cuando el cliente lo
+  // agrega, updateUI recalcula el descuento sin re-llamar al backend.
+  resp.ok = true;
+  resp.codigo = cup.codigo;
+  resp.tipo = cup.tipo;
+  resp.valor = cup.valor;
+  resp.scope = cup.scope;
+  resp.mensaje = cup.mensaje;
+  resp.stack = cup.stack;
+  resp.subtotalScope = subtotalScope;
+  resp.descuento = descuento;
+  resp.segmento = cup.segmento;
+  resp.pending = (subtotalScope === 0 && cup.tipo !== 'ENVIO');
+  return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Suma un uso al cupón. Se llama desde la tienda al confirmar pedido. No falla
+// si el código no existe (silent ok) — el tracking es best-effort.
+function _doPostUsarCupon(data) {
+  var resp = { ok: true };
+  try {
+    var cup = _leerCupon(data && data.codigo);
+    if (cup) {
+      var hCup = SS.getSheetByName('Cupones');
+      hCup.getRange(cup.row, 7).setValue(cup.usosAct + 1);
+      resp.codigo = cup.codigo;
+      resp.usosActuales = cup.usosAct + 1;
+    }
+  } catch (_e) { /* best-effort */ }
+  return ContentService.createTextOutput(JSON.stringify(resp)).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Precios y costos por abreviatura — consumido por ruta.html (solapa +)
@@ -2408,10 +2704,11 @@ function _doGetBusqueda() {
 
     // Filtrar OCs cuya entrega NO sea esta semana ni la proxima.
     // Para canales con cliente real: atrasados se incluyen como "Esta semana" para no perderlos.
-    // Para Depósito: NO traer atrasados — son cosas que Tadeo ya guardó en su día.
+    // Para Depósito: NO traer atrasados RECIBIDOS — son cosas que Tadeo ya guardó.
+    // PERO sí traer atrasados Pendiente/Pedido — son compras viejas que aún no fue a buscar.
     var diffSem = (anioEntPed - anioActualBusq) * 53 + (semEntPed - semanaActualBusq);
     if (diffSem > 1) continue;
-    if (esDepCanal && diffSem < 0) continue;
+    if (esDepCanal && diffSem < 0 && esRecibido) continue;
 
     // Pedidos entregados ya: no incluir en ARMADO (cliente). Sigue contando para BUSQUEDA si la OC esta Pendiente/Pedida.
     // Un pedido sale de ARMADO cuando ya fue entregado. Para Red la entrega
@@ -3481,6 +3778,7 @@ function doPost(e) {
     if (data.action === 'prepararSobre')   return _doPostPrepararSobre(data);
     if (data.action === 'eliminarSobre')   return _doPostEliminarSobre(data);
     if (data.action === 'marcarCobrado')   return _doPostMarcarCobrado(data);
+    if (data.action === 'descobrar')       return _doPostDescobrar(data);
     if (data.action === 'cobrarParcial')   return _doPostCobrarParcial(data);
     if (data.action === 'pagarVendedor')   return _doPostPagarVendedor(data);
     if (data.action === 'cancelarPedido')  return _doPostCancelarPedido(data);
@@ -3502,6 +3800,7 @@ function doPost(e) {
     if (data.action === 'marcarSemanaPagadaRed') return _doPostMarcarSemanaPagadaRed(data);
     if (data.action === 'crmUpdateClienteMeta') return _doPostCrmUpdateClienteMeta(data);
     if (data.action === 'guardarCumpleCliente') return _doPostGuardarCumpleCliente(data);
+    if (data.action === 'usarCupon')            return _doPostUsarCupon(data);
     if (data.action === 'crmMergeClientes')     return _doPostCrmMergeClientes(data);
     if (data.action === 'crmZonaSave')          return _doPostCrmZonaSave(data);
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
@@ -3511,6 +3810,7 @@ function doPost(e) {
     if (data.action === 'crmDeleteInteraccion') return _doPostCrmDeleteInteraccion(data);
     if (data.action === 'crmLogCampania')       return _doPostCrmLogCampania(data);
     if (data.action === 'programarBusqueda')    return _doPostProgramarBusqueda(data);
+    if (data.action === 'cerrarDiaReparto')     return _doPostCerrarDiaReparto(data);
     if (data.action === 'marcarEntregadoAVendedor') return _doPostMarcarEntregadoAVendedor(data);
     if (data.action === 'marcarGuardadoEnStock') return _doPostMarcarGuardadoEnStock(data);
     if (data.action === 'crearSaldoCliente') return _doPostCrearSaldoCliente(data);
@@ -4019,17 +4319,11 @@ function _doPostHome(data, sheetName, prefix) {
     try { _stampFechaCobro(sh, newRow); } catch (_e) { /* nada */ }
   }
 
-  // ── Repartidor: queda asignado al usuario que cargó el pedido desde el "+" ──
-  // El frontend manda data.repartidor con el nombre del usuario logueado en la
-  // PWA. Antes solo se escribía al marcar Entregado, así que los pedidos creados
-  // desde el "+" quedaban sin Repartidor. Ahora se asigna ya al crear (igual
-  // queda overrideable cuando se marca Entregado).
-  // Cols: Home BD=56, Pilar BG=59.
-  var _repAuto = String(data.repartidor || '').trim();
-  if (_repAuto) {
-    var _colRepAuto = (sheetName === 'Pilar') ? 59 : 56;
-    try { sh.getRange(newRow, _colRepAuto).setValue(_repAuto); } catch (_e) { /* nada */ }
-  }
+  // ── Repartidor: NO se setea al crear el pedido ──
+  // Decisión 24/06/26: el Repartidor refleja quién ENTREGÓ, no quién creó el
+  // autopedido. Tadeo puede crear un autopedido para que después lo entregue
+  // Santos o Agustín, así que el campo queda vacío hasta que alguien aprieta
+  // "Entregado" desde Ruta (marcarEntregado pisa Repartidor con el user logueado).
 
   // ── Saldo a favor aplicado en este pedido (si el cliente tenía crédito previo) ──
   // El frontend tienda detecta saldo via GET saldoCliente y manda saldoAplicado>0.
@@ -8454,7 +8748,11 @@ function _doGetAdmin(opt) {
 
       var formaPagoR = String(dataRed[rr][12] || '').trim();
       var costoR = Number(dataRed[rr][44]) || 0;
-      var margenR = Number(dataRed[rr][45]) || 0;
+      // Margen NETO (col AV/48, índice 47) = Margen Bruto − Comisión 17%. Es el margen
+      // real de Maleu en Red: el Facturado de la hoja es BRUTO, pero acá mandamos $ neto
+      // (A Pagar, 83%), así que el margen también debe ser neto. Antes leía índice 45
+      // (col AT Margen Bruto) e ignoraba la comisión → margen Red inflado ~$709k/año.
+      var margenR = Number(dataRed[rr][47]) || 0;
 
       var efRd  = Number(dataRed[rr][16]) || 0; // Q = Efectivo
       var trRd  = Number(dataRed[rr][17]) || 0; // R = Transferencia
@@ -10166,30 +10464,43 @@ function _doPostCobrarVendedorRed(data) {
   var pad = function(n){return String(n).padStart(2,'0');};
   var fechaStr = pad(argDate.getDate()) + '/' + pad(argDate.getMonth()+1) + '/' + argDate.getFullYear();
 
-  var d = sh.getRange(2, 1, sh.getLastRow()-1, 55).getValues();
-  // Cols (0-indexed dentro de d[r]):
-  // 1=N°Pedido, 5=Semana ISO, 6=Año, 7=Vendedor, 11=Estado Entrega,
-  // 13=Estado de Pago al cliente, 48=A Pagar (col AW), 53=Estado Pago a Maleu
+  // Lectura completa + índices por header (Red puede crecer en columnas).
+  var dAll = sh.getDataRange().getValues();
+  var hdr = dAll[0];
+  var iEntVend = -1, iPagoMaleu = -1, iFpMaleu = -1, iFechaPagoMaleu = -1, iAPagar = -1;
+  for (var hh = 0; hh < hdr.length; hh++) {
+    var nm = String(hdr[hh]).trim();
+    if (nm === 'Entregado a Vendedor') iEntVend = hh;
+    else if (nm === 'Estado Pago a Maleu') iPagoMaleu = hh;
+    else if (nm === 'Forma Pago a Maleu') iFpMaleu = hh;
+    else if (nm === 'Fecha Pago a Maleu') iFechaPagoMaleu = hh;
+    else if (nm === 'A Pagar') iAPagar = hh;
+  }
+  if (iAPagar < 0) iAPagar = 48; // fallback col AW
   var porSemana = {};
   var totalGlobal = 0, updatedTotal = 0;
 
-  for (var i = 0; i < d.length; i++) {
-    var vend = String(d[i][7] || '').trim();
-    var estado = String(d[i][11] || '').trim();
-    var pagoCli = String(d[i][13] || '').trim();
-    var pagoMaleu = String(d[i][53] || '').trim();
-    var yaPagado = (pagoMaleu === 'Pagado' || pagoMaleu === 'Sí' || pagoMaleu === 'Si');
+  // Filtro ALINEADO con cobros pendientes (cobrosPendientes Red): cuenta pedidos
+  // entregados al vendedor y NO pagados a Maleu, SIN importar si el cliente le pagó
+  // al vendedor (Estado Pago al cliente). Esto permite que Tadeo cobre al vendedor
+  // desde Ruta cuando el vendedor se olvidó de registrar (caso Marcos 23/06).
+  for (var i = 1; i < dAll.length; i++) {
+    var d = dAll[i];
+    var vend = String(d[7] || '').trim();
     if (vend !== vendedor) continue;
+    var estado = String(d[11] || '').trim();
     if (estado === 'Cancelado') continue;
-    if (pagoCli !== 'Cobrado') continue;
-    if (yaPagado) continue;
-    var yr = Number(d[i][6]) || argDate.getFullYear();
-    var sem = Number(d[i][5]) || 0;
-    var aPagar = Number(d[i][48]) || 0;
-    var pedId = String(d[i][1] || '');
+    var entVend = iEntVend >= 0 ? String(d[iEntVend] || '').trim() : 'Entregado';
+    if (entVend !== 'Entregado') continue;
+    var pagoMaleu = iPagoMaleu >= 0 ? String(d[iPagoMaleu] || '').trim() : '';
+    if (pagoMaleu === 'Pagado' || pagoMaleu === 'Sí' || pagoMaleu === 'Si') continue;
+    var yr = Number(d[6]) || argDate.getFullYear();
+    var sem = Number(d[5]) || 0;
+    var aPagar = Number(d[iAPagar]) || 0;
+    var pedId = String(d[1] || '');
     var skey = yr + '|' + sem;
     if (!porSemana[skey]) porSemana[skey] = { year: yr, sem: sem, filas: [], aPagar: 0, ids: [] };
-    porSemana[skey].filas.push(i + 2);
+    porSemana[skey].filas.push(i + 1);
     porSemana[skey].aPagar += aPagar;
     porSemana[skey].ids.push(pedId);
     totalGlobal += aPagar;
@@ -10209,23 +10520,27 @@ function _doPostCobrarVendedorRed(data) {
     shLiq.setFrozenRows(1);
     shLiq.getRange('A1:L1').setFontWeight('bold').setBackground('#f3e5ab');
   }
+  // Forma de pago elegida por Tadeo al cobrar al vendedor desde Ruta ('Efectivo' o
+  // 'Transferencia'/MP). Fallback compat: si vienen montos ef/tr explícitos, ratio.
+  var fpElegida = String(data.formaPago || '').trim();
   var totalEfIn = Number(data.ef) || 0;
   var totalTrIn = Number(data.tr) || 0;
   var totalIn = totalEfIn + totalTrIn;
   Object.keys(porSemana).forEach(function(skey) {
     var s = porSemana[skey];
-    var ef = 0, tr = s.aPagar; // default 100% transferencia
-    if (totalIn > 0 && totalGlobal > 0) {
+    var ef, tr;
+    if (fpElegida === 'Efectivo') { ef = s.aPagar; tr = 0; }
+    else if (fpElegida === 'Transferencia' || fpElegida === 'Mercado Pago') { ef = 0; tr = s.aPagar; }
+    else if (totalIn > 0 && totalGlobal > 0) {
       var ratio = s.aPagar / totalGlobal;
       ef = Math.round(totalEfIn * ratio);
       tr = Math.round(totalTrIn * ratio);
-    }
-    // Forma de pago para col BA (53): coherente con marcarSemanaPagadaRed
-    var formaPago = (ef > 0 && tr > 0) ? 'Mixto' : (ef > 0 ? 'Efectivo' : 'Transferencia');
+    } else { ef = 0; tr = s.aPagar; } // default 100% transferencia (MP)
+    var formaPagoCol = (ef > 0 && tr > 0) ? 'Mixto' : (ef > 0 ? 'Efectivo' : 'Transferencia');
     s.filas.forEach(function(rowSheet) {
-      sh.getRange(rowSheet, 53).setValue(formaPago);   // BA Forma Pago a Maleu
-      sh.getRange(rowSheet, 54).setValue('Pagado');    // BB Estado Pago a Maleu
-      sh.getRange(rowSheet, 55).setValue(argDate);     // BC Fecha Pago a Maleu
+      if (iFpMaleu >= 0) sh.getRange(rowSheet, iFpMaleu + 1).setValue(formaPagoCol);
+      if (iPagoMaleu >= 0) sh.getRange(rowSheet, iPagoMaleu + 1).setValue('Pagado');
+      if (iFechaPagoMaleu >= 0) sh.getRange(rowSheet, iFechaPagoMaleu + 1).setValue(argDate);
     });
     shLiq.appendRow([
       argDate, fechaStr, vendedor, s.year, s.sem,
@@ -10296,6 +10611,37 @@ function _doPostCancelarPedido(data) {
   sh.getRange(row, 2).setValue('-');
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  Log de movimiento de EFECTIVO EN MANO del repartidor (para el arqueo de fin de día).
+//  Hoja "Cambios Billetera": Fecha | Hoja | Pedido | Cliente | Monto | Repartidor | Tipo
+//  tipo:
+//   - 'Billetera'  → vuelto en efectivo que salió de la billetera (el billete entró, el
+//                    cambio salió de la billetera). El arqueo lo SUMA para reconstruir la
+//                    billetera inicial del día (la col D ya fue bajada por este vuelto).
+//   - 'CruzadoEf'  → el cliente pagó MP y le diste vuelto en EFECTIVO. Salió efectivo de
+//                    tu mano sin que entre por el cobro. El arqueo lo RESTA.
+//   - 'CambioMP'   → el cliente pagó efectivo de más y le devolviste por MP. Te quedó
+//                    efectivo extra en mano. El arqueo lo SUMA.
+//  Monto siempre positivo; el signo lo decide el Tipo al armar el arqueo.
+// ════════════════════════════════════════════════════════════
+function _appendCambioBilletera(hoja, pedidoId, cliente, monto, repartidor, tipo) {
+  if (!(Number(monto) > 0)) return;
+  var sh = SS.getSheetByName('Cambios Billetera');
+  if (!sh) {
+    sh = SS.insertSheet('Cambios Billetera');
+    sh.getRange(1, 1, 1, 7).setValues([['Fecha', 'Hoja', 'Pedido', 'Cliente', 'Monto', 'Repartidor', 'Tipo']]);
+    sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < 7) {
+    // Extender el header viejo (5 cols) a 7 sin tocar las filas existentes.
+    sh.getRange(1, 6, 1, 2).setValues([['Repartidor', 'Tipo']]);
+  }
+  var argNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  sh.appendRow([argNow, hoja, String(pedidoId), String(cliente || ''), Number(monto), String(repartidor || ''), tipo]);
+  var lr = sh.getLastRow();
+  sh.getRange(lr, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+  sh.getRange(lr, 5).setNumberFormat('$#,##0');
 }
 
 function _doPostMarcarCobrado(data) {
@@ -10480,18 +10826,10 @@ function _doPostMarcarCobrado(data) {
       var bilActCb = Number(shSBcb.getRange(lrSBcb, 4).getValue()) || 0;
       shSBcb.getRange(lrSBcb, 4).setValue(Math.max(0, bilActCb - cambioBilletera));
     }
-    // Log del vuelto (fecha + pedido) para que el desglose por día explique por qué el
-    // efectivo cobrado (neto) es menor a los billetes que recibiste en mano.
-    var shCb = SS.getSheetByName('Cambios Billetera');
-    if (!shCb) {
-      shCb = SS.insertSheet('Cambios Billetera');
-      shCb.getRange(1, 1, 1, 5).setValues([['Fecha', 'Hoja', 'Pedido', 'Cliente', 'Monto']]);
-      shCb.setFrozenRows(1);
-    }
-    var argNowCb = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-    shCb.appendRow([argNowCb, hoja, String(pedidoId), String(data.cliente || ''), cambioBilletera]);
-    shCb.getRange(shCb.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
-    shCb.getRange(shCb.getLastRow(), 5).setNumberFormat('$#,##0');
+    // Log del vuelto (fecha + pedido + repartidor) para que el arqueo reconstruya la
+    // billetera inicial del día y el desglose explique por qué el efectivo cobrado (neto)
+    // es menor a los billetes que recibiste en mano.
+    _appendCambioBilletera(hoja, pedidoId, data.cliente, cambioBilletera, data.repartidor, 'Billetera');
   }
 
   // ── CAMBIO CRUZADO (Ef↔MP) ──
@@ -10520,15 +10858,69 @@ function _doPostMarcarCobrado(data) {
       // Cliente pagó Ef de más → Tadeo le devolvió MP. Entra Ef, sale MP.
       if (shIng) shIng.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio Ef recibido extra · ' + concepto, 'Efectivo', cambioMP, '']);
       if (shEgr) shEgr.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio MP devuelto · ' + concepto, 'Mercado Pago', cambioMP, '']);
+      // Efectivo extra que te quedó en mano → el arqueo lo suma.
+      _appendCambioBilletera(hoja, pedidoId, clienteCC, cambioMP, data.repartidor, 'CambioMP');
     }
     if (cambioEf > 0) {
       // Cliente pagó MP de más → Tadeo le devolvió Ef. Entra MP, sale Ef.
       if (shIng) shIng.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio MP recibido extra · ' + concepto, 'Mercado Pago', cambioEf, '']);
       if (shEgr) shEgr.appendRow([fechaCC, semanaCC, mesCC, 'Cambio cruzado', 'Cambio Ef devuelto · ' + concepto, 'Efectivo', cambioEf, '']);
+      // Efectivo que salió de tu mano (devuelto por un pago MP) → el arqueo lo resta.
+      _appendCambioBilletera(hoja, pedidoId, clienteCC, cambioEf, data.repartidor, 'CruzadoEf');
     }
   }
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true, total: totalRecalculado, aFavor: aFavor, aplicacion: aplicacion, cambioMP: cambioMP, cambioEf: cambioEf })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=descobrar — DESHACE un cobro: vuelve el pedido a "No Cobrado" y limpia
+ *  el cobro (ef/tr/propinas/Fecha de Cobro/A Favor). El pedido reaparece en COBROS para
+ *  re-cobrarlo con la forma/monto correctos. Solo Home/Pilar/Clubes (Red se liquida aparte).
+ *  Body: { hoja, id, row } */
+function _doPostDescobrar(data) {
+  var hoja = String(data.hoja || '');
+  var pedidoId = String(data.id || '');
+  if (hoja !== 'Home' && hoja !== 'Pilar' && hoja !== 'Clubes') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'solo Home/Pilar/Clubes' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = SS.getSheetByName(hoja);
+  if (!sh) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'hoja' })).setMimeType(ContentService.MimeType.JSON);
+  var allData = sh.getDataRange().getValues();
+  var row = Number(data.row) || -1;
+  if (row < 2 || row > allData.length || String(allData[row - 1][1]).trim() !== pedidoId) {
+    row = -1;
+    for (var r = allData.length - 1; r >= 1; r--) {
+      if (String(allData[r][1]).trim() === pedidoId) { row = r + 1; break; }
+    }
+  }
+  if (row === -1) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' })).setMimeType(ContentService.MimeType.JSON);
+  var isVD = (hoja === 'Home' || hoja === 'Pilar');
+  // Cols 1-based por hoja (coherente con _doPostMarcarCobrado).
+  var c = (hoja === 'Clubes')
+    ? { estPago: 16, total: 17, ef: 19, tr: 20, propEf: 21, propTr: 22, fact: 23 }
+    : { estPago: 13, total: 17, ef: 18, tr: 19, propEf: 20, propTr: 21, fact: 22 }; // Home/Pilar
+  if (String(sh.getRange(row, c.estPago).getValue()).trim() !== 'Cobrado') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'el pedido no está cobrado' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  sh.getRange(row, c.estPago).setValue('No Cobrado');
+  sh.getRange(row, c.ef).setValue(0);
+  sh.getRange(row, c.tr).setValue(0);
+  sh.getRange(row, c.propEf).setValue(0);
+  sh.getRange(row, c.propTr).setValue(0);
+  // A Favor / Aplicado (solo VD): limpiar la aplicación de este pedido.
+  if (isVD) {
+    var colAF = (hoja === 'Pilar') ? 64 : 61;
+    if (sh.getLastColumn() >= colAF) sh.getRange(row, colAF).setValue(0);
+  }
+  // Facturado = Total a cobrar (sin propinas/aFavor) — pedido vuelve a estado pendiente limpio.
+  var totalCob = Number(sh.getRange(row, c.total).getValue()) || 0;
+  sh.getRange(row, c.fact).setValue(totalCob);
+  // Limpiar Fecha de Cobro (col por header).
+  var hdrs = allData[0];
+  for (var hh = 0; hh < hdrs.length; hh++) {
+    if (String(hdrs[hh]).trim() === 'Fecha de Cobro') { sh.getRange(row, hh + 1).setValue(''); break; }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=cobrarParcial — registra un cobro parcial de un pedido.
@@ -11238,7 +11630,8 @@ function _doGetResumenSemanal(e) {
     productos: productosInfo,
     stockCritico: stockCritico,
     comparativa: comparativa,
-    meta: metaSemanal
+    meta: metaSemanal,
+    cumpleHoy: (function(){ try { return _crmCumpleHoy(); } catch(_e){ return []; } })()
   };
 
   return ContentService.createTextOutput(JSON.stringify(resp))
@@ -12121,18 +12514,51 @@ function _cumpleToStr(v) {
   return String(v == null ? '' : v).trim();
 }
 
+// "DD/MM" de un cumple "13/05" o "13/05/2002". '' si no parsea.
+function _cumpleDDMM(cumple) {
+  var m = String(cumple || '').match(/^(\d{1,2})\/(\d{1,2})/);
+  if (!m) return '';
+  return ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2);
+}
+
+// Clientes que cumplen años HOY. Para el cartel del Resumen del Panel.
+// Barato cuando no hay cumples hoy (solo lee Clientes Meta); solo construye el
+// índice de clientes —caro— los días que efectivamente hay un cumpleaños.
+function _crmCumpleHoy() {
+  var TZ = 'America/Argentina/Buenos_Aires';
+  var hoy = Utilities.formatDate(new Date(), TZ, 'dd/MM');
+  var meta = _crmGetClientesMeta();
+  var telsHoy = Object.keys(meta).filter(function(tel) {
+    return _cumpleDDMM(meta[tel].cumple) === hoy;
+  });
+  if (!telsHoy.length) return [];
+  var index = _crmBuildClientesIndex();
+  var byTel = {};
+  Object.keys(index).forEach(function(k) {
+    var c = index[k];
+    if (c && c.tel) byTel[c.tel] = c;
+  });
+  return telsHoy.map(function(tel) {
+    var c = byTel[tel];
+    var nombre = meta[tel].nombreCanonico || (c ? _crmTopValue(c.nombres) : '') || 'Cliente';
+    return { nombre: nombre, tel: tel, telDisplay: (c && c.tel) || tel, cumple: meta[tel].cumple };
+  });
+}
+
 // Lee meta-data manual de clientes (cumple, notas, alias) desde hoja "Clientes Meta".
 // La hoja se crea automáticamente si no existe.
 function _crmGetClientesMeta() {
   var sh = SS.getSheetByName('Clientes Meta');
   if (!sh) {
     sh = SS.insertSheet('Clientes Meta');
-    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated'];
+    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra'];
     sh.getRange(1, 1, 1, hdr.length).setValues([hdr]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
     sh.setColumnWidths(1, hdr.length, 140);
     return {};
   }
+  // Migración suave: si la hoja existe pero no tiene la col N (Canales Extra), agregar header.
+  if (sh.getLastColumn() < 14) sh.getRange(1, 14).setValue('Canales Extra');
   if (sh.getLastRow() <= 1) return {};
   var data = sh.getDataRange().getValues();
   var map = {};
@@ -12147,6 +12573,13 @@ function _crmGetClientesMeta() {
       notas: String(data[r][4] || '').trim(),
       tags: String(data[r][5] || '').trim(),
       updated: data[r][6] || '',
+      nombresOcultos: String(data[r][7] || '').split('|').map(function(s){ return s.trim(); }).filter(Boolean),
+      subBarrioMapa: String(data[r][8] || '').trim(),
+      loteMapa: String(data[r][9] || '').trim(),
+      sinUbicacion: String(data[r][10] || '').trim().toUpperCase() === 'TRUE',
+      barrioMapa: String(data[r][11] || '').trim(),
+      canalMapa: String(data[r][12] || '').trim(),
+      canalesExtra: String(data[r][13] || '').split('|').map(function(s){ return s.trim(); }).filter(Boolean),
       _row: r + 1
     };
   }
@@ -12499,8 +12932,18 @@ function _doGetCrmClientes(e) {
     // valor dominante es el correcto el 95% del tiempo.
     var loteRep = _crmTopValue(c.domicilios);
     var canalDom = _crmTopValue(c.canales);
-    var nombresAlt = Object.keys(c.nombres).filter(function(n) { return n !== nombreRep; });
+    var _ocultos = (m && m.nombresOcultos) ? m.nombresOcultos : [];
+    var nombresAlt = Object.keys(c.nombres).filter(function(n) { return n !== nombreRep && _ocultos.indexOf(n) < 0; });
     var telRep = c.tel || _crmTopValue(c.telefonos);
+    // Corrección manual de ubicación (cuando el cliente cargó mal el dato en la tienda)
+    var canalesFinal = Object.keys(c.canales);
+    if (m && m.canalMapa) { canalDom = m.canalMapa; canalesFinal = [m.canalMapa]; }  // canal real (ej. pidió por Home pero es de Pilar)
+    if (m && m.barrioMapa) barrioRep = m.barrioMapa;   // barrio privado real (ej. no es de Estancias)
+    if (m && m.sinUbicacion) { subRep = ''; loteRep = ''; }   // dirección desconocida / no ubicar
+    else {
+      if (m && m.loteMapa) loteRep = m.loteMapa;
+      if (m && m.subBarrioMapa) subRep = m.subBarrioMapa;
+    }
     // Producto más comprado (por unidades) — para personalizar el mensaje del
     // Plan Semanal ("te dejo las milanesas que siempre llevás"). Solo el abrev.
     var prodTopAbrev = '';
@@ -12527,7 +12970,7 @@ function _doGetCrmClientes(e) {
       lote: loteRep,
       club: clubRep,
       canalDom: canalDom,
-      canales: Object.keys(c.canales),
+      canales: canalesFinal,
       pedidos: c.countPedidos,
       entregados: c.countEntregados,
       facturado: c.totalFacturado,
@@ -12545,7 +12988,16 @@ function _doGetCrmClientes(e) {
       cumple: m ? m.cumple : '',
       notas: m ? m.notas : '',
       tags: m ? m.tags : '',
-      aliasMp: m ? m.aliasMp : ''
+      aliasMp: m ? m.aliasMp : '',
+      // Campos de meta para que la ficha (skeleton) tenga todo al instante y editar sea seguro
+      nombreCanonico: (m && m.nombreCanonico) || '',
+      nombresOcultos: (m && m.nombresOcultos) || [],
+      subBarrioMapa: (m && m.subBarrioMapa) || '',
+      loteMapa: (m && m.loteMapa) || '',
+      sinUbicacion: !!(m && m.sinUbicacion),
+      barrioMapa: (m && m.barrioMapa) || '',
+      canalMapa: (m && m.canalMapa) || '',
+      canalesExtra: (m && m.canalesExtra) || []   // canales manuales adicionales (ej. Eduardo: Clubes compra + Home casa)
     });
   });
   // Ordenar por última compra desc
@@ -12592,6 +13044,9 @@ function _doGetCrmCliente(e) {
     return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta key'}))
       .setMimeType(ContentService.MimeType.JSON);
   }
+  // Cache por cliente (120s): reabrir una ficha es instantáneo.
+  var _ck = 'crm_ficha_' + Utilities.base64EncodeWebSafe(key).substring(0, 80);
+  try { var _h = CacheService.getScriptCache().get(_ck); if (_h) return ContentService.createTextOutput(_h).setMimeType(ContentService.MimeType.JSON); } catch (_e) {}
   var index = _crmBuildClientesIndex();
   var meta = _crmGetClientesMeta();
   var c = index[key];
@@ -12616,7 +13071,7 @@ function _doGetCrmCliente(e) {
     };
   }).sort(function(a, b) { return b.monto - a.monto; });
 
-  return ContentService.createTextOutput(JSON.stringify({
+  var _resp = JSON.stringify({
     ts: Date.now(),
     cliente: {
       key: key,
@@ -12641,7 +13096,9 @@ function _doGetCrmCliente(e) {
       primeraFecha: c.firstFecha ? Utilities.formatDate(c.firstFecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
       ultimaFecha: c.lastFecha ? Utilities.formatDate(c.lastFecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : ''
     }
-  })).setMimeType(ContentService.MimeType.JSON);
+  });
+  try { CacheService.getScriptCache().put(_ck, _resp, 120); } catch (_e) {}
+  return ContentService.createTextOutput(_resp).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Endpoint: lista de productos enriquecida con ventas históricas.
@@ -13102,16 +13559,33 @@ function _doPostCrmUpdateClienteMeta(data) {
   var aliasMp = String(data.aliasMp || '').trim();
   var notas = String(data.notas || '').trim();
   var tags = String(data.tags || '').trim();
+  // Nombres alternativos que Tadeo marcó para ocultar del "también:" (pipe-separated)
+  var nombresOcultos = '';
+  if (Array.isArray(data.nombresOcultos)) nombresOcultos = data.nombresOcultos.join('|');
+  else nombresOcultos = String(data.nombresOcultos || '').trim();
+  // Corrección de ubicación para el mapa (sub-barrio + lote) + "sin ubicación"
+  var subBarrioMapa = String(data.subBarrioMapa || '').trim();
+  var loteMapa = String(data.loteMapa || '').trim();
+  var sinUbic = (data.sinUbicacion === true || data.sinUbicacion === 1 || data.sinUbicacion === '1' || String(data.sinUbicacion).toUpperCase() === 'TRUE') ? 'TRUE' : '';
+  var barrioMapa = String(data.barrioMapa || '').trim();
+  var canalMapa = String(data.canalMapa || '').trim();
+  // Canales adicionales manuales (pipe-separated): el cliente aparece también en esos filtros.
+  var canalesExtra = '';
+  if (Array.isArray(data.canalesExtra)) canalesExtra = data.canalesExtra.filter(Boolean).join('|');
+  else canalesExtra = String(data.canalesExtra || '').trim();
   var updated = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
 
   if (found > 0) {
-    sh.getRange(found, 1, 1, 7).setValues([[tel, nombreCanonico, cumple, aliasMp, notas, tags, updated]]);
+    sh.getRange(found, 1, 1, 14).setValues([[tel, nombreCanonico, cumple, aliasMp, notas, tags, updated, nombresOcultos, subBarrioMapa, loteMapa, sinUbic, barrioMapa, canalMapa, canalesExtra]]);
   } else {
-    sh.appendRow([tel, nombreCanonico, cumple, aliasMp, notas, tags, updated]);
+    sh.appendRow([tel, nombreCanonico, cumple, aliasMp, notas, tags, updated, nombresOcultos, subBarrioMapa, loteMapa, sinUbic, barrioMapa, canalMapa, canalesExtra]);
     found = sh.getLastRow();
   }
   // Formato texto en la celda Cumpleaños para que Sheets no la convierta en fecha.
   if (cumple) sh.getRange(found, 3).setNumberFormat('@').setValue(cumple);
+  // Invalidar caches para que la lista y la ficha reflejen el cambio al instante.
+  _crmClearCache();
+  try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
   return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel}))
     .setMimeType(ContentService.MimeType.JSON);
 }
