@@ -529,7 +529,8 @@ function _doGetMiReparto(e) {
   // Fuente: hoja "Cambios Billetera" (Fecha|Hoja|Pedido|Cliente|Monto|Repartidor|Tipo),
   // filtrada por la fecha de reparto y el repartidor (filas viejas sin repartidor cuentan).
   var vueltosBilletera = 0; // Σ vuelto de billetera de hoy → reconstruye la billetera inicial
-  var ajusteCruzado = 0;    // +CambioMP −CruzadoEf → efectivo en mano que no quedó en el cobro
+  var cambioMPTot = 0;      // Σ CambioMP: efectivo extra que te quedó (devolviste por MP)
+  var cruzadoEfTot = 0;     // Σ CruzadoEf: efectivo que diste de vuelto por un pago MP
   var usuarioLowBil = usuario.toLowerCase();
   var shCBil = SS.getSheetByName('Cambios Billetera');
   if (shCBil && shCBil.getLastRow() > 1) {
@@ -550,12 +551,15 @@ function _doGetMiReparto(e) {
       if (cbRep && cbRep !== usuarioLowBil) continue;
       var cbTipo = String(cbVals[icb][6] || 'Billetera').trim();     // col G
       var cbMonto = Number(cbVals[icb][4]) || 0;                      // col E
-      if (cbTipo === 'CruzadoEf') ajusteCruzado -= cbMonto;
-      else if (cbTipo === 'CambioMP') ajusteCruzado += cbMonto;
+      if (cbTipo === 'CruzadoEf') cruzadoEfTot += cbMonto;
+      else if (cbTipo === 'CambioMP') cambioMPTot += cbMonto;
       else vueltosBilletera += cbMonto; // 'Billetera' (default)
     }
   }
+  var ajusteCruzado = cambioMPTot - cruzadoEfTot; // efectivo en mano que no quedó en el cobro
   var billeteraIni = saldoBilletera + vueltosBilletera;
+  // Vuelto efectivo total dado en mano (de billetera + cruzados por pago MP).
+  var vueltoEfDia = vueltosBilletera + cruzadoEfTot;
 
   // ── Cierre del día (si ya cerró). Hoja "Cierres Reparto": Fecha cierre, Usuario, Fecha reparto, Billetera ini, Cobrado Ef, Esperado, Real, Diferencia, Notas.
   var cierreDia = null;
@@ -593,7 +597,8 @@ function _doGetMiReparto(e) {
     return ContentService.createTextOutput(JSON.stringify({
       ok:true, usuario:usuario, fecha:fechaISO, fijo:FIJO_DIA, propinas:0, total:FIJO_DIA,
       saldoBilletera:saldoBilletera, billeteraIni:billeteraIni, vueltosBilletera:vueltosBilletera,
-      ajusteCruzado:ajusteCruzado, cobradoEfHoy:0, cobradoTrHoy:0,
+      ajusteCruzado:ajusteCruzado, recibidoEf:cambioMPTot+vueltosBilletera, vueltoEf:vueltoEfDia,
+      cobradoEfHoy:0, cobradoTrHoy:0,
       plataEnMano:billeteraIni+ajusteCruzado, cierreDia:cierreDia, entregas:[]
     })).setMimeType(ContentService.MimeType.JSON);
   }
@@ -699,6 +704,8 @@ function _doGetMiReparto(e) {
     billeteraIni: billeteraIni,            // billetera INICIAL del día (la usa el arqueo)
     vueltosBilletera: vueltosBilletera,    // vueltos de billetera dados hoy
     ajusteCruzado: ajusteCruzado,          // +CambioMP −CruzadoEf (efectivo en mano fuera del cobro)
+    recibidoEf: sumCobEf + cambioMPTot + vueltosBilletera, // efectivo BRUTO recibido de clientes
+    vueltoEf: vueltoEfDia,                 // efectivo total devuelto de vuelto (billetera + cruzado)
     cobradoEfHoy: sumCobEf,
     cobradoTrHoy: sumCobTr,
     plataEnMano: billeteraIni + sumCobEf + ajusteCruzado,
