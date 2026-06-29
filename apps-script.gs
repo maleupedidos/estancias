@@ -3121,8 +3121,24 @@ function _doPostProgramarBusqueda(postData) {
  *    - Marca todas las filas como Recibido (con su nueva qty) y suma al stock físico
  *      solo las filas Canal=Depósito + Origen=Orden de Compra. */
 function _doPostRecibirMercaderia(postData) {
+  // ── IDEMPOTENCIA ──
+  // Si el cliente reintenta (timeout en cliente pero el server YA procesó),
+  // devolvemos la respuesta cacheada para que no duplique stock/marcas.
+  // El frontend genera clientOpId al confirmar; mismo ID en retries.
+  var coid = String(postData.clientOpId || '').trim();
+  if (coid) {
+    try {
+      var _cacheIdem = CacheService.getScriptCache();
+      var prev = _cacheIdem.get('rm_' + coid);
+      if (prev) {
+        // Ya procesado: devolver la respuesta original (no re-ejecutar)
+        return ContentService.createTextOutput(prev).setMimeType(ContentService.MimeType.JSON);
+      }
+    } catch (_eIdem) { /* CacheService falla → seguir sin idempotencia (mejor un duplicado raro que perderse el cobro) */ }
+  }
+
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) {
+  if (!lock.tryLock(15000)) {
     return ContentService.createTextOutput(JSON.stringify({ ok: false, retry: true, err: 'lock' })).setMimeType(ContentService.MimeType.JSON);
   }
   try {
@@ -3136,14 +3152,31 @@ function _doPostRecibirMercaderia(postData) {
   var updated = 0;
   var avisos = [];
 
-  function isTadeoStock(cliente) {
+  // ── BATCH READ ──
+  // Antes cargarInfo hacía 7 getRange().getValue() por fila = 7 round-trips por OC.
+  // Con 20 OCs eso son 140 round-trips → ~5-10s solo en lectura.
+  // Ahora leemos toda la hoja OC una sola vez e indexamos por fila.
+  var _ocLastRow = shOC.getLastRow();
+  var _ocData = _ocLastRow > 1 ? shOC.getRange(1, 1, _ocLastRow, 25).getValues() : [];
+  // _ocData[r-1] tiene la fila r (1-indexed). Usamos esto en cargarInfo y para los reads costoU/precio en setRowQty.
+
+  // Reconoce filas Depósito en cualquiera de sus variantes históricas/normalizadas:
+  // "Tadeo — Stock", "Depósito Maleu", "Reposicion stock", o canal "Depósito".
+  function isTadeoStock(cliente, canal) {
     var s = String(cliente || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    return s.indexOf('tadeo') === 0 && s.indexOf('stock') !== -1;
+    var ca = String(canal || '').toLowerCase();
+    if (ca === 'depósito' || ca === 'deposito') return true;
+    if (s.indexOf('tadeo') === 0 && s.indexOf('stock') !== -1) return true;
+    if (s.indexOf('dep') === 0 && (s.indexOf('maleu') !== -1 || s === 'depósito' || s === 'deposito')) return true;
+    if (s.indexOf('reposicion') !== -1) return true;
+    return false;
   }
 
   function setRowQty(row, newQty) {
-    var costoUnit = Number(shOC.getRange(row, 14).getValue()) || 0;
-    var precioV   = Number(shOC.getRange(row, 16).getValue()) || 0;
+    // Lee costoU y precioV del batch en memoria — 0 round-trips.
+    var rowData = _ocData[row - 1] || [];
+    var costoUnit = Number(rowData[13]) || 0; // col N = 14 (idx 13)
+    var precioV   = Number(rowData[15]) || 0; // col P = 16 (idx 15)
     shOC.getRange(row, 13).setValue(newQty);                // M Cantidad
     shOC.getRange(row, 15).setValue(costoUnit * newQty);    // O Costo Total
     // Q / R / S: si son fórmula, se auto-actualizan; si son valor, los escribimos.
@@ -3170,34 +3203,45 @@ function _doPostRecibirMercaderia(postData) {
     shOC.getRange(row, 15).setValue(0);
   }
 
+  // Cache de Productos en memoria: leemos UNA vez y reutilizamos.
+  // Antes sumarStock leía hoja Productos entera por cada producto = N round-trips.
+  var _prodData = null, _prodRowByAbbr = null;
+  function _ensureProdCache() {
+    if (_prodData !== null || !hProd) return;
+    _prodData = hProd.getDataRange().getValues();
+    _prodRowByAbbr = {};
+    for (var rp = 1; rp < _prodData.length; rp++) {
+      var ab = String(_prodData[rp][2] || '').trim();
+      if (ab) _prodRowByAbbr[ab] = rp + 1; // row 1-indexed
+    }
+  }
   function sumarStock(abbr, qty, refOC, canal, origen) {
     if (!abbr || qty <= 0 || !hProd) return;
     if (canal.indexOf('Dep') !== 0) return;
     if (origen !== 'Orden de Compra') return;
-    var prodData = hProd.getDataRange().getValues();
-    for (var rp = 1; rp < prodData.length; rp++) {
-      if (String(prodData[rp][2]).trim() === abbr) {
-        var celdaFis = hProd.getRange(rp + 1, 6);
-        var fisico = Number(celdaFis.getValue()) || 0;
-        var nuevo = fisico + qty;
-        celdaFis.setValue(nuevo);
-        _logKardex(abbr, '+REC', qty, fisico, nuevo, 'OC', refOC);
-        SpreadsheetApp.flush();
-        return;
-      }
-    }
+    _ensureProdCache();
+    var rowProd = _prodRowByAbbr[abbr];
+    if (!rowProd) return;
+    var celdaFis = hProd.getRange(rowProd, 6);
+    var fisico = Number(_prodData[rowProd - 1][5]) || 0;
+    var nuevo = fisico + qty;
+    celdaFis.setValue(nuevo);
+    _prodData[rowProd - 1][5] = nuevo; // sync cache para próximas llamadas del mismo POST
+    _logKardex(abbr, '+REC', qty, fisico, nuevo, 'OC', refOC);
   }
 
   function cargarInfo(row) {
+    // Antes: 7 getRange().getValue() = 7 round-trips. Ahora: 0 (lee del batch).
+    var rd = _ocData[row - 1] || [];
     return {
       row: row,
-      canal:   String(shOC.getRange(row, 5).getValue()).trim(),
-      cliente: String(shOC.getRange(row, 7).getValue()).trim(),
-      abbr:    String(shOC.getRange(row, 12).getValue()).trim(),
-      qty:     Number(shOC.getRange(row, 13).getValue()) || 0,
-      origen:  String(shOC.getRange(row, 20).getValue()).trim(),
-      estado:  String(shOC.getRange(row, 21).getValue()).trim(),
-      refOC:   String(shOC.getRange(row, 1).getValue() || '')
+      canal:   String(rd[4] || '').trim(),    // col E idx 4
+      cliente: String(rd[6] || '').trim(),    // col G idx 6
+      abbr:    String(rd[11] || '').trim(),   // col L idx 11
+      qty:     Number(rd[12]) || 0,           // col M idx 12
+      origen:  String(rd[19] || '').trim(),   // col T idx 19
+      estado:  String(rd[20] || '').trim(),   // col U idx 20
+      refOC:   String(rd[0] || '')            // col A idx 0
     };
   }
 
@@ -3210,7 +3254,7 @@ function _doPostRecibirMercaderia(postData) {
     if (rows.length === 0) return;
 
     var infos = rows.map(cargarInfo);
-    infos.forEach(function(i){ i.isStock = isTadeoStock(i.cliente); });
+    infos.forEach(function(i){ i.isStock = isTadeoStock(i.cliente, i.canal); });
     var pending = infos.filter(function(i){ return i.estado !== 'Recibido' && i.estado !== 'Cancelado'; });
     if (pending.length === 0) return;
 
@@ -3375,7 +3419,12 @@ function _doPostRecibirMercaderia(postData) {
   }
 
   SpreadsheetApp.flush();
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, updated: updated, avisos: avisos })).setMimeType(ContentService.MimeType.JSON);
+  var _respPayload = JSON.stringify({ ok: true, updated: updated, avisos: avisos });
+  // Guardar respuesta en cache para retries idempotentes (TTL 6h).
+  if (coid) {
+    try { CacheService.getScriptCache().put('rm_' + coid, _respPayload, 21600); } catch(_e) {}
+  }
+  return ContentService.createTextOutput(_respPayload).setMimeType(ContentService.MimeType.JSON);
   } finally {
     try { lock.releaseLock(); } catch(e) {}
   }
@@ -10688,6 +10737,19 @@ function _doPostMarcarCobrado(data) {
   else if (hoja === 'Red') cols = {fp:13, estPago:14, ef:17, tr:18, propEf:19, propTr:20};
   else cols = {fp:12, estPago:13, sub:14, env:15, desc:16, total:17, ef:18, tr:19, propEf:20, propTr:21}; // Home/Pilar v2
 
+  // ── IDEMPOTENCIA (crítico) ──
+  // Apps Script puede tardar >15s; el cliente aborta pero el server igual escribe.
+  // Si el cliente reintenta, sin esta guarda se DUPLICARÍA todo: cobro, a-favor (col
+  // BE/BH + hoja Saldos Clientes) y descuento de billetera. Si el pedido ya está
+  // Cobrado, no re-escribimos nada y devolvemos los valores ya guardados.
+  if (String(sh.getRange(row, cols.estPago).getValue()).trim() === 'Cobrado') {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true, already: true,
+      ef: Number(sh.getRange(row, cols.ef).getValue()) || 0,
+      tr: Number(sh.getRange(row, cols.tr).getValue()) || 0
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   // Marcar Cobrado + estampar fecha de cobro
   // IMPORTANTE: el flujo de Cobros del Panel/Ruta SOLO toca Estado de Pago + ef/tr.
   // NO debe tocar Estado de Entrega — eso es una acción aparte (Ruta → entregar).
@@ -14280,6 +14342,23 @@ function _doPostCrearSaldoCliente(data) {
   if (tipo === 'Aplicacion') tipo = 'Aplicación';
 
   var sh = _ensureSaldosClientesSheet();
+
+  // ── IDEMPOTENCIA ── No duplicar el a-favor/aplicación si ya se registró para este
+  // pedido (mismo tipo). Pasa cuando un cobro lento se reintenta. Col F=pedidoHoja,
+  // G=pedidoId, D=tipo.
+  var pedidoHojaIn = String(data.pedidoHoja || '').trim();
+  var pedidoIdIn = String(data.pedidoId || '').trim();
+  if (pedidoIdIn && sh.getLastRow() > 1) {
+    var prev = sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues();
+    for (var ip = 0; ip < prev.length; ip++) {
+      if (String(prev[ip][6] || '').trim() === pedidoIdIn &&
+          String(prev[ip][5] || '').trim() === pedidoHojaIn &&
+          String(prev[ip][3] || '').trim() === tipo) {
+        return ContentService.createTextOutput(JSON.stringify({ ok: true, already: true, saldo: _calcSaldoCliente(sh, telefono, cliente) })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
   var pedidoRef = (String(data.pedidoHoja || '') + (data.pedidoId ? ' #' + data.pedidoId : '')).trim();
