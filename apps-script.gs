@@ -296,6 +296,7 @@ function doGet(e) {
   if (action === 'crmInteracciones') return _doGetCrmInteracciones(e);
   if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
   if (action === 'productosAnalytics') return _doGetProductosAnalytics(e);
+  if (action === 'combosEval') return _doGetCombosEval(e);
   if (action === 'miReparto') return _doGetMiReparto(e);
   if (action === 'miRepartoHistorial') return _doGetMiRepartoHistorial(e);
   if (action === 'cierreMensual') return _doGetCierreMensual(e);
@@ -895,6 +896,16 @@ function _doGetCobrosPendientes(e) {
       else if (nm === 'Forma Pago a Maleu') idxFpMaleu = hh;
       else if (nm === 'Entregado a Vendedor') idxEntVend = hh;
     }
+    // Index de "A Pagar" (col real en Sheets): es lo que el vendedor le debe a
+    // Maleu por pedido — ya tiene aplicada la comisión que corresponda. Se prefiere
+    // esto al cálculo 17%-plano porque algunos pedidos (familia del vendedor,
+    // ajustes manuales) tienen comisión 0 hardcodeada. Caso 30/06/2026: Marcos
+    // R-45 y R-46 a Juan Cruz Bottcher con comisión $0 — el Panel cobraba $11.900
+    // de más al aplicar 17% al bruto total.
+    var idxAPagar = -1;
+    for (var hhA = 0; hhA < hdrRed.length; hhA++) {
+      if (String(hdrRed[hhA]).trim() === 'A Pagar') { idxAPagar = hhA; break; }
+    }
     var porVendedor = {};
     for (var r = 1; r < dRed.length; r++) {
       var estado = String(dRed[r][11] || '').trim(); // col 12 Estado Entrega
@@ -913,6 +924,9 @@ function _doGetCobrosPendientes(e) {
       var pedId = dRed[r][1];
       if (!pedId) continue;
       var total = Number(dRed[r][14]) || 0; // col 15 Total
+      // A Pagar real por pedido (col 49). Fallback al cálculo 83%-plano si la
+      // columna no existe o está vacía (pedidos viejos sin la col).
+      var aPagarPed = idxAPagar >= 0 ? (Number(dRed[r][idxAPagar]) || 0) : 0;
       var fechaV = dRed[r][3];
       var fechaStr = fechaV instanceof Date
         ? Utilities.formatDate(fechaV, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
@@ -922,6 +936,7 @@ function _doGetCobrosPendientes(e) {
           vendedor: vendedor,
           ids: [],
           totalBruto: 0,
+          totalAPagar: 0,
           fechas: [],
           tel: '',
           fps: {}
@@ -930,6 +945,7 @@ function _doGetCobrosPendientes(e) {
       var v = porVendedor[vendedor];
       v.ids.push(String(pedId));
       v.totalBruto += total;
+      v.totalAPagar += aPagarPed;
       v.fechas.push(fechaStr);
       // Forma Pago: priorizar "Forma Pago a Maleu" (BA) si está; fallback a Forma Pago al cliente (M)
       var fpRed = idxFpMaleu >= 0 ? String(dRed[r][idxFpMaleu] || '').trim() : '';
@@ -940,8 +956,16 @@ function _doGetCobrosPendientes(e) {
     Object.keys(porVendedor).forEach(function(vName) {
       var v = porVendedor[vName];
       var comPct = comisionPctVendedor[vName] !== undefined ? comisionPctVendedor[vName] : 17;
-      var comision = Math.round(v.totalBruto * (comPct / 100));
-      var neto = v.totalBruto - comision;
+      // Si todos los pedidos del vendedor tienen "A Pagar" cargado, usar la suma
+      // real. Si no, fallback al cálculo plano por % de comisión.
+      var neto, comision;
+      if (v.totalAPagar > 0) {
+        neto = v.totalAPagar;
+        comision = v.totalBruto - v.totalAPagar;
+      } else {
+        comision = Math.round(v.totalBruto * (comPct / 100));
+        neto = v.totalBruto - comision;
+      }
       // Fecha mas vieja
       var fechasValidas = v.fechas.filter(Boolean).sort(function(a,b){
         var pa=a.split('/'),pb=b.split('/');
@@ -3838,6 +3862,7 @@ function doPost(e) {
     if (data.action === 'ajusteSaldo')     return _doPostAjusteSaldo(data);
     if (data.action === 'moverBilletera')  return _doPostMoverBilletera(data);
     if (data.action === 'moverEfectivo')   return _doPostMoverEfectivo(data);
+    if (data.action === 'invertir')        return _doPostInvertir(data);
     if (data.action === 'prepararSobre')   return _doPostPrepararSobre(data);
     if (data.action === 'eliminarSobre')   return _doPostEliminarSobre(data);
     if (data.action === 'marcarCobrado')   return _doPostMarcarCobrado(data);
@@ -4382,11 +4407,13 @@ function _doPostHome(data, sheetName, prefix) {
     try { _stampFechaCobro(sh, newRow); } catch (_e) { /* nada */ }
   }
 
-  // ── Repartidor: NO se setea al crear el pedido ──
-  // Decisión 24/06/26: el Repartidor refleja quién ENTREGÓ, no quién creó el
-  // autopedido. Tadeo puede crear un autopedido para que después lo entregue
-  // Santos o Agustín, así que el campo queda vacío hasta que alguien aprieta
-  // "Entregado" desde Ruta (marcarEntregado pisa Repartidor con el user logueado).
+  // ── Repartidor al crear ──
+  // Regla (24/06/26, refinada 06/07/26): el Repartidor refleja quién ENTREGÓ.
+  //  - Creado Pendiente/Reservado → queda vacío (Tadeo puede crear un autopedido
+  //    para que después lo entregue Santos o Agustín; lo llena marcarEntregado).
+  //  - Creado YA como Entregado → creación = entrega: se estampa el usuario que lo
+  //    cargó (ver bloque estadoEnt==='Entregado' más arriba). Antes quedaba vacío y
+  //    los autopedidos que Tadeo entregaba él mismo no sumaban a su reparto.
 
   // ── Saldo a favor aplicado en este pedido (si el cliente tenía crédito previo) ──
   // El frontend tienda detecta saldo via GET saldoCliente y manda saldoAplicado>0.
@@ -4443,6 +4470,16 @@ function _doPostHome(data, sheetName, prefix) {
       else if (origenFinal === 'Mixto') _homeStockFisicoMixto(sh, newRow, hProd, -1);
     }
     _registrarFechaEntrega(sh, newRow, COL_ENTREGA);
+    // Creado YA como Entregado ⇒ creación = entrega: el que cargó el autopedido es
+    // quien lo entregó. Estampamos el Repartidor con el usuario logueado (el frontend
+    // manda data.repartidor = _rutaUser()). Si en cambio se crea Pendiente/Reservado,
+    // el campo queda vacío hasta que alguien apriete "Entregado" desde Ruta
+    // (marcarEntregado), respetando la decisión del 24/06 de no asumir el creador.
+    var repCrea = String(data.repartidor || '').trim();
+    if (repCrea) {
+      var colRepCrea = isPilar ? 59 : 56; // Home col 56 / Pilar col 59 (misma que marcarEntregado)
+      sh.getRange(newRow, colRepCrea).setValue(repCrea);
+    }
   }
 
   // Origen Detalle (oD JSON): si origen=Deposito o OC, escribimos el JSON automatico para
@@ -4480,6 +4517,9 @@ function _doPostHome(data, sheetName, prefix) {
     sh.getRange(newRow, colRec).setValue(JSON.stringify(_recetaObj));
   }
 
+  // ── Combos: registrar en col "Combo Detalle" + ledger "Combos" ──
+  _persistCombos(data, isPilar ? 'Pilar' : 'Home', orderNum, sh, newRow);
+
   // Sync WATI desactivado (17/05/2026): permiso UrlFetchApp.fetch revocado.
   // Ensuciaba Log Errores con una excepción por pedido sin afectar el grabado.
   // Reactivar cuando se renueve OAuth del Apps Script.
@@ -4495,6 +4535,114 @@ function _colLetter(n) {
     n = Math.floor((n - 1) / 26);
   }
   return s;
+}
+
+// ════════════════════════════════════════════════════════════
+// COMBOS — persistencia para que el ERP SEPA que un pedido llevó combos.
+// La tienda expande el combo a productos reales en las columnas de producto
+// (stock/costo OK) pero se perdía la info de que fue un combo. Acá:
+//   (1) guardamos la receta JSON (data.comboDetalle) en la col "Combo Detalle"
+//       de la hoja del pedido → el Panel puede mostrar "2× Combo Mundialista".
+//   (2) agregamos una fila por combo a la hoja ledger "Combos" → evaluación
+//       (unidades y facturación por combo, por semana).
+// Todo en try/catch: un fallo de logging JAMÁS debe romper el grabado del pedido.
+// ════════════════════════════════════════════════════════════
+function _ensureCombosSheet() {
+  var lg = SS.getSheetByName('Combos');
+  if (!lg) {
+    lg = SS.insertSheet('Combos');
+    lg.appendRow(['Fecha','Semana','Año','Canal','N° Pedido','Cliente','Combo ID','Combo',
+                  'Cantidad','Precio Unit','Total Línea','Sabores','Items JSON']);
+    lg.setFrozenRows(1);
+  }
+  return lg;
+}
+
+// Evaluación de combos: lee la hoja ledger "Combos" y agrega por combo, por
+// semana, y devuelve las últimas ventas. Fuente para el tab Combos del Panel.
+function _doGetCombosEval(e) {
+  var out = { ok: true, combos: [], totales: { unidades: 0, facturacion: 0, lineas: 0, pedidos: 0 }, semanas: [], recientes: [] };
+  try {
+    var lg = SS.getSheetByName('Combos');
+    if (!lg || lg.getLastRow() < 2) return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+    var vals = lg.getDataRange().getValues();
+    // Cols: Fecha0 Semana1 Año2 Canal3 N°4 Cliente5 ComboID6 Combo7 Cantidad8 PrecioUnit9 TotalLínea10 Sabores11 ItemsJSON12
+    var byCombo = {}, bySemana = {}, pedidosSet = {};
+    for (var r = 1; r < vals.length; r++) {
+      var row = vals[r];
+      var id = String(row[6] || '').trim(); if (!id) continue;
+      var nombre = String(row[7] || id).trim();
+      var qty = Number(row[8]) || 0;
+      var tot = Number(row[10]) || 0;
+      var canal = String(row[3] || '').trim();
+      var pedKey = canal + '|' + String(row[4] || '');
+      if (!byCombo[id]) byCombo[id] = { id: id, nombre: nombre, unidades: 0, facturacion: 0, lineas: 0, pedidos: {}, canales: {} };
+      var c = byCombo[id];
+      c.unidades += qty; c.facturacion += tot; c.lineas += 1; c.pedidos[pedKey] = 1;
+      c.canales[canal] = (c.canales[canal] || 0) + qty;
+      out.totales.unidades += qty; out.totales.facturacion += tot; out.totales.lineas += 1;
+      pedidosSet[pedKey] = 1;
+      var wk = String(row[2] || '') + '|' + String(row[1] || '');
+      if (!bySemana[wk]) bySemana[wk] = { anio: Number(row[2]) || 0, semana: Number(row[1]) || 0, unidades: 0, facturacion: 0 };
+      bySemana[wk].unidades += qty; bySemana[wk].facturacion += tot;
+    }
+    out.totales.pedidos = Object.keys(pedidosSet).length;
+    out.combos = Object.keys(byCombo).map(function (k) {
+      var c = byCombo[k];
+      return { id: c.id, nombre: c.nombre, unidades: c.unidades, facturacion: c.facturacion,
+               lineas: c.lineas, pedidos: Object.keys(c.pedidos).length,
+               ticket: c.unidades ? Math.round(c.facturacion / c.unidades) : 0, canales: c.canales };
+    }).sort(function (a, b) { return b.facturacion - a.facturacion; });
+    out.semanas = Object.keys(bySemana).map(function (k) { return bySemana[k]; })
+      .sort(function (a, b) { return (a.anio - b.anio) || (a.semana - b.semana); });
+    var rec = [];
+    for (var rr = vals.length - 1; rr >= 1 && rec.length < 25; rr--) {
+      var rw = vals[rr];
+      if (!String(rw[6] || '').trim()) continue;
+      var _fe = rw[0];
+      var _feStr = (_fe instanceof Date) ? Utilities.formatDate(_fe, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(_fe || '');
+      rec.push({ fecha: _feStr, canal: String(rw[3] || ''), pedido: rw[4],
+                 cliente: String(rw[5] || ''), combo: String(rw[7] || ''), qty: Number(rw[8]) || 0,
+                 total: Number(rw[10]) || 0, sabores: String(rw[11] || '') });
+    }
+    out.recientes = rec;
+  } catch (err) { out.ok = false; out.err = String(err); }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function _persistCombos(data, canal, orderNum, sh, newRow) {
+  var combos = data.combos;
+  if (!combos || !combos.length) return;
+
+  // (1) Columna "Combo Detalle" en la hoja del pedido (idempotente: la crea si falta).
+  try {
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    var colCD = 0;
+    for (var i = 0; i < headers.length; i++) {
+      if (String(headers[i]).trim() === 'Combo Detalle') { colCD = i + 1; break; }
+    }
+    if (!colCD) { colCD = sh.getLastColumn() + 1; sh.getRange(1, colCD).setValue('Combo Detalle'); }
+    sh.getRange(newRow, colCD).setValue(data.comboDetalle || JSON.stringify(combos));
+  } catch (eCD) { try { Logger.log('Combo Detalle col falló: ' + eCD); } catch (_e) {} }
+
+  // (2) Ledger "Combos" — una fila por combo del pedido.
+  try {
+    var lg = _ensureCombosSheet();
+    var argDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+    var dd = String(argDate.getDate()).padStart(2, '0');
+    var mm = String(argDate.getMonth() + 1).padStart(2, '0');
+    var fechaStr = dd + '/' + mm + '/' + argDate.getFullYear();
+    var semana = _isoWeek(argDate);
+    var rows = combos.map(function (c) {
+      var qty = Number(c.qty) || 0;
+      var precio = Number(c.precio) || 0;
+      var sabores = (c.picks || []).map(function (pk) { return pk.label + ': ' + pk.nombre; }).join(' · ');
+      return [fechaStr, semana, argDate.getFullYear(), canal, orderNum, String(data.nombre || ''),
+              String(c.id || ''), String(c.nombre || ''), qty, precio, qty * precio,
+              sabores, JSON.stringify(c.items || [])];
+    });
+    if (rows.length) lg.getRange(lg.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  } catch (eLg) { try { Logger.log('Combos ledger falló: ' + eLg); } catch (_e) {} }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -4913,6 +5061,9 @@ function _doPostRed(data) {
   // Forzar teléfono como texto (col AZ = 52)
   var telRed = String(data.telefono || '');
   if (telRed) sh.getRange(newRow, 52).setNumberFormat('@').setValue(telRed);
+
+  // ── Combos: registrar en col "Combo Detalle" + ledger "Combos" ──
+  _persistCombos(data, 'Red', orderNum, sh, newRow);
 
   // Sync WATI desactivado (17/05/2026): permiso UrlFetchApp.fetch revocado.
   // _syncWatiContact_('Red', data.telefono, '', '');
@@ -8419,18 +8570,23 @@ function _doGetAdmin(opt) {
   // todavía no se llenó.
   // sob = sub-saldo "Sobres": efectivo apartado en sobres para pagar proveedores (no
   // está en la caja fuerte ni en la billetera). Caja fuerte = ef - bil - sob.
-  var saldoBase = { ef: 0, mp: 0, bil: 0, sob: 0, fecha: '', fechaDate: null };
+  // inv = "Inversiones" (col F): plata que salió de MP líquido hacia inversiones
+  // (FCI de Mercado Pago, plazo fijo, etc). NO es MP líquido pero sí es de Maleu.
+  var saldoBase = { ef: 0, mp: 0, bil: 0, sob: 0, inv: 0, fecha: '', fechaDate: null };
   var shSaldoSnap = (!_lightOnly) ? SS.getSheetByName('Saldo Base') : null;
   if (shSaldoSnap && shSaldoSnap.getLastRow() > 1) {
     var lastRowSB = shSaldoSnap.getLastRow();
     saldoBase.ef = Number(shSaldoSnap.getRange(lastRowSB, 2).getValue()) || 0;
     saldoBase.mp = Number(shSaldoSnap.getRange(lastRowSB, 3).getValue()) || 0;
-    // Lectura defensiva de col D/E: pueden no existir en hojas viejas
+    // Lectura defensiva de col D/E/F: pueden no existir en hojas viejas
     if (shSaldoSnap.getLastColumn() >= 4) {
       saldoBase.bil = Number(shSaldoSnap.getRange(lastRowSB, 4).getValue()) || 0;
     }
     if (shSaldoSnap.getLastColumn() >= 5) {
       saldoBase.sob = Number(shSaldoSnap.getRange(lastRowSB, 5).getValue()) || 0;
+    }
+    if (shSaldoSnap.getLastColumn() >= 6) {
+      saldoBase.inv = Number(shSaldoSnap.getRange(lastRowSB, 6).getValue()) || 0;
     }
     var fSB = shSaldoSnap.getRange(lastRowSB, 1).getValue();
     var fSBd = _parseDateAny(fSB);
@@ -8597,6 +8753,12 @@ function _doGetAdmin(opt) {
         if (String(headersH[hdd]).trim() === 'Descuento Detalle') { ddStr = String(data[r][hdd] || '').trim(); break; }
       }
 
+      // Combo Detalle (receta JSON de combos): para que el Panel muestre "2× Combo X"
+      var cdStr = '';
+      for (var hcd = 0; hcd < headersH.length; hcd++) {
+        if (String(headersH[hcd]).trim() === 'Combo Detalle') { cdStr = String(data[r][hcd] || '').trim(); break; }
+      }
+
       // Repartidor: Home col 56 (BD, idx 55), Pilar col 59 (idx 58). Leer por header para resiliencia.
       var repStr = '';
       for (var hr2 = 0; hr2 < headersH.length; hr2++) {
@@ -8617,6 +8779,7 @@ function _doGetAdmin(opt) {
         fc: fcStr, fcd: fcDiaStr,
         oDet: oDetStr,
         dd: ddStr,
+        cd: cdStr,
         rep: repStr,
         r: r + _rOffH
       });
@@ -8913,7 +9076,7 @@ function _doGetAdmin(opt) {
     // Buscar índices por header (para ser robusto)
     var idxVendedor = -1, idxPedido = -1, idxFecha = -1, idxCliente = -1, idxTotal = -1;
     var idxEstadoPagoMaleu = -1, idxFechaPagoMaleu = -1, idxFormaPagoMaleu = -1;
-    var idxSemana = -1, idxAnio = -1;
+    var idxSemana = -1, idxAnio = -1, idxAPagar = -1;
     for (var hx = 0; hx < headersR.length; hx++) {
       var nm = String(headersR[hx]).trim();
       if (nm === 'Vendedor') idxVendedor = hx;
@@ -8926,6 +9089,7 @@ function _doGetAdmin(opt) {
       else if (nm === 'Forma Pago a Maleu') idxFormaPagoMaleu = hx;
       else if (nm === 'Semana') idxSemana = hx;
       else if (nm === 'Año' || nm === 'Anio') idxAnio = hx;
+      else if (nm === 'A Pagar') idxAPagar = hx;
     }
     if (idxVendedor < 0 || idxTotal < 0 || idxEstadoPagoMaleu < 0) return;
 
@@ -8938,7 +9102,11 @@ function _doGetAdmin(opt) {
       var totP = Number(row[idxTotal]) || 0;
       if (totP <= 0) continue;
       var comPct = comisionPorVendedor[vend] !== undefined ? comisionPorVendedor[vend] : 17;
-      var deudaP = totP * (1 - comPct/100);
+      // Preferir "A Pagar" real por pedido — respeta comisiones por fila (caso
+      // R-45/R-46 con comisión 0 a familia del vendedor). Fallback al cálculo
+      // plano si la columna no existe o está vacía.
+      var aPagarP = idxAPagar >= 0 ? (Number(row[idxAPagar]) || 0) : 0;
+      var deudaP = aPagarP > 0 ? aPagarP : totP * (1 - comPct/100);
       if (!vendedoresDeuda[vend]) {
         vendedoresDeuda[vend] = { nombre: vend, wa: waPorVendedor[vend] || '', com: comPct, estado: 'Inactivo', deuda: 0, pedidos: [], deudaPorSemana: {}, liquidaciones: [] };
       }
@@ -9851,6 +10019,16 @@ function _doPostEditarPedido(data) {
     lineasMap[l.a] = { q: q, precio: precio, costo: costoOverride };
   });
 
+  // ── Cambio de forma de pago desde el editor (opcional) ──
+  // Si el editor mandó `formaPago`, lo escribimos ANTES del cálculo de descuento
+  // y del rebalance ef/tr — así el 10% auto (Efectivo/+100k) y el split R/S usan
+  // el pago nuevo. Aplica a todas las hojas (col FP existe en las 4).
+  if (data.formaPago) {
+    var _colFPWrite = (hoja === 'Clubes') ? 15 : (hoja === 'Red') ? 13 : 12;
+    var _fpNueva = String(data.formaPago).trim();
+    if (_fpNueva) sh.getRange(row, _colFPWrite).setValue(_fpNueva);
+  }
+
   // Leer Origen Detalle actual y cantidades viejas para decidir si podemos
   // PRESERVAR el origen (cuando solo se bajaron cantidades y/o se eliminaron
   // productos, sin agregar nuevos ni aumentar). Esto evita resetear a Pendiente
@@ -10519,6 +10697,10 @@ function _generarOCSelectiva(canal, row, abbrs) {
  *  marcarSemanaPagadaRed (que es lo que ejecuta el portal del vendedor). */
 function _doPostCobrarVendedorRed(data) {
   var vendedor = String(data.vendedor || '').trim();
+  // Tolerar el sufijo "(Vendedor Red)" que el frontend de Cobros suele agregar
+  // al nombre para mostrar. La col Vendedor del Sheets tiene solo "Nombre Apellido".
+  // Sin este strip, el match strict equality fallaba silencioso (caso 30/06/2026).
+  vendedor = vendedor.replace(/\s*\(Vendedor Red\)\s*$/i, '').trim();
   if (!vendedor) return ContentService.createTextOutput(JSON.stringify({ok:false,err:'vendedor vacio'})).setMimeType(ContentService.MimeType.JSON);
   var sh = SS.getSheetByName('Red');
   if (!sh || sh.getLastRow() <= 1) return ContentService.createTextOutput(JSON.stringify({ok:false,err:'hoja vacia'})).setMimeType(ContentService.MimeType.JSON);
@@ -11123,28 +11305,31 @@ function _doPostAjusteSaldo(data) {
     shSaldo.setFrozenRows(1);
     shSaldo.getRange(1, 1, 1, 5).setBackground(BROWN).setFontColor('#FFFFFF').setFontWeight('bold');
   }
-  // Migración suave: si la hoja no tiene la col E (Sobres), agregar el header.
+  // Migración suave: agregar headers de cols E (Sobres) y F (Inversiones) si faltan.
   if (shSaldo.getLastColumn() < 5) shSaldo.getRange(1, 5).setValue('Sobres');
+  if (shSaldo.getLastColumn() < 6) shSaldo.getRange(1, 6).setValue('Inversiones');
   var lastRow = shSaldo.getLastRow();
-  // Billetera y Sobres: si el cliente los manda, los usa; sino hereda el último valor.
+  // Billetera, Sobres, Inversiones: si el cliente los manda, los usa; sino hereda el último.
   function _heredar(col) {
     return (lastRow > 1 && shSaldo.getLastColumn() >= col) ? (Number(shSaldo.getRange(lastRow, col).getValue()) || 0) : 0;
   }
   var deseadoBil = (data.billetera !== undefined && data.billetera !== null) ? (Number(data.billetera) || 0) : _heredar(4);
   var deseadoSob = (data.sobres !== undefined && data.sobres !== null) ? (Number(data.sobres) || 0) : _heredar(5);
+  var deseadoInv = (data.inversiones !== undefined && data.inversiones !== null) ? (Number(data.inversiones) || 0) : _heredar(6);
   if (deseadoBil < 0) deseadoBil = 0;
   if (deseadoSob < 0) deseadoSob = 0;
+  if (deseadoInv < 0) deseadoInv = 0;
   // Caja fuerte = ef - bil - sob >= 0. Si la suma de sub-saldos excede el efectivo, capar.
   if (deseadoBil > deseadoEf) deseadoBil = deseadoEf;
   if (deseadoBil + deseadoSob > deseadoEf) deseadoSob = Math.max(0, deseadoEf - deseadoBil);
 
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  shSaldo.appendRow([argNow, deseadoEf, deseadoMP, deseadoBil, deseadoSob]);
+  shSaldo.appendRow([argNow, deseadoEf, deseadoMP, deseadoBil, deseadoSob, deseadoInv]);
   shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
   // Sin flush(): UI optimista en frontend.
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP, bil: deseadoBil, sob: deseadoSob })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: deseadoEf, mp: deseadoMP, bil: deseadoBil, sob: deseadoSob, inv: deseadoInv })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=moverBilletera — transferir plata entre Caja Fuerte y Billetera.
@@ -11166,8 +11351,9 @@ function _doPostMoverBilletera(data) {
   if (lastRow < 2) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin snapshot previo — ajusta saldo primero' })).setMimeType(ContentService.MimeType.JSON);
 
   var bilActual = (shSaldo.getLastColumn() >= 4) ? (Number(shSaldo.getRange(lastRow, 4).getValue()) || 0) : 0;
-  // Preservar Sobres (col E) al appendear — si no, se perdería el sub-saldo de sobres.
+  // Preservar Sobres (E) e Inversiones (F) al appendear — si no, se perderían esos sub-saldos.
   var sobActual = (shSaldo.getLastColumn() >= 5) ? (Number(shSaldo.getRange(lastRow, 5).getValue()) || 0) : 0;
+  var invActual = (shSaldo.getLastColumn() >= 6) ? (Number(shSaldo.getRange(lastRow, 6).getValue()) || 0) : 0;
 
   // BUG FIX 18/05/2026: antes heredábamos ef/mp del snapshot anterior, lo que
   // descartaba todos los cobros/gastos posteriores (caja vivía caía al valor
@@ -11198,10 +11384,43 @@ function _doPostMoverBilletera(data) {
 
   var ahora = new Date();
   var argNow = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-  shSaldo.appendRow([argNow, efAUsar, mpAUsar, bilNuevo, sobActual]);
+  shSaldo.appendRow([argNow, efAUsar, mpAUsar, bilNuevo, sobActual, invActual]);
   shSaldo.getRange(shSaldo.getLastRow(), 1).setNumberFormat('dd/MM/yyyy HH:mm');
 
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: efAUsar, mp: mpAUsar, bil: bilNuevo, sob: sobActual })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, ef: efAUsar, mp: mpAUsar, bil: bilNuevo, sob: sobActual, inv: invActual })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST action=invertir — mueve plata entre MP LÍQUIDO (col C) e INVERSIONES (col F)
+ *  SIN cambiar la Posición Neta (solo se reubica). Edita EN SU LUGAR el último Saldo
+ *  Base (no appendea → no resetea el cutoff de cobros vivos).
+ *  Body: { monto:N, dir:'invertir' | 'rescatar' }
+ *    invertir = MP líquido → Inversiones (baja MP, sube Inversiones)
+ *    rescatar = Inversiones → MP líquido (al revés) */
+function _doPostInvertir(data) {
+  var monto = Math.round(Number(data.monto) || 0);
+  var dir = String(data.dir || 'invertir').trim();
+  if (monto <= 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'monto invalido' })).setMimeType(ContentService.MimeType.JSON);
+  if (dir !== 'invertir' && dir !== 'rescatar') return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'dir invalida' })).setMimeType(ContentService.MimeType.JSON);
+  var shSaldo = SS.getSheetByName('Saldo Base');
+  if (!shSaldo || shSaldo.getLastRow() < 2) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin snapshot previo — ajusta saldo primero' })).setMimeType(ContentService.MimeType.JSON);
+  if (shSaldo.getLastColumn() < 6) shSaldo.getRange(1, 6).setValue('Inversiones');
+  var lr = shSaldo.getLastRow();
+  var mp  = Number(shSaldo.getRange(lr, 3).getValue()) || 0;   // C = MP líquido (base)
+  var inv = Number(shSaldo.getRange(lr, 6).getValue()) || 0;   // F = Inversiones
+  // OJO: mp acá es el saldo BASE, no el vivo. Invertir baja la BASE de MP; el saldo
+  // vivo de MP (base + cobros − gastos) baja en la misma medida. La validación contra
+  // el líquido real la hace el frontend (que conoce el MP vivo); acá solo evitamos negativos absurdos.
+  if (dir === 'invertir') {
+    mp = mp - monto;   // puede quedar la base baja pero el vivo lo cubre con cobros
+    inv = inv + monto;
+  } else {
+    if (inv - monto < 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no tenés tanto invertido' })).setMimeType(ContentService.MimeType.JSON);
+    mp = mp + monto;
+    inv = inv - monto;
+  }
+  shSaldo.getRange(lr, 3).setValue(mp);
+  shSaldo.getRange(lr, 6).setValue(inv);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, mp: mp, inv: inv })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=moverEfectivo — mover plata entre las 3 cuentas de efectivo
