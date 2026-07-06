@@ -3553,6 +3553,26 @@ function _doGetCatalogo() {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+/** Dirección de retiro/pasamanos para un vendedor Red (col I "Dirección" de OC).
+ *  Toma el primer barrio de la hoja Vendedores; fallback a localidad. Genérico
+ *  para N vendedores (Marcos, Fini, …) — no hardcodea ningún nombre. */
+function _dirVendedorRed(nombre) {
+  try {
+    var sh = SS.getSheetByName('Vendedores');
+    if (sh) {
+      var vals = sh.getDataRange().getValues();
+      for (var i = 1; i < vals.length; i++) {
+        if (String(vals[i][0]).trim() === String(nombre).trim()) {
+          var barrios = String(vals[i][3] || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+          var localidad = String(vals[i][5] || '').trim();
+          return barrios[0] || localidad || 'Retira vendedor';
+        }
+      }
+    }
+  } catch (e) {}
+  return 'Retira vendedor';
+}
+
 /** POST action=compraManual — crea filas en Orden de Compra desde busqueda.html.
  *  Replica la lógica de confirmarCompraDeposito pero vía API web.
  *  Recibe { action:'compraManual', vendedor:'Tadeo — Stock', proveedor:'Sevuchitas', items:[{abbr,nombre,costo,qty,origen}] } */
@@ -3563,7 +3583,8 @@ function _doPostCompraManual(postData) {
   var proveedor = String(postData.proveedor || '').trim();
   var vendedor = String(postData.vendedor || 'Tadeo — Stock').trim();
   var items = postData.items || [];
-  var esMarcos = vendedor === 'Marcos Bottcher';
+  // Es compra Red si va dirigida a un vendedor (cualquiera) y no al stock propio.
+  var esVendedorRed = vendedor !== 'Tadeo — Stock' && vendedor !== '';
 
   var itemsValidos = items.filter(function(it) { return (Number(it.qty) || 0) > 0; });
   if (itemsValidos.length === 0) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Sin productos' })).setMimeType(ContentService.MimeType.JSON);
@@ -3620,8 +3641,8 @@ function _doPostCompraManual(postData) {
   var newRows = [];
   var stockUpdates = [];
   var kardexRows = [];
-  var canalLabel = esMarcos ? 'Red' : 'Depósito';
-  var dirLabel = esMarcos ? 'Tortugas, Garín' : 'Depósito Maleu';
+  var canalLabel = esVendedorRed ? 'Red' : 'Depósito';
+  var dirLabel = esVendedorRed ? _dirVendedorRed(vendedor) : 'Depósito Maleu';
 
   for (var idx = 0; idx < itemsValidos.length; idx++) {
     var item = itemsValidos[idx];
@@ -4407,13 +4428,19 @@ function _doPostHome(data, sheetName, prefix) {
     try { _stampFechaCobro(sh, newRow); } catch (_e) { /* nada */ }
   }
 
-  // ── Repartidor al crear ──
-  // Regla (24/06/26, refinada 06/07/26): el Repartidor refleja quién ENTREGÓ.
-  //  - Creado Pendiente/Reservado → queda vacío (Tadeo puede crear un autopedido
-  //    para que después lo entregue Santos o Agustín; lo llena marcarEntregado).
-  //  - Creado YA como Entregado → creación = entrega: se estampa el usuario que lo
-  //    cargó (ver bloque estadoEnt==='Entregado' más arriba). Antes quedaba vacío y
-  //    los autopedidos que Tadeo entregaba él mismo no sumaban a su reparto.
+  // ── Repartidor al crear (regla 24/06→06/07/26) ──
+  // El Repartidor refleja quién ENTREGÓ. Los autopedidos creados desde el "+" de Ruta
+  // mandan data.repartidor = usuario logueado; los pedidos de la tienda (cliente) NO
+  // lo mandan. Estampamos el creador SIEMPRE que venga (creado Entregado, Reservado o
+  // Pendiente): así los autopedidos que Tadeo carga y entrega él mismo quedan con su
+  // nombre aunque no pasen por marcarEntregado. Si más tarde lo entrega OTRA persona
+  // desde Ruta, marcarEntregado pisa este valor con el repartidor real (siempre manda
+  // _rutaUser()), así que el caso "lo entrega Santos/Agustín" se corrige solo.
+  var repCrea = String(data.repartidor || '').trim();
+  if (repCrea) {
+    var colRepCrea = isPilar ? 59 : 56; // Home col 56 / Pilar col 59 (misma que marcarEntregado)
+    sh.getRange(newRow, colRepCrea).setValue(repCrea);
+  }
 
   // ── Saldo a favor aplicado en este pedido (si el cliente tenía crédito previo) ──
   // El frontend tienda detecta saldo via GET saldoCliente y manda saldoAplicado>0.
@@ -4470,16 +4497,6 @@ function _doPostHome(data, sheetName, prefix) {
       else if (origenFinal === 'Mixto') _homeStockFisicoMixto(sh, newRow, hProd, -1);
     }
     _registrarFechaEntrega(sh, newRow, COL_ENTREGA);
-    // Creado YA como Entregado ⇒ creación = entrega: el que cargó el autopedido es
-    // quien lo entregó. Estampamos el Repartidor con el usuario logueado (el frontend
-    // manda data.repartidor = _rutaUser()). Si en cambio se crea Pendiente/Reservado,
-    // el campo queda vacío hasta que alguien apriete "Entregado" desde Ruta
-    // (marcarEntregado), respetando la decisión del 24/06 de no asumir el creador.
-    var repCrea = String(data.repartidor || '').trim();
-    if (repCrea) {
-      var colRepCrea = isPilar ? 59 : 56; // Home col 56 / Pilar col 59 (misma que marcarEntregado)
-      sh.getRange(newRow, colRepCrea).setValue(repCrea);
-    }
   }
 
   // Origen Detalle (oD JSON): si origen=Deposito o OC, escribimos el JSON automatico para
@@ -7390,7 +7407,9 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
   const shOC = SS.getSheetByName('Orden de Compra');
   if (!shOC) throw new Error('Hoja "Orden de Compra" no encontrada');
 
-  var esMarcos = vendedor === 'Marcos Bottcher';
+  // Es compra Red si va dirigida a un vendedor (cualquiera) y no al stock propio.
+  var esVendedorRed = vendedor && vendedor !== 'Tadeo — Stock';
+  var dirVendedor = esVendedorRed ? _dirVendedorRed(vendedor) : 'Deposito Maleu';
 
   // Validar que haya items con cantidad > 0
   const itemsValidos = items.filter(function(item) { return item.qty > 0; });
@@ -7430,11 +7449,11 @@ function confirmarCompraDeposito(proveedor, items, fechaBusqueda, vendedor) {
       fechaStr,                                   // B  Fecha Creación
       semana,                                     // C  Semana
       mesNombre,                                  // D  Mes
-      esMarcos ? 'Red' : 'Deposito',             // E  Canal
+      esVendedorRed ? 'Red' : 'Deposito',        // E  Canal
       '',                                         // F  N° Pedido Origen (no aplica)
       vendedor || 'Tadeo — Stock',                // G  Cliente
       '',                                         // H  Teléfono
-      esMarcos ? 'Tortugas, Garín' : 'Deposito Maleu', // I  Dirección
+      dirVendedor,                                // I  Dirección
       proveedor,                                  // J  Proveedor
       item.nombre,                                // K  Producto
       item.abbr,                                  // L  Abreviatura
@@ -7550,6 +7569,7 @@ function _getSidebarHTML() {
 <select id="sel-vendedor">
   <option value="Tadeo — Stock">Tadeo — Stock (Deposito)</option>
   <option value="Marcos Bottcher">Marcos Bottcher (Red)</option>
+  <option value="Fini Mihailovitch">Fini Mihailovitch (Red)</option>
 </select>
 
 <label for="sel-prov" style="margin-top:14px">Proveedor</label>
