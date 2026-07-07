@@ -292,6 +292,7 @@ function doGet(e) {
   if (action === 'crmProducto') return _doGetCrmProducto(e);
   if (action === 'crmZonas') return _doGetCrmZonas(e);
   if (action === 'crmLotes') return _doGetCrmLotes(e);
+  if (action === 'hogaresMerge') return _doGetHogaresMerge(e);
   if (action === 'crmPuntos') return _doGetCrmPuntos(e);
   if (action === 'crmInteracciones') return _doGetCrmInteracciones(e);
   if (action === 'analisisProveedor') return _doGetAnalisisProveedor(e);
@@ -3914,6 +3915,7 @@ function doPost(e) {
     if (data.action === 'crmZonaSave')          return _doPostCrmZonaSave(data);
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
     if (data.action === 'crmLoteSave')          return _doPostCrmLoteSave(data);
+    if (data.action === 'hogaresMergeSave')     return _doPostHogaresMerge(data);
     if (data.action === 'crmPuntoSave')         return _doPostCrmPuntoSave(data);
     if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
     if (data.action === 'crmDeleteInteraccion') return _doPostCrmDeleteInteraccion(data);
@@ -14056,6 +14058,62 @@ function _doGetCrmLotes(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ════════════════════════════════════════════════════════════
+//  FUSIÓN DE HOGARES (no destructiva, revertible)
+//  Hoja "Hogares Merge": [From, To, Nota, Fecha]. From/To son las KEYS
+//  normalizadas de hogar (subNorm|loteNorm) que usa el front (_hogBuild).
+//  Fusionar = el hogar From se colapsa dentro del hogar To. Revertir = borrar fila.
+//  La tab "Estancias del Pilar" aplica estas reglas sobre el resultado de _hogBuild.
+// ════════════════════════════════════════════════════════════
+function _hogMergeSheet() {
+  var sh = SS.getSheetByName('Hogares Merge');
+  if (!sh) {
+    sh = SS.insertSheet('Hogares Merge');
+    sh.getRange(1, 1, 1, 4).setValues([['From', 'To', 'Nota', 'Fecha']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function _doGetHogaresMerge(e) {
+  var sh = _hogMergeSheet();
+  var out = [];
+  if (sh.getLastRow() > 1) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues();
+    for (var r = 0; r < data.length; r++) {
+      var from = String(data[r][0] || '').trim();
+      if (!from) continue;
+      out.push({ from: from, to: String(data[r][1] || '').trim(), nota: String(data[r][2] || '').trim() });
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, merges: out }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+function _doPostHogaresMerge(data) {
+  var from = String(data.from || '').trim();
+  if (!from) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'falta from' })).setMimeType(ContentService.MimeType.JSON);
+  var sh = _hogMergeSheet();
+  var del = (data.del === 1 || data.del === '1' || data.del === true);
+  var found = -1;
+  if (sh.getLastRow() > 1) {
+    var keys = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (var r = 0; r < keys.length; r++) {
+      if (String(keys[r][0] || '').trim() === from) { found = r + 2; break; }
+    }
+  }
+  if (del) {
+    if (found > 0) sh.deleteRow(found);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, msg: 'separado' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  var to = String(data.to || '').trim();
+  if (!to) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'falta to' })).setMimeType(ContentService.MimeType.JSON);
+  if (to === from) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'no se puede fusionar consigo mismo' })).setMimeType(ContentService.MimeType.JSON);
+  var row = [from, to, String(data.nota || ''), new Date()];
+  if (found > 0) sh.getRange(found, 1, 1, 4).setValues([row]);
+  else sh.appendRow(row);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, msg: 'fusionado' })).setMimeType(ContentService.MimeType.JSON);
+}
+
 function _doPostCrmLoteSave(data) {
   var sub = String(data.sub || '').trim(), lote = String(data.lote || '').trim();
   if (!sub || !lote) {
@@ -15816,12 +15874,22 @@ function _planParseMes(label) {
   if (!label) return null;
   var p = String(label).trim().split(/\s+/);
   if (p.length < 2) return null;
-  var m = _PLAN_MS.indexOf(p[0]);
+  var low = p[0].toLowerCase();
+  var m = -1;
+  for (var i = 0; i < _PLAN_MS.length; i++) { if (_PLAN_MS[i].toLowerCase() === low) { m = i; break; } }
   var y = parseInt(p[1], 10);
   if (m < 0 || !y) return null;
   return { y: y, m: m };
 }
 function _planLabelMes(y, m) { return _PLAN_MS[m] + ' ' + y; }
+// Label canonico "Julio 2026" (o null). Tolera mayus/minus: "julio 2026" -> "Julio 2026".
+// Clave para que read y write hablen el mismo idioma sin importar como se guardo el mes.
+function _planCanonMes(label) {
+  // OJO: Sheets auto-convierte "julio 2026" en una FECHA (01/07/2026). getValues() la devuelve como Date.
+  if (label instanceof Date) return _planLabelMes(label.getFullYear(), label.getMonth());
+  var pr = _planParseMes(label);
+  return pr ? _planLabelMes(pr.y, pr.m) : null;
+}
 
 // "Barrio canónico" — igual normalizador que el filtro Ventas.
 function _planBarrioCanon(b) {
@@ -15847,8 +15915,9 @@ function _planReadMetas(label) {
   if (!sh || sh.getLastRow() <= 1) return {};
   var data = sh.getDataRange().getValues();
   var out = {};
+  var canon = _planCanonMes(label);
   for (var r = 1; r < data.length; r++) {
-    if (String(data[r][0]).trim() !== label) continue;
+    if (_planCanonMes(data[r][0]) !== canon) continue;
     var canal = String(data[r][1] || '').trim();
     var barrio = String(data[r][2] || '').trim();
     var key = canal + '|' + barrio;
@@ -15872,8 +15941,9 @@ function _planReadAcciones(label) {
   if (!sh || sh.getLastRow() <= 1) return [];
   var data = sh.getDataRange().getValues();
   var out = [];
+  var canon = _planCanonMes(label);
   for (var r = 1; r < data.length; r++) {
-    if (String(data[r][1]).trim() !== label) continue;
+    if (_planCanonMes(data[r][1]) !== canon) continue;
     var fechaObj = data[r][6];
     var fechaStr = (fechaObj instanceof Date)
       ? Utilities.formatDate(fechaObj, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
@@ -15968,6 +16038,7 @@ function _doGetPlanMes(e) {
     return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Mes invalido: ' + label }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+  label = _planLabelMes(parsed.y, parsed.m); // canonizar: la respuesta y las lecturas usan "Julio 2026"
   var metas = _planReadMetas(label);
   var acciones = _planReadAcciones(label);
   var real = _planRealMes(parsed.y, parsed.m);
@@ -15999,7 +16070,7 @@ function _doGetPlanMes(e) {
 function _doPostPlanMetaSet(data) {
   var sheets = _planEnsureSheets();
   var sh = sheets.metas;
-  var label = String(data.mes || '').trim();
+  var label = _planCanonMes(data.mes) || String(data.mes || '').trim();
   var canal = String(data.canal || '').trim();
   var barrio = String(data.barrio || '').trim();
   if (!label || !canal) {
@@ -16018,7 +16089,7 @@ function _doPostPlanMetaSet(data) {
   if (lastRow > 1) {
     var rows = sh.getRange(2, 1, lastRow - 1, 3).getValues();
     for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i][0]).trim() === label &&
+      if (_planCanonMes(rows[i][0]) === label &&
           String(rows[i][1]).trim() === canal &&
           String(rows[i][2]).trim() === barrio) {
         found = i + 2;
@@ -16047,7 +16118,7 @@ function _planNextActionId(sh) {
 function _doPostPlanAccionAdd(data) {
   var sheets = _planEnsureSheets();
   var sh = sheets.acciones;
-  var label = String(data.mes || '').trim();
+  var label = _planCanonMes(data.mes) || String(data.mes || '').trim();
   var desc = String(data.desc || '').trim();
   if (!label || !desc) {
     return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Faltan mes y descripcion' }))
