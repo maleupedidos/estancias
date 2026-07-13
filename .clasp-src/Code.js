@@ -2105,6 +2105,8 @@ function _doPostEditarPedidoRed(data) {
   if (!sh.getRange(row, 47).getFormula()) sh.getRange(row, 47).setFormula('=U' + row + '*17/100');
   if (!sh.getRange(row, 48).getFormula()) sh.getRange(row, 48).setFormula('=AT' + row + '-AU' + row);
   if (!sh.getRange(row, 49).getFormula()) sh.getRange(row, 49).setFormula('=U' + row + '*83/100');
+  // Ganancia Vendedor (col 65 = BM) = Comisión 17% + Envío
+  if (!sh.getRange(row, 65).getFormula()) sh.getRange(row, 65).setFormula('=AU' + row + '+P' + row);
 
   SpreadsheetApp.flush();
 
@@ -2260,6 +2262,8 @@ function _doGetDashboardVendedor(e) {
   var semanaFacturado = 0, semanaPedidos = 0;
   var mesFacturado = 0, mesPedidos = 0;
   var totalFacturado = 0, totalPedidos = 0;
+  // Envío = 100% del vendedor. Su ganancia total = comisión 17% + envío.
+  var semanaEnvio = 0, mesEnvio = 0, totalEnvio = 0;
   // Stats operativas viernes
   var viernesHoy = 0, viernesEntregados = 0; // pedidos de este viernes
   var pendCobrar = 0;       // plata sin cobrar al cliente
@@ -2311,6 +2315,7 @@ function _doGetDashboardVendedor(e) {
       var formaPago    = String(data[r][12] || '').trim();
       var estadoPago   = String(data[r][13] || '').trim();
       var total        = Number(data[r][14]) || 0;
+      var envio        = Number(data[r][15]) || 0; // P = Envío (100% del vendedor)
       var efectivoMonto = Number(data[r][16]) || 0; // Q = Efectivo
       var transferMonto = Number(data[r][17]) || 0; // R = Transferencia
       var propinaEf    = Number(data[r][18]) || 0;
@@ -2334,31 +2339,33 @@ function _doGetDashboardVendedor(e) {
 
       // Stats semana/mes/total (solo pedidos no cancelados)
       if (estado !== 'Cancelado') {
-        totalFacturado += facturado; totalPedidos++;
+        totalFacturado += facturado; totalPedidos++; totalEnvio += envio;
         if (year === yearActual && semana === semanaActual) {
-          semanaFacturado += facturado; semanaPedidos++;
+          semanaFacturado += facturado; semanaPedidos++; semanaEnvio += envio;
           if (diaEntrega === 'Viernes') {
             viernesHoy++;
             if (estado === 'Entregado') viernesEntregados++;
           }
         }
         if (year === yearActual && mes === nombreMesActual) {
-          mesFacturado += facturado; mesPedidos++;
+          mesFacturado += facturado; mesPedidos++; mesEnvio += envio;
         }
         // Acumulado por (año, mes) para desglose. Solo si tenemos fechaEntrega válida.
         if (fechaEntrega && mes) {
           var mNum = fechaEntrega.getMonth() + 1; // 1-12
           var mKey = year + '-' + (mNum < 10 ? '0' + mNum : mNum);
-          if (!mesesMap[mKey]) mesesMap[mKey] = { n: mes, y: year, m: mNum, facturado: 0, pedidos: 0 };
+          if (!mesesMap[mKey]) mesesMap[mKey] = { n: mes, y: year, m: mNum, facturado: 0, pedidos: 0, envio: 0 };
           mesesMap[mKey].facturado += facturado;
           mesesMap[mKey].pedidos++;
+          mesesMap[mKey].envio += envio;
         }
         // Acumulado por (año, semana ISO) para desglose semanal
         if (fechaEntrega && semana) {
           var wKey = year + '-' + (semana < 10 ? '0' + semana : semana);
-          if (!semanasMap[wKey]) semanasMap[wKey] = { y: year, w: semana, facturado: 0, pedidos: 0 };
+          if (!semanasMap[wKey]) semanasMap[wKey] = { y: year, w: semana, facturado: 0, pedidos: 0, envio: 0 };
           semanasMap[wKey].facturado += facturado;
           semanasMap[wKey].pedidos++;
+          semanasMap[wKey].envio += envio;
         }
         // Plata pendiente de cobrar al cliente (entregado pero no cobrado)
         if (estado === 'Entregado' && estadoPago !== 'Cobrado') {
@@ -2387,7 +2394,7 @@ function _doGetDashboardVendedor(e) {
 
       pedidos.push({
         n: nPedido, c: cliente, f: fechaStr, de: diaEntrega,
-        $: facturado, com: comision, aPg: aPagarMaleu, es: estado,
+        $: facturado, com: comision, env: envio, gan: comision + envio, aPg: aPagarMaleu, es: estado,
         fp: formaPago,       // Efectivo/Transferencia/Mixto
         ep: estadoPago,      // Cobrado/No Cobrado
         ef: efectivoMonto, tr: transferMonto, // cobrado al cliente (para Mixto)
@@ -2461,13 +2468,15 @@ function _doGetDashboardVendedor(e) {
       var wNum = _isoWeek(d);
       var wYear = d.getFullYear(); // jueves está en este año — ISO year == calendar year en los jueves
       var key = wYear + '-' + (wNum < 10 ? '0' + wNum : wNum);
-      var bucket = semanasMap[key] || { facturado: 0, pedidos: 0 };
+      var bucket = semanasMap[key] || { facturado: 0, pedidos: 0, envio: 0 };
       res.push({
         n: wNum, y: wYear,
         lun: fmt(mon), dom: fmt(dom),
         facturado: bucket.facturado,
         pedidos: bucket.pedidos,
-        comision: Math.round(bucket.facturado * 17 / 100)
+        comision: Math.round(bucket.facturado * 17 / 100),
+        envio: bucket.envio || 0,
+        ganancia: Math.round(bucket.facturado * 17 / 100) + (bucket.envio || 0)
       });
       d.setDate(d.getDate() + 7);
     }
@@ -2483,6 +2492,8 @@ function _doGetDashboardVendedor(e) {
       n: row.n, y: row.y, m: row.m,
       facturado: row.facturado, pedidos: row.pedidos,
       comision: Math.round(row.facturado * 17 / 100),
+      envio: row.envio || 0,
+      ganancia: Math.round(row.facturado * 17 / 100) + (row.envio || 0),
       semanas: _semanasDelMes(row.y, row.m)
     });
   });
@@ -2524,14 +2535,19 @@ function _doGetDashboardVendedor(e) {
     stats: {
       semana:   { n: semanaActual, lun: fmt(lunes), dom: fmt(domingo),
                   facturado: semanaFacturado, pedidos: semanaPedidos,
-                  comision: Math.round(semanaFacturado * 17 / 100) },
+                  comision: Math.round(semanaFacturado * 17 / 100),
+                  envio: semanaEnvio,
+                  ganancia: Math.round(semanaFacturado * 17 / 100) + semanaEnvio },
       mes:      { facturado: mesFacturado, pedidos: mesPedidos, nombre: nombreMesActual,
                   y: yearActual, m: mesActual,
                   comision: Math.round(mesFacturado * 17 / 100),
+                  envio: mesEnvio,
+                  ganancia: Math.round(mesFacturado * 17 / 100) + mesEnvio,
                   semanas: _semanasDelMes(yearActual, mesActual) },
       mesesAnt: mesesAnt,
-      total:    { facturado: totalFacturado,  pedidos: totalPedidos },
+      total:    { facturado: totalFacturado,  pedidos: totalPedidos, envio: totalEnvio },
       comision: Math.round(totalFacturado * 17 / 100),
+      ganancia: Math.round(totalFacturado * 17 / 100) + totalEnvio,
       viernes:      { total: viernesHoy, entregados: viernesEntregados },
       pendCobrar:   pendCobrar,
       pendLiquidar: pendLiquidar
@@ -5081,6 +5097,8 @@ function _doPostRed(data) {
   sh.getRange(newRow, 48).setFormula('=AT' + newRow + '-AU' + newRow);
   // Fórmula A Pagar en AW (col 49) = Facturado * 83/100 (lo que queda para Maleu)
   sh.getRange(newRow, 49).setFormula('=U' + newRow + '*83/100');
+  // Fórmula Ganancia Vendedor en BM (col 65) = Comisión 17% + Envío (lo que gana el vendedor)
+  sh.getRange(newRow, 65).setFormula('=AU' + newRow + '+P' + newRow);
   // Forzar teléfono como texto (col AZ = 52)
   var telRed = String(data.telefono || '');
   if (telRed) sh.getRange(newRow, 52).setNumberFormat('@').setValue(telRed);
