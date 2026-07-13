@@ -1,0 +1,44 @@
+[
+  {
+    "cliente": "Belen Garcia basualdo",
+    "pedidos": 1,
+    "tel_raw": "2901408422",
+    "via": "sin_match"
+  },
+  {
+    "cliente": "Lautaro Mari",
+    "pedidos": 1,
+    "tel_raw": "1139379131",
+    "via": "sin_match"
+  },
+  {
+    "cliente": "Dionisio Quesada",
+    "pedidos": 1,
+    "tel_raw": "1126857061",
+    "via": "sin_match"
+  },
+  {
+    "cliente": "Tomas Lanfranchi",
+    "pedidos": 1,
+    "tel_raw": "1144017589",
+    "via": "sin_match"
+  },
+  {
+    "cliente": "sofía goldaracena",
+    "pedidos": 1,
+    "tel_raw": "91140269813",
+    "via": "sin_match"
+  },
+  {
+    "cliente": "Rufino de Bary",
+    "pedidos": 1,
+    "tel_raw": "3462383262",
+    "via": "sin_match"
+  },
+  {
+    "cliente": "Pauline de Ocampo",
+    "pedidos": 1,
+    "tel_raw": "1158945401",
+    "via": "sin_match"
+  }
+]

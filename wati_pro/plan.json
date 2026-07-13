@@ -1,0 +1,2181 @@
+[
+  {
+    "phone": "5491160029079",
+    "name": "Analia Pirola",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Analia Pirola)"
+    ]
+  },
+  {
+    "phone": "5491149710397",
+    "name": "Fabiana",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491160541854",
+    "name": "Paula VN",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Paula Valiente)",
+      "zona derivada de Sub Barrio=\"Champagnat Alto\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491151206625",
+    "name": "polakogrondona9",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Poako Grondona)",
+      "zona derivada de Sub Barrio=\"Golf\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491144738606",
+    "name": "Laura",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 3"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Laura Igarzabal)",
+      "zona derivada de Sub Barrio=\"Argentina 3\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Argentina 3\""
+    ]
+  },
+  {
+    "phone": "5491121626420",
+    "name": "Gise",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": "Villa Bertha"
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Red"
+      }
+    ],
+    "reasons": [
+      "matchea Red Sheet"
+    ]
+  },
+  {
+    "phone": "5491162482450",
+    "name": "Dra Maria Lucia Migueliz",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Lucía Migueliz)",
+      "zona derivada de Sub Barrio=\"Golf\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491162079394",
+    "name": "Pili",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491134303648",
+    "name": "Valeria",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 1"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Argentina 1\""
+    ]
+  },
+  {
+    "phone": "5491145584158",
+    "name": "Honorio Augusto BASUALDO",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491151619317",
+    "name": "simon",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491122474019",
+    "name": "Francisco Donato",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491136359080",
+    "name": "Carola Narbais",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491131353670",
+    "name": "Lucas",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491135841864",
+    "name": "Sofía",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491144221548",
+    "name": "Maru",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "La Pionera"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"La Pionera\""
+    ]
+  },
+  {
+    "phone": "5491155693202",
+    "name": "Mateo Fernandez",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491155771209",
+    "name": "Agustina Sarmiento",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5492396419527",
+    "name": "Elena Garcia Guerra",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Pilara"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Pilara\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491134702803",
+    "name": "Delfina Peña",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491160108407",
+    "name": "Mariana Sojo",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491167106641",
+    "name": "Rodrigo Amadeo",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491131598989",
+    "name": "Agustina Auge",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Estancias Del Rio\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491134697761",
+    "name": "Consuelo",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "La Paz"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"La Paz\""
+    ]
+  },
+  {
+    "phone": "5491121581171",
+    "name": "Santiago",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 4"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Argentina 4\""
+    ]
+  },
+  {
+    "phone": "5491150255880",
+    "name": "Maria",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491149744127",
+    "name": "Milagros",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "La Pionera"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"La Pionera\""
+    ]
+  },
+  {
+    "phone": "5491131900663",
+    "name": "Patricia",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491137903759",
+    "name": "Horacio Gowland",
+    "current": {
+      "tipo": "Home",
+      "zona": "Los Alcanfores",
+      "barrio": "Alcanfores"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Los Alcanfores"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Alcanfores\" -> \"Los Alcanfores\""
+    ]
+  },
+  {
+    "phone": "5491131414447",
+    "name": "Natalia Galarce",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Alto"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Alto\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491144400445",
+    "name": "Carolina Quinterno",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491144157165",
+    "name": "Eduardo Del Piano",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Bajo"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Bajo\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491155735261",
+    "name": "Veronica Viale",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Alto"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Alto\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491168277017",
+    "name": "Florencia Aguirre",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Alto"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Alto\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5492396510858",
+    "name": "Maria Dubois",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Pilara"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 3"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Pilara\" -> \"Argentina 3\""
+    ]
+  },
+  {
+    "phone": "5491160029079",
+    "name": "Analia Pirola",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Analia Pirola)"
+    ]
+  },
+  {
+    "phone": "5491149710397",
+    "name": "Fabiana",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491160541854",
+    "name": "Paula VN",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Paula Valiente)",
+      "zona derivada de Sub Barrio=\"Champagnat Alto\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491151206625",
+    "name": "polakogrondona9",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Poako Grondona)",
+      "zona derivada de Sub Barrio=\"Golf\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491144738606",
+    "name": "Laura",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 3"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Laura Igarzabal)",
+      "zona derivada de Sub Barrio=\"Argentina 3\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Argentina 3\""
+    ]
+  },
+  {
+    "phone": "5491121626420",
+    "name": "Gise",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": "Villa Bertha"
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Red"
+      }
+    ],
+    "reasons": [
+      "matchea Red Sheet"
+    ]
+  },
+  {
+    "phone": "5491162482450",
+    "name": "Dra Maria Lucia Migueliz",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Lucía Migueliz)",
+      "zona derivada de Sub Barrio=\"Golf\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491162079394",
+    "name": "Pili",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491134303648",
+    "name": "Valeria",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 1"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Argentina 1\""
+    ]
+  },
+  {
+    "phone": "5491145584158",
+    "name": "Honorio Augusto BASUALDO",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491151619317",
+    "name": "simon",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491122474019",
+    "name": "Francisco Donato",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491136359080",
+    "name": "Carola Narbais",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491131353670",
+    "name": "Lucas",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491135841864",
+    "name": "Sofía",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491144221548",
+    "name": "Maru",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "La Pionera"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"La Pionera\""
+    ]
+  },
+  {
+    "phone": "5491155693202",
+    "name": "Mateo Fernandez",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491155771209",
+    "name": "Agustina Sarmiento",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5492396419527",
+    "name": "Elena Garcia Guerra",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Pilara"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Pilara\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491134702803",
+    "name": "Delfina Peña",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491160108407",
+    "name": "Mariana Sojo",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491167106641",
+    "name": "Rodrigo Amadeo",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Alto\""
+    ]
+  },
+  {
+    "phone": "5491131598989",
+    "name": "Agustina Auge",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Estancias Del Rio\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491134697761",
+    "name": "Consuelo",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "La Paz"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"La Paz\""
+    ]
+  },
+  {
+    "phone": "5491121581171",
+    "name": "Santiago",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 4"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Argentina 4\""
+    ]
+  },
+  {
+    "phone": "5491150255880",
+    "name": "Maria",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491149744127",
+    "name": "Milagros",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "La Pionera"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"La Pionera\""
+    ]
+  },
+  {
+    "phone": "5491131900663",
+    "name": "Patricia",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"None\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491137903759",
+    "name": "Horacio Gowland",
+    "current": {
+      "tipo": "Home",
+      "zona": "Los Alcanfores",
+      "barrio": "Alcanfores"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Los Alcanfores"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Alcanfores\" -> \"Los Alcanfores\""
+    ]
+  },
+  {
+    "phone": "5491131414447",
+    "name": "Natalia Galarce",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Alto"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Golf"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Alto\" -> \"Golf\""
+    ]
+  },
+  {
+    "phone": "5491144400445",
+    "name": "Carolina Quinterno",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491144157165",
+    "name": "Eduardo Del Piano",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Bajo"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Bajo\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491155735261",
+    "name": "Veronica Viale",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Alto"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Alto\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5491168277017",
+    "name": "Florencia Aguirre",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Champagnat Alto"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Bajo"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Champagnat Alto\" -> \"Champagnat Bajo\""
+    ]
+  },
+  {
+    "phone": "5492396510858",
+    "name": "Maria Dubois",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": "Pilara"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 3"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Pilara\" -> \"Argentina 3\""
+    ]
+  },
+  {
+    "phone": "5491164525118",
+    "name": "Guadalupe Roque Posse",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491123151819",
+    "name": "Rafael Nazar (H)",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491158223902",
+    "name": "Mercedes Pozzolo",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado normalizado \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491159700332",
+    "name": "violeta",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Clubes"
+      }
+    ],
+    "reasons": [
+      "matchea Clubes Sheet (club=Champagnat)"
+    ]
+  },
+  {
+    "phone": "5491157458267",
+    "name": "Caro Llorente",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Pilar"
+      }
+    ],
+    "reasons": [
+      "matchea Pilar Sheet"
+    ]
+  },
+  {
+    "phone": "5491153880119",
+    "name": "Juan Cruz Bottcher",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Red"
+      }
+    ],
+    "reasons": [
+      "matchea Red Sheet"
+    ]
+  },
+  {
+    "phone": "5491161780374",
+    "name": "Norberto Quiroga",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Pilar"
+      }
+    ],
+    "reasons": [
+      "matchea Pilar Sheet"
+    ]
+  },
+  {
+    "phone": "5491134171958",
+    "name": "Thiago Oviedo",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Clubes"
+      }
+    ],
+    "reasons": [
+      "matchea Clubes Sheet (club=Banco Nación)"
+    ]
+  },
+  {
+    "phone": "5491155625349",
+    "name": "Andrea",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491131534209",
+    "name": "Delfi",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491136303661",
+    "name": "Marina",
+    "current": {
+      "tipo": "Cliente Directo",
+      "zona": "(sin zona)",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Cliente Directo\" -> \"Home\""
+    ]
+  },
+  {
+    "phone": "5491131191008",
+    "name": "Pablo Andrieu",
+    "current": {
+      "tipo": "Cliente Directo",
+      "zona": "(sin zona)",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Cliente Directo\" -> \"Home\""
+    ]
+  },
+  {
+    "phone": "5491156387516",
+    "name": "Lourdes Vivequin",
+    "current": {
+      "tipo": "Home",
+      "zona": "Los Alcanfores",
+      "barrio": "Alcanfores"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Los Alcanfores"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Alcanfores\" -> \"Los Alcanfores\""
+    ]
+  },
+  {
+    "phone": "5491166265437",
+    "name": "Juana Nazar",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491149280421",
+    "name": "Alejandra Gettas",
+    "current": {
+      "tipo": "Cliente Directo",
+      "zona": "(sin zona)",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Cliente Directo\" -> \"Home\""
+    ]
+  },
+  {
+    "phone": "5492494568935",
+    "name": "Pilar Murga",
+    "current": {
+      "tipo": "Cliente Directo",
+      "zona": "(sin zona)",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Cliente Directo\" -> \"Home\""
+    ]
+  },
+  {
+    "phone": "5491130395098",
+    "name": "Fernanda Lopez",
+    "current": {
+      "tipo": "Home",
+      "zona": "Los Alcanfores",
+      "barrio": "Alcanfores"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Los Alcanfores"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Alcanfores\" -> \"Los Alcanfores\""
+    ]
+  },
+  {
+    "phone": "5491136249686",
+    "name": "Santos Battilana",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491156667003",
+    "name": "Josefina Marconetti",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491167520735",
+    "name": "Soledad Hanza",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491130811739",
+    "name": "Sebastian Nini",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491158623681",
+    "name": "Rosario Cid",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491140836627",
+    "name": "Fernanda Galarce",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491166200000",
+    "name": "Maximiliano Bernardi",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491150608348",
+    "name": "Maria Mihura",
+    "current": {
+      "tipo": "Home",
+      "zona": "Los Alcanfores",
+      "barrio": "Alcanfores"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Los Alcanfores"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Alcanfores\" -> \"Los Alcanfores\""
+    ]
+  },
+  {
+    "phone": "5492272402389",
+    "name": "Maria Julia Carpineti",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491150295400",
+    "name": "Luli Battilana",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491158152255",
+    "name": "Juan Petracchi",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491163302094",
+    "name": "Juan Jose Azpiroz",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491157332357",
+    "name": "Guapi Corbi",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491122513048",
+    "name": "Gonzalo Lobos",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491169515998",
+    "name": "Francisco Del Bono",
+    "current": {
+      "tipo": "Home",
+      "zona": "Los Alcanfores",
+      "barrio": "Alcanfores"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Los Alcanfores"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Alcanfores\" -> \"Los Alcanfores\""
+    ]
+  },
+  {
+    "phone": "5491165222898",
+    "name": "Florencia Erdozain",
+    "current": {
+      "tipo": "Home",
+      "zona": "Los Alcanfores",
+      "barrio": "Alcanfores"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Los Alcanfores"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Alcanfores\" -> \"Los Alcanfores\""
+    ]
+  },
+  {
+    "phone": "5491154167955",
+    "name": "Florencia Lange",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491141688927",
+    "name": "Florencia Gambuti",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491155120333",
+    "name": "Felipe Teran",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491149713317",
+    "name": "Federica Sosa Vivanco",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491165282899",
+    "name": "Cecilia Pizarro",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491169762092",
+    "name": "Carolina Ruete",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491133717117",
+    "name": "Camila Paravacini",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491159204488",
+    "name": "Agustina Cordero",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": "Estancias Del Rio"
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "barrio_privado grafía \"Estancias Del Rio\" -> \"Estancias del Rio\""
+    ]
+  },
+  {
+    "phone": "5491145578233",
+    "name": "Maira Bosch",
+    "current": {
+      "tipo": "Capital Federal",
+      "zona": "Capital Federal",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Pilar"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Capital Federal\" -> \"Pilar\""
+    ]
+  },
+  {
+    "phone": "5491155792112",
+    "name": "Marina Donati",
+    "current": {
+      "tipo": "Contacto",
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Red"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Contacto\" sin mapeo, intento reclasificar",
+      "matchea Red Sheet"
+    ]
+  },
+  {
+    "phone": "5491139285727",
+    "name": "Tomy Pettigrew",
+    "current": {
+      "tipo": null,
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Home"
+      },
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "matchea Home Sheet (cliente=Tomás Alejandro Pettigrew)",
+      "zona derivada de Sub Barrio=\"El Recuerdo\" -> Estancias del Pilar",
+      "barrio_privado normalizado \"None\" -> \"El Recuerdo\""
+    ]
+  },
+  {
+    "phone": "5491124708005",
+    "name": "Felucho",
+    "current": {
+      "tipo": "Prospecto Activo",
+      "zona": null,
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Prospecto Activo\" -> \"Prospecto\""
+    ]
+  },
+  {
+    "phone": "5491165048908",
+    "name": "Delfina Rebora",
+    "current": {
+      "tipo": "Ocasional",
+      "zona": "San Isidro",
+      "barrio": "Martinez"
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "tipo no canónico \"Ocasional\" -> \"Prospecto\""
+    ]
+  }
+]

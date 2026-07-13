@@ -1,0 +1,110 @@
+[
+  {
+    "phone": "5491157298069",
+    "name": "Bautista Bullrich",
+    "current": {
+      "tipo": "Home",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "El Recuerdo"
+      }
+    ],
+    "reasons": [
+      "Base Unificada sub_barrio=El Recuerdo"
+    ]
+  },
+  {
+    "phone": "5491157546047",
+    "name": "Clara Gimenez",
+    "current": {
+      "tipo": "Home",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Argentina 1"
+      }
+    ],
+    "reasons": [
+      "Base Unificada sub_barrio=Argentina 1"
+    ]
+  },
+  {
+    "phone": "5491121720102",
+    "name": "Eduardo Gusi Garat",
+    "current": {
+      "tipo": "Home",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Champagnat Alto"
+      }
+    ],
+    "reasons": [
+      "Base Unificada sub_barrio=Champagnat Alto"
+    ]
+  },
+  {
+    "phone": "5491160029079",
+    "name": "Analia Pirola",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Pilar",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "zona",
+        "value": "Estancias del Rio"
+      },
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "Sheet Home barrio=Estancias del Río + sub vacio = vive directamente en Estancias del Rio"
+    ]
+  },
+  {
+    "phone": "5491121707736",
+    "name": "LOLI / Dolores maqueda",
+    "current": {
+      "tipo": "Home",
+      "zona": "Estancias del Rio",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "barrio_privado",
+        "value": "Estancias del Rio"
+      }
+    ],
+    "reasons": [
+      "Sheet Home barrio=Estancias del Río"
+    ]
+  },
+  {
+    "phone": "5491140504681",
+    "name": "Andrea de La Tour",
+    "current": {
+      "tipo": "Home",
+      "barrio": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Pilar"
+      }
+    ],
+    "reasons": [
+      "Base Unificada zona=Capital -> Capital discontinuado, va a tipo Pilar (decisión 21/04/2026)"
+    ]
+  }
+]

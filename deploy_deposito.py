@@ -1,28 +1,20 @@
-import json
-from google.oauth2 import service_account
+"""Deploy Apps Script after replacing 'Depósito' with 'Deposito' everywhere."""
+import google.auth
 from googleapiclient.discovery import build
 
 SCRIPT_ID = "1wtfgJFESRbD1llGX39zOhWIWm0v047CGWqdYXkHJIlS0cDt3Ove3cSza"
-VERSION_DESC = "CRM: agrega facturado/entregados/deuda/recencia Home-Estancias por cliente (facturadoHome, entregadosHome, ticketHome, diasUltimaHome, primeraFechaHome) para el cockpit de Estancias sin cruzar Clubes/otros canales."
+VERSION_DESC = "Deposito sin acento (reemplazo global)"
 
-# Auth via service account (no requiere usuario; evita el bloqueo OAuth de Google
-# para los scopes script.* en cuentas externas).
-SA_KEY = r"C:\Users\tadeu\maleu-service-account.json"
-creds = service_account.Credentials.from_service_account_file(
-    SA_KEY,
-    scopes=[
-        "https://www.googleapis.com/auth/script.projects",
-        "https://www.googleapis.com/auth/script.deployments",
-    ],
-)
+creds, project = google.auth.default(scopes=[
+    "https://www.googleapis.com/auth/script.projects",
+    "https://www.googleapis.com/auth/script.deployments",
+])
 service = build("script", "v1", credentials=creds)
 
-# 1. Read current project to get appsscript.json
 print("Reading current project content...")
 content = service.projects().getContent(scriptId=SCRIPT_ID).execute()
 files = content.get("files", [])
 
-# Find appsscript.json
 appscript_json = None
 for f in files:
     if f["name"] == "appsscript" and f["type"] == "JSON":
@@ -34,13 +26,13 @@ for f in files:
 if not appscript_json:
     raise Exception("Could not find appsscript.json in project")
 
-# 2. Read the new .gs file
 with open(r"C:\Users\tadeu\estancias\apps-script.gs", "r", encoding="utf-8") as fh:
     new_code = fh.read()
 
-print(f"\nNew code: {len(new_code)} chars, {new_code.count(chr(10))} lines")
+print(f"\nNew code: {len(new_code)} chars")
+print(f"  'Depósito' (con acento) occurrences: {new_code.count('Depósito')}")
+print(f"  'Deposito' (sin acento) occurrences: {new_code.count('Deposito')}")
 
-# 3. Update project with new code + existing appsscript.json
 print("\nUpdating project content...")
 body = {
     "files": [
@@ -55,7 +47,6 @@ body = {
 service.projects().updateContent(scriptId=SCRIPT_ID, body=body).execute()
 print("  Project updated!")
 
-# 4. Create new version
 print(f"\nCreating version: {VERSION_DESC}")
 version = service.projects().versions().create(
     scriptId=SCRIPT_ID,
@@ -64,7 +55,6 @@ version = service.projects().versions().create(
 version_number = version["versionNumber"]
 print(f"  Created version #{version_number}")
 
-# 5. List deployments and find web app deployment
 print("\nListing deployments...")
 deployments = service.projects().deployments().list(scriptId=SCRIPT_ID).execute()
 web_deploy = None
@@ -74,7 +64,6 @@ for d in deployments.get("deployments", []):
     desc = config.get("description", "")
     ver = config.get("versionNumber", "HEAD")
     print(f"  {deploy_id[:30]}... | ver={ver} | desc={desc}")
-    # HEAD deployment has no versionNumber or versionNumber=0
     if config.get("versionNumber") and config["versionNumber"] > 0:
         web_deploy = d
 

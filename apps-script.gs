@@ -1652,6 +1652,7 @@ function _doGetVendedores() {
     vendedores.push({
       nombre: nombre,
       wa: String(data[r][1] || '').trim(),
+      alias: String(data[r][2] || '').trim(),           // col C — alias MP (opcional)
       barrios: barrios,
       partido: String(data[r][4] || '').trim(),
       localidad: String(data[r][5] || '').trim()
@@ -2097,7 +2098,9 @@ function _doPostEditarPedidoRed(data) {
   // Mixto: como solo se setea al cobrar y editar requiere no-cobrado, no debería caer acá.
 
   // Garantizar fórmulas vivas (por si la fila vino sin ellas)
-  if (!sh.getRange(row, 21).getFormula()) sh.getRange(row, 21).setFormula('=O' + row + '+S' + row + '+T' + row);
+  // Facturado Red = O − P (productos, SIN envío): el envío es 100% del vendedor,
+  // no entra en la base de comisión (17%) ni en lo que rinde a Maleu (83%).
+  if (!sh.getRange(row, 21).getFormula()) sh.getRange(row, 21).setFormula('=O' + row + '-P' + row);
   if (!sh.getRange(row, 46).getFormula()) sh.getRange(row, 46).setFormula('=U' + row + '-AS' + row);
   if (!sh.getRange(row, 47).getFormula()) sh.getRange(row, 47).setFormula('=U' + row + '*17/100');
   if (!sh.getRange(row, 48).getFormula()) sh.getRange(row, 48).setFormula('=AT' + row + '-AU' + row);
@@ -5068,7 +5071,8 @@ function _doPostRed(data) {
   var newRow = sh.getLastRow();
 
   // Fórmula Facturado en U (col 21) = Total + Propinas
-  sh.getRange(newRow, 21).setFormula('=O' + newRow + '+S' + newRow + '+T' + newRow);
+  // Facturado Red = O − P (productos, SIN envío): el envío es 100% del vendedor.
+  sh.getRange(newRow, 21).setFormula('=O' + newRow + '-P' + newRow);
   // Fórmula Margen Bruto en AT (col 46) = Facturado - Costo
   sh.getRange(newRow, 46).setFormula('=U' + newRow + '-AS' + newRow);
   // Fórmula Comisión 17% en AU (col 47) = Facturado * 17/100
@@ -8791,10 +8795,15 @@ function _doGetAdmin(opt) {
       // Va en campo `bar` para que el panel pueda filtrar por barrio sin meterse con sub-barrios.
       var barStr = String(data[r][IX.barrio] || '').trim();
 
+      // Layout v2 Home/Pilar: N(idx13)=Subtotal Producto · O(idx14)=Envío · P(idx15)=Descuento
+      var subtProd = Number(data[r][13]) || 0;
+      var envioPed = Number(data[r][14]) || 0;
+      var descPed  = Number(data[r][15]) || 0;
       pedidos.push({
         n: nPedido, h: hoja, c: cliente, f: fechaStr, de: diaEntrega, dee: diaEntregaISO,
         es: estado, o: origen, ep: estadoPago, fp: formaPago,
         $: facturado, co: costoPed, mg: margenPed, br: subBarrio, bar: barStr, p: prods,
+        subt: subtProd, env: envioPed, desc: descPed,
         hr: horaStr, dia: diaPedido,
         ef: efR, tr: trR, pef: pefR, ptr: ptrR,
         fe: feStr, fed: feDiaStr,
@@ -8906,12 +8915,15 @@ function _doGetAdmin(opt) {
         if (String(headersClub[hrC]).trim() === 'Repartidor') { repStrC = String(dataClubes[rc][hrC] || '').trim(); break; }
       }
 
+      // Clubes: R(idx17) = Envío. Sin descuento ni subtotal separados (subt = total - env).
+      var envioClub = Number(dataClubes[rc][17]) || 0;
       pedidos.push({
         n: nPedidoC, h: 'Clubes',
         c: clienteC + (clubC ? ' (' + clubC + ')' : ''),
         f: fechaStrC, de: diaEntregaC, dee: diaEntregaISOC, es: estadoC, o: origenC,
         ep: estadoPagoC, fp: formaPagoC, $: facturadoC,
         co: costoCl, mg: margenCl, br: clubC, p: prodsC,
+        env: envioClub, desc: 0, subt: Math.max(0, totalC - envioClub),
         hr: horaStrC, dia: diaPedC,
         ef: efC, tr: trC, pef: pefC, ptr: ptrC,
         fc: fcStrC, fcd: fcDiaStrC,
@@ -9014,6 +9026,8 @@ function _doGetAdmin(opt) {
       // Origen Detalle Red col idx 55 (BD)
       var oDetStrR = String(dataRed[rr][55] || '').trim();
 
+      // Red: P(idx15) = Envío. Sin descuento (Red no lleva descuento). subt = totalR - env.
+      var envioRed = Number(dataRed[rr][15]) || 0;
       pedidos.push({
         n: nPedidoR, h: 'Red',
         c: clienteR + (vendedorR ? ' (Red: ' + vendedorR + ')' : ''),
@@ -9022,6 +9036,7 @@ function _doGetAdmin(opt) {
         // cobro del cliente final a Marcos. Es lo que entra a la caja de Maleu.
         ep: epMaleuR, fp: fpMaleuR || formaPagoR, fc: fcMaleuR, $: aPagarR,
         co: costoR, mg: margenR, br: vendedorR, p: prodsR,
+        env: envioRed, desc: 0, subt: Math.max(0, totalR - envioRed),
         hr: horaStrRd, dia: diaPedRd,
         ef: efRd, tr: trRd, pef: pefRd, ptr: ptrRd,
         oDet: oDetStrR,
@@ -10346,7 +10361,9 @@ function _doPostEditarPedido(data) {
   }
 
   // Facturado = Total + PropEf + PropTr. Cols por hoja:
-  //   Home/Pilar V(22) = =Q+T+U  · Clubes W(23) = =Q+U+V  · Red U(21) = =O+S+T
+  //   Home/Pilar V(22) = =Q+T+U  · Clubes W(23) = =Q+U+V
+  //   Red U(21) = =O-P (productos SIN envío: el envío es 100% del vendedor, no
+  //   entra en la comisión 17% ni en lo que rinde a Maleu 83%).
   // Margen Bruto = Facturado − Costo:
   //   Home AQ(43) = =V-AP · Pilar AU(47) = =V-AT · Clubes AG(33) = =W-AF · Red AT(46) = =U-AS
   if (colFacturado) {
@@ -10355,7 +10372,7 @@ function _doPostEditarPedido(data) {
       fFacturado = '=Q' + row + '+U' + row + '+V' + row;
       fMargen    = '=W' + row + '-AF' + row;
     } else if (hoja === 'Red') {
-      fFacturado = '=O' + row + '+S' + row + '+T' + row;
+      fFacturado = '=O' + row + '-P' + row;   // productos sin envío (envío 100% del vendedor)
       fMargen    = '=U' + row + '-AS' + row;
     } else if (hoja === 'Pilar') {
       fFacturado = '=Q' + row + '+T' + row + '+U' + row;
@@ -13003,6 +13020,12 @@ function _crmFoldBucket(dst, src) {
   dst.countEntregados += src.countEntregados;
   if (src.firstFecha && (!dst.firstFecha || src.firstFecha < dst.firstFecha)) dst.firstFecha = src.firstFecha;
   if (src.lastFecha && (!dst.lastFecha || src.lastFecha > dst.lastFecha)) dst.lastFecha = src.lastFecha;
+  dst.factHome += src.factHome || 0;
+  dst.entHome += src.entHome || 0;
+  dst.cobrHome += src.cobrHome || 0;
+  dst.deudaHome += src.deudaHome || 0;
+  if (src.firstHome && (!dst.firstHome || src.firstHome < dst.firstHome)) dst.firstHome = src.firstHome;
+  if (src.lastHome && (!dst.lastHome || src.lastHome > dst.lastHome)) dst.lastHome = src.lastHome;
   if (!dst.tel && src.tel) { dst.tel = src.tel; dst.telRaw = src.telRaw; }
 }
 
@@ -13053,7 +13076,10 @@ function _crmBuildClientesIndex() {
           countPedidos: 0,
           countEntregados: 0,
           firstFecha: null,
-          lastFecha: null
+          lastFecha: null,
+          // Solo canal Home entregado en Estancias del Pilar (retail del cockpit de
+          // Estancias). El facturado general cruza canales (Clubes, Red…); estos NO.
+          factHome: 0, entHome: 0, cobrHome: 0, deudaHome: 0, firstHome: null, lastHome: null
         };
       }
       var c = bucket[key];
@@ -13145,11 +13171,19 @@ function _crmBuildClientesIndex() {
       });
 
       c.countPedidos++;
+      // ¿Pedido Home entregado en Estancias del Pilar? (retail del cockpit de Estancias)
+      var _esHomeEst = (cfg.name === 'Home') && (String(barrio || '').trim().toLowerCase() === 'estancias del pilar');
+      if (_esHomeEst && fecha && (!c.firstHome || fecha < c.firstHome)) c.firstHome = fecha;
       if (estado === 'Entregado') {
         c.countEntregados++;
         c.totalFacturado += total;
         if (pago === 'Cobrado') c.totalCobrado += total;
         else c.deuda += total;
+        if (_esHomeEst) {
+          c.entHome++; c.factHome += total;
+          if (pago === 'Cobrado') c.cobrHome += total; else c.deudaHome += total;
+          if (fecha && (!c.lastHome || fecha > c.lastHome)) c.lastHome = fecha;
+        }
       }
     }
   });
@@ -13298,6 +13332,15 @@ function _doGetCrmClientes(e) {
       diasUltima: k.diasUltima,
       ultimaFecha: c.lastFecha ? Utilities.formatDate(c.lastFecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
       primeraFecha: c.firstFecha ? Utilities.formatDate(c.firstFecha, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
+      // Solo Home/Estancias (retail del cockpit de Estancias — sin Clubes ni otros canales)
+      facturadoHome: c.factHome,
+      entregadosHome: c.entHome,
+      cobradoHome: c.cobrHome,
+      deudaHome: c.deudaHome,
+      ticketHome: c.entHome > 0 ? Math.round(c.factHome / c.entHome) : 0,
+      ultimaFechaHome: c.lastHome ? Utilities.formatDate(c.lastHome, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
+      diasUltimaHome: c.lastHome ? Math.round((new Date() - c.lastHome) / 86400000) : -1,
+      primeraFechaHome: c.firstHome ? Utilities.formatDate(c.firstHome, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
       estado: k.estado,
       vip: k.vip,
       prodTop: prodTopAbrev,

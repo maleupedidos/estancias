@@ -1,0 +1,197 @@
+[
+  {
+    "phone": "91145789490",
+    "name": "Ines Canale",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "2"
+      }
+    ]
+  },
+  {
+    "phone": "5492901408422",
+    "name": "Belen Garcia basualdo",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "5491139379131",
+    "name": "Lautaro Mari",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "5491126857061",
+    "name": "Dionisio Quesada",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "5491144017589",
+    "name": "Tomas Lanfranchi",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "91140269813",
+    "name": "sofía goldaracena",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "5493462383262",
+    "name": "Rufino de Bary",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "5491158945401",
+    "name": "Pauline de Ocampo",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "11444218259",
+    "name": "Ignacio Benguria",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "01141891873",
+    "name": "Federico Villanueva",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "91136896760",
+    "name": "Paz Maurette",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "91168277017",
+    "name": "Florencia Aguirre",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "phone": "5491140290347",
+    "name": "Macarena Sola Prats",
+    "error": "200 pero result={'result': False, 'info': 'Contact does not exist'}",
+    "set": [
+      {
+        "name": "activo_home_2026",
+        "value": "Si"
+      },
+      {
+        "name": "pedidos_home_2026",
+        "value": "1"
+      }
+    ]
+  }
+]

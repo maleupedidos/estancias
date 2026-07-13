@@ -1,0 +1,6 @@
+[
+  {
+    "phone": "5491134633613",
+    "error": "HTTPSConnectionPool(host='live-mt-server.wati.io', port=443): Read timed out. (read timeout=15)"
+  }
+]

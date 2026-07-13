@@ -1,0 +1,295 @@
+WATI BBDD — Plan de profesionalización
+Total cambios planificados: 116
+
+Por categoría:
+  barrio_normalizado: 99
+  asignado_Home: 11
+  zona_actualizada: 9
+  tipo_no_canon_mapeado: 7
+  asignado_Red: 4
+  asignado_Clubes: 2
+  asignado_Pilar: 2
+
+--- Detalle (primeros 50) ---
+
+📱 5491160029079 (Analia Pirola)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   • matchea Home Sheet (cliente=Analia Pirola)
+
+📱 5491149710397 (Fabiana)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491160541854 (Paula VN)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Champagnat Alto
+   • matchea Home Sheet (cliente=Paula Valiente)
+   • zona derivada de Sub Barrio="Champagnat Alto" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491151206625 (polakogrondona9)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Golf
+   • matchea Home Sheet (cliente=Poako Grondona)
+   • zona derivada de Sub Barrio="Golf" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Golf"
+
+📱 5491144738606 (Laura)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Argentina 3
+   • matchea Home Sheet (cliente=Laura Igarzabal)
+   • zona derivada de Sub Barrio="Argentina 3" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Argentina 3"
+
+📱 5491121626420 (Gise)
+   Antes: tipo=None zona=None barrio=Villa Bertha
+   SET tipo_de_contacto = Red
+   • matchea Red Sheet
+
+📱 5491162482450 (Dra Maria Lucia Migueliz)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Golf
+   • matchea Home Sheet (cliente=Lucía Migueliz)
+   • zona derivada de Sub Barrio="Golf" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Golf"
+
+📱 5491162079394 (Pili)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Golf
+   • barrio_privado normalizado "None" -> "Golf"
+
+📱 5491134303648 (Valeria)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Argentina 1
+   • barrio_privado normalizado "None" -> "Argentina 1"
+
+📱 5491145584158 (Honorio Augusto BASUALDO)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491151619317 (simon)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Alto
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491122474019 (Francisco Donato)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Alto
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491136359080 (Carola Narbais)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491131353670 (Lucas)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491135841864 (Sofía)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Alto
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491144221548 (Maru)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = La Pionera
+   • barrio_privado normalizado "None" -> "La Pionera"
+
+📱 5491155693202 (Mateo Fernandez)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = El Recuerdo
+   • barrio_privado normalizado "None" -> "El Recuerdo"
+
+📱 5491155771209 (Agustina Sarmiento)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5492396419527 (Elena Garcia Guerra)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=Pilara
+   SET barrio_privado = El Recuerdo
+   • barrio_privado normalizado "Pilara" -> "El Recuerdo"
+
+📱 5491134702803 (Delfina Peña)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Golf
+   • barrio_privado normalizado "None" -> "Golf"
+
+📱 5491160108407 (Mariana Sojo)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = El Recuerdo
+   • barrio_privado normalizado "None" -> "El Recuerdo"
+
+📱 5491167106641 (Rodrigo Amadeo)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Alto
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491131598989 (Agustina Auge)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=Estancias Del Rio
+   SET barrio_privado = Golf
+   • barrio_privado normalizado "Estancias Del Rio" -> "Golf"
+
+📱 5491134697761 (Consuelo)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = La Paz
+   • barrio_privado normalizado "None" -> "La Paz"
+
+📱 5491121581171 (Santiago)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Argentina 4
+   • barrio_privado normalizado "None" -> "Argentina 4"
+
+📱 5491150255880 (Maria)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491149744127 (Milagros)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = La Pionera
+   • barrio_privado normalizado "None" -> "La Pionera"
+
+📱 5491131900663 (Patricia)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491137903759 (Horacio Gowland)
+   Antes: tipo=Home zona=Los Alcanfores barrio=Alcanfores
+   SET barrio_privado = Los Alcanfores
+   • barrio_privado normalizado "Alcanfores" -> "Los Alcanfores"
+
+📱 5491131414447 (Natalia Galarce)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=Champagnat Alto
+   SET barrio_privado = Golf
+   • barrio_privado normalizado "Champagnat Alto" -> "Golf"
+
+📱 5491144400445 (Carolina Quinterno)
+   Antes: tipo=Home zona=Estancias del Rio barrio=Estancias Del Rio
+   SET barrio_privado = Estancias del Rio
+   • barrio_privado normalizado "Estancias Del Rio" -> "Estancias del Rio"
+
+📱 5491144157165 (Eduardo Del Piano)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=Champagnat Bajo
+   SET barrio_privado = El Recuerdo
+   • barrio_privado normalizado "Champagnat Bajo" -> "El Recuerdo"
+
+📱 5491155735261 (Veronica Viale)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=Champagnat Alto
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "Champagnat Alto" -> "Champagnat Bajo"
+
+📱 5491168277017 (Florencia Aguirre)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=Champagnat Alto
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "Champagnat Alto" -> "Champagnat Bajo"
+
+📱 5492396510858 (Maria Dubois)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=Pilara
+   SET barrio_privado = Argentina 3
+   • barrio_privado normalizado "Pilara" -> "Argentina 3"
+
+📱 5491160029079 (Analia Pirola)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   • matchea Home Sheet (cliente=Analia Pirola)
+
+📱 5491149710397 (Fabiana)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491160541854 (Paula VN)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Champagnat Alto
+   • matchea Home Sheet (cliente=Paula Valiente)
+   • zona derivada de Sub Barrio="Champagnat Alto" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491151206625 (polakogrondona9)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Golf
+   • matchea Home Sheet (cliente=Poako Grondona)
+   • zona derivada de Sub Barrio="Golf" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Golf"
+
+📱 5491144738606 (Laura)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Argentina 3
+   • matchea Home Sheet (cliente=Laura Igarzabal)
+   • zona derivada de Sub Barrio="Argentina 3" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Argentina 3"
+
+📱 5491121626420 (Gise)
+   Antes: tipo=None zona=None barrio=Villa Bertha
+   SET tipo_de_contacto = Red
+   • matchea Red Sheet
+
+📱 5491162482450 (Dra Maria Lucia Migueliz)
+   Antes: tipo=None zona=None barrio=None
+   SET tipo_de_contacto = Home
+   SET zona = Estancias del Pilar
+   SET barrio_privado = Golf
+   • matchea Home Sheet (cliente=Lucía Migueliz)
+   • zona derivada de Sub Barrio="Golf" -> Estancias del Pilar
+   • barrio_privado normalizado "None" -> "Golf"
+
+📱 5491162079394 (Pili)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Golf
+   • barrio_privado normalizado "None" -> "Golf"
+
+📱 5491134303648 (Valeria)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Argentina 1
+   • barrio_privado normalizado "None" -> "Argentina 1"
+
+📱 5491145584158 (Honorio Augusto BASUALDO)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491151619317 (simon)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Alto
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491122474019 (Francisco Donato)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Alto
+   • barrio_privado normalizado "None" -> "Champagnat Alto"
+
+📱 5491136359080 (Carola Narbais)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491131353670 (Lucas)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Bajo
+   • barrio_privado normalizado "None" -> "Champagnat Bajo"
+
+📱 5491135841864 (Sofía)
+   Antes: tipo=Home zona=Estancias del Pilar barrio=None
+   SET barrio_privado = Champagnat Alto
+   • barrio_privado normalizado "None" -> "Champagnat Alto"

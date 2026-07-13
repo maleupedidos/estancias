@@ -1,0 +1,9199 @@
+[
+  {
+    "phone": "5491160029079",
+    "name": "Analia Pirola",
+    "current": {
+      "tipo": "Home",
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      }
+    ],
+    "reasons": [
+      "Home sin zona -> default Estancias del Pilar"
+    ]
+  },
+  {
+    "phone": "5491162602511",
+    "name": "Manu",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160029079",
+    "name": "Analia Pirola",
+    "current": {
+      "tipo": "Home",
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      }
+    ],
+    "reasons": [
+      "Home sin zona -> default Estancias del Pilar"
+    ]
+  },
+  {
+    "phone": "5491162602511",
+    "name": "Manu",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492352506939",
+    "name": "Guillermo F",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130457108",
+    "name": "Seb",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491169642724",
+    "name": "Mariela",
+    "current": {
+      "tipo": "Contacto",
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "\"Contacto\" no canónico residual -> Prospecto"
+    ]
+  },
+  {
+    "phone": "5493564662133",
+    "name": "5493564662133",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153271555",
+    "name": "5491153271555",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491138908150",
+    "name": "Felicitas",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153873715",
+    "name": "5491153873715",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153834376",
+    "name": "5491153834376",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153752788",
+    "name": "5491153752788",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154521909",
+    "name": "5491154521909",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154229191",
+    "name": "5491154229191",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154180572",
+    "name": "5491154180572",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154152360",
+    "name": "5491154152360",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154123449",
+    "name": "5491154123449",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154103284",
+    "name": "5491154103284",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154040229",
+    "name": "5491154040229",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155018627",
+    "name": "5491155018627",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154980287",
+    "name": "5491154980287",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154839014",
+    "name": "5491154839014",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154798499",
+    "name": "5491154798499",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154834731",
+    "name": "5491154834731",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154705136",
+    "name": "5491154705136",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154668949",
+    "name": "5491154668949",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154580772",
+    "name": "5491154580772",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154580198",
+    "name": "5491154580198",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154605299",
+    "name": "5491154605299",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154541935",
+    "name": "5491154541935",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155684185",
+    "name": "5491155684185",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155633139",
+    "name": "5491155633139",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155299324",
+    "name": "5491155299324",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155266640",
+    "name": "5491155266640",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155069714",
+    "name": "5491155069714",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155030853",
+    "name": "5491155030853",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155125224",
+    "name": "5491155125224",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156637741",
+    "name": "5491156637741",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156675556",
+    "name": "5491156675556",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156554379",
+    "name": "5491156554379",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156391938",
+    "name": "5491156391938",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156256949",
+    "name": "5491156256949",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156212130",
+    "name": "5491156212130",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156068397",
+    "name": "5491156068397",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155991899",
+    "name": "5491155991899",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155871340",
+    "name": "5491155871340",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155791885",
+    "name": "5491155791885",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155789038",
+    "name": "5491155789038",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155772196",
+    "name": "5491155772196",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155737878",
+    "name": "5491155737878",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157648426",
+    "name": "5491157648426",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157481870",
+    "name": "5491157481870",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157421812",
+    "name": "5491157421812",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157355261",
+    "name": "5491157355261",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157298828",
+    "name": "5491157298828",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157048084",
+    "name": "5491157048084",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157040042",
+    "name": "5491157040042",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156699376",
+    "name": "5491156699376",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158239110",
+    "name": "5491158239110",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158224136",
+    "name": "5491158224136",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158173230",
+    "name": "5491158173230",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158204777",
+    "name": "5491158204777",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158139792",
+    "name": "5491158139792",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158096835",
+    "name": "5491158096835",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158081089",
+    "name": "5491158081089",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157941345",
+    "name": "5491157941345",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157815097",
+    "name": "5491157815097",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157715939",
+    "name": "5491157715939",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157653740",
+    "name": "5491157653740",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159716225",
+    "name": "5491159716225",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159605181",
+    "name": "5491159605181",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159554698",
+    "name": "5491159554698",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159548659",
+    "name": "5491159548659",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159390511",
+    "name": "5491159390511",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159069530",
+    "name": "5491159069530",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158840054",
+    "name": "5491158840054",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158820240",
+    "name": "5491158820240",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158700374",
+    "name": "5491158700374",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158523520",
+    "name": "5491158523520",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158466955",
+    "name": "5491158466955",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161496202",
+    "name": "5491161496202",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161378543",
+    "name": "5491161378543",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161351281",
+    "name": "5491161351281",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161320002",
+    "name": "5491161320002",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161113793",
+    "name": "5491161113793",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161078853",
+    "name": "5491161078853",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160572349",
+    "name": "5491160572349",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160541859",
+    "name": "5491160541859",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160434379",
+    "name": "5491160434379",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160383197",
+    "name": "5491160383197",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160208390",
+    "name": "5491160208390",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160037331",
+    "name": "5491160037331",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159950881",
+    "name": "5491159950881",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160100860",
+    "name": "5491160100860",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161565415",
+    "name": "5491161565415",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161564710",
+    "name": "5491161564710",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161565242",
+    "name": "5491161565242",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491123329171",
+    "name": "5491123329171",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126818115",
+    "name": "5491126818115",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491127201614",
+    "name": "5491127201614",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126951447",
+    "name": "5491126951447",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130002220",
+    "name": "5491130002220",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491128960521",
+    "name": "5491128960521",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131512569",
+    "name": "5491131512569",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131389168",
+    "name": "5491131389168",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132870317",
+    "name": "5491132870317",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131801262",
+    "name": "5491131801262",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135613810",
+    "name": "5491135613810",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140892513",
+    "name": "5491140892513",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140891890",
+    "name": "5491140891890",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141816680",
+    "name": "5491141816680",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141456063",
+    "name": "5491141456063",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144148164",
+    "name": "5491144148164",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144139003",
+    "name": "5491144139003",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144794188",
+    "name": "5491144794188",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144793787",
+    "name": "5491144793787",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150072306",
+    "name": "5491150072306",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150062262",
+    "name": "5491150062262",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151338410",
+    "name": "5491151338410",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150417828",
+    "name": "5491150417828",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150395034",
+    "name": "5491150395034",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491152504560",
+    "name": "5491152504560",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140293771",
+    "name": "5491140293771",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154933061",
+    "name": "5491154933061",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160541858",
+    "name": "5491160541858",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130520553",
+    "name": "5491130520553",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156511125",
+    "name": "5491156511125",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491168311000",
+    "name": "5491168311000",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165630292",
+    "name": "5491165630292",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159457855",
+    "name": "5491159457855",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149376287",
+    "name": "5491149376287",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491164738376",
+    "name": "5491164738376",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161670620",
+    "name": "5491161670620",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136712460",
+    "name": "5491136712460",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141855891",
+    "name": "5491141855891",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153355005",
+    "name": "5491153355005",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149755077",
+    "name": "5491149755077",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491168634356",
+    "name": "5491168634356",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159822295",
+    "name": "5491159822295",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161955833",
+    "name": "5491161955833",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160541857",
+    "name": "5491160541857",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130718784",
+    "name": "5491130718784",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162730658",
+    "name": "5491162730658",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492302614800",
+    "name": "5492302614800",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158094459",
+    "name": "5491158094459",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154649466",
+    "name": "5491154649466",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491164697025",
+    "name": "5491164697025",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150048538",
+    "name": "5491150048538",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493462502557",
+    "name": "5493462502557",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151013517",
+    "name": "5491151013517",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491122518959",
+    "name": "5491122518959",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155971952",
+    "name": "5491155971952",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162095238",
+    "name": "5491162095238",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165889398",
+    "name": "5491165889398",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492923643039",
+    "name": "5492923643039",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493875854238",
+    "name": "5493875854238",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154691699",
+    "name": "5491154691699",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160065618",
+    "name": "5491160065618",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492392627730",
+    "name": "5492392627730",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130764756",
+    "name": "5491130764756",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165805728",
+    "name": "5491165805728",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159597414",
+    "name": "5491159597414",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144054385",
+    "name": "5491144054385",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158696282",
+    "name": "5491158696282",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491122760403",
+    "name": "5491122760403",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155025877",
+    "name": "5491155025877",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154213619",
+    "name": "Pamela",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151189140",
+    "name": "Paula",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156396664",
+    "name": "Ine",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149374012",
+    "name": "Cristina",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491124548226",
+    "name": "5491124548226",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491124521977",
+    "name": "5491124521977",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491124518324",
+    "name": "5491124518324",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491123751288",
+    "name": "5491123751288",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491123356756",
+    "name": "5491123356756",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491122761988",
+    "name": "5491122761988",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491122488120",
+    "name": "5491122488120",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491121591701",
+    "name": "5491121591701",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491121541079",
+    "name": "5491121541079",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491167250531",
+    "name": "Facu",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165711555",
+    "name": "Agustina",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491127417827",
+    "name": "5491127417827",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126572525",
+    "name": "5491126572525",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126541999",
+    "name": "5491126541999",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126251276",
+    "name": "5491126251276",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126045572",
+    "name": "5491126045572",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491125835976",
+    "name": "5491125835976",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491125645424",
+    "name": "5491125645424",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491124555663",
+    "name": "5491124555663",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130589218",
+    "name": "5491130589218",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130431025",
+    "name": "5491130431025",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130081999",
+    "name": "5491130081999",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491128770800",
+    "name": "5491128770800",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491128448205",
+    "name": "5491128448205",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491128441995",
+    "name": "5491128441995",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491128351424",
+    "name": "5491128351424",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491128341582",
+    "name": "5491128341582",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491127937017",
+    "name": "5491127937017",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491128250853",
+    "name": "5491128250853",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491127800010",
+    "name": "5491127800010",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131532323",
+    "name": "5491131532323",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131515662",
+    "name": "5491131515662",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131336109",
+    "name": "5491131336109",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131251978",
+    "name": "5491131251978",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131203785",
+    "name": "5491131203785",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131032284",
+    "name": "5491131032284",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130971127",
+    "name": "5491130971127",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130824197",
+    "name": "5491130824197",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130746052",
+    "name": "5491130746052",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130714664",
+    "name": "5491130714664",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130622255",
+    "name": "5491130622255",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491133237269",
+    "name": "5491133237269",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132736038",
+    "name": "5491132736038",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132543289",
+    "name": "5491132543289",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132520825",
+    "name": "5491132520825",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132505500",
+    "name": "5491132505500",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132455257",
+    "name": "5491132455257",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131962562",
+    "name": "5491131962562",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131932271",
+    "name": "5491131932271",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131912906",
+    "name": "5491131912906",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131809155",
+    "name": "5491131809155",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131809131",
+    "name": "5491131809131",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131723094",
+    "name": "5491131723094",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131707586",
+    "name": "5491131707586",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135904776",
+    "name": "5491135904776",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135848574",
+    "name": "5491135848574",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135812982",
+    "name": "5491135812982",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135811741",
+    "name": "5491135811741",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135811727",
+    "name": "5491135811727",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135802168",
+    "name": "5491135802168",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135726048",
+    "name": "5491135726048",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135633262",
+    "name": "5491135633262",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134840344",
+    "name": "5491134840344",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134836063",
+    "name": "5491134836063",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134560780",
+    "name": "5491134560780",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134490284",
+    "name": "5491134490284",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134288173",
+    "name": "5491134288173",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134066082",
+    "name": "5491134066082",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491133487374",
+    "name": "5491133487374",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134013738",
+    "name": "5491134013738",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491139022442",
+    "name": "5491139022442",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491138426042",
+    "name": "5491138426042",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491138110149",
+    "name": "5491138110149",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491138072640",
+    "name": "5491138072640",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491138054656",
+    "name": "5491138054656",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491137969675",
+    "name": "5491137969675",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491137013101",
+    "name": "5491137013101",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136712459",
+    "name": "5491136712459",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136469614",
+    "name": "5491136469614",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136378400",
+    "name": "5491136378400",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136261114",
+    "name": "5491136261114",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140806016",
+    "name": "5491140806016",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140751611",
+    "name": "5491140751611",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140740608",
+    "name": "5491140740608",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140621913",
+    "name": "5491140621913",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140494540",
+    "name": "5491140494540",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140479844",
+    "name": "5491140479844",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140475384",
+    "name": "5491140475384",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140381179",
+    "name": "5491140381179",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140277278",
+    "name": "5491140277278",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140275467",
+    "name": "5491140275467",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140257459",
+    "name": "5491140257459",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491139554453",
+    "name": "5491139554453",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491139502014",
+    "name": "5491139502014",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491139474470",
+    "name": "5491139474470",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141856212",
+    "name": "5491141856212",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141853023",
+    "name": "5491141853023",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141737405",
+    "name": "5491141737405",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141696288",
+    "name": "5491141696288",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141690326",
+    "name": "5491141690326",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141638403",
+    "name": "5491141638403",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141568447",
+    "name": "5491141568447",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141584877",
+    "name": "5491141584877",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141566173",
+    "name": "5491141566173",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141459900",
+    "name": "5491141459900",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141420164",
+    "name": "5491141420164",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141434852",
+    "name": "5491141434852",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140997512",
+    "name": "5491140997512",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144460361",
+    "name": "5491144460361",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144395985",
+    "name": "5491144395985",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144385750",
+    "name": "5491144385750",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144221108",
+    "name": "5491144221108",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144208433",
+    "name": "5491144208433",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144189739",
+    "name": "5491144189739",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144162641",
+    "name": "5491144162641",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144114285",
+    "name": "5491144114285",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144050464",
+    "name": "5491144050464",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141999097",
+    "name": "5491141999097",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141948837",
+    "name": "5491141948837",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141917116",
+    "name": "5491141917116",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141891246",
+    "name": "5491141891246",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145260883",
+    "name": "5491145260883",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144988228",
+    "name": "5491144988228",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144979698",
+    "name": "5491144979698",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144911421",
+    "name": "5491144911421",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144791397",
+    "name": "5491144791397",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144771511",
+    "name": "5491144771511",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144714902",
+    "name": "5491144714902",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144707366",
+    "name": "5491144707366",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144703312",
+    "name": "5491144703312",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144701426",
+    "name": "5491144701426",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144474574",
+    "name": "5491144474574",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144474343",
+    "name": "5491144474343",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149365000",
+    "name": "5491149365000",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145389667",
+    "name": "5491145389667",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145364912",
+    "name": "5491145364912",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145333593",
+    "name": "5491145333593",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145261777",
+    "name": "5491145261777",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150259283",
+    "name": "5491150259283",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150230422",
+    "name": "5491150230422",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150150373",
+    "name": "5491150150373",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150053007",
+    "name": "5491150053007",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149898649",
+    "name": "5491149898649",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149783490",
+    "name": "5491149783490",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149496675",
+    "name": "5491149496675",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149468910",
+    "name": "5491149468910",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149450543",
+    "name": "5491149450543",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151434886",
+    "name": "5491151434886",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151400084",
+    "name": "5491151400084",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151342410",
+    "name": "5491151342410",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151249797",
+    "name": "5491151249797",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151238261",
+    "name": "5491151238261",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151077720",
+    "name": "5491151077720",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151150532",
+    "name": "5491151150532",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150631324",
+    "name": "5491150631324",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150574792",
+    "name": "5491150574792",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150534702",
+    "name": "5491150534702",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150498693",
+    "name": "5491150498693",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153135954",
+    "name": "5491153135954",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491152575255",
+    "name": "5491152575255",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151603224",
+    "name": "5491151603224",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151552488",
+    "name": "5491151552488",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491152482205",
+    "name": "5491152482205",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491152268136",
+    "name": "5491152268136",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151851581",
+    "name": "5491151851581",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491152485340",
+    "name": "5491152485340",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151805811",
+    "name": "5491151805811",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153284510",
+    "name": "5491153284510",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153394049",
+    "name": "5491153394049",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153417777",
+    "name": "5491153417777",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130401007",
+    "name": "Lucas D",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126116291",
+    "name": "Thor Miranda",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491127445695",
+    "name": "Lorenzo Galarce",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144380106",
+    "name": "Juan Manuel",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491152601900",
+    "name": "Salvador Galarce",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145288938",
+    "name": "5491145288938",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141607543",
+    "name": "5491141607543",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153130851",
+    "name": "5491153130851",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160023902",
+    "name": "5491160023902",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491138157524",
+    "name": "5491138157524",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491166082778",
+    "name": "5491166082778",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158474876",
+    "name": "5491158474876",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491133826093",
+    "name": "5491133826093",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491138115479",
+    "name": "5491138115479",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491121671693",
+    "name": "5491121671693",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140995005",
+    "name": "5491140995005",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144934430",
+    "name": "5491144934430",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149463986",
+    "name": "5491149463986",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149736679",
+    "name": "5491149736679",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153475731",
+    "name": "5491153475731",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130730007",
+    "name": "5491130730007",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136856097",
+    "name": "5491136856097",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144234105",
+    "name": "5491144234105",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491127283519",
+    "name": "5491127283519",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140608065",
+    "name": "5491140608065",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158367743",
+    "name": "5491158367743",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491166122202",
+    "name": "5491166122202",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159316429",
+    "name": "5491159316429",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491166834379",
+    "name": "5491166834379",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134332702",
+    "name": "5491134332702",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157471622",
+    "name": "5491157471622",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165940773",
+    "name": "5491165940773",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159615910",
+    "name": "5491159615910",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157036121",
+    "name": "5491157036121",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155661500",
+    "name": "5491155661500",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130420223",
+    "name": "5491130420223",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144952179",
+    "name": "5491144952179",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491169400969",
+    "name": "5491169400969",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136236151",
+    "name": "5491136236151",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140827093",
+    "name": "5491140827093",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491126362077",
+    "name": "5491126362077",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140754670",
+    "name": "5491140754670",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130063902",
+    "name": "5491130063902",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149356111",
+    "name": "5491149356111",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491152281152",
+    "name": "5491152281152",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491168672322",
+    "name": "5491168672322",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140765206",
+    "name": "5491140765206",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140483064",
+    "name": "5491140483064",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493704604847",
+    "name": "5493704604847",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153385436",
+    "name": "5491153385436",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491169971928",
+    "name": "5491169971928",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491168546158",
+    "name": "5491168546158",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141567033",
+    "name": "5491141567033",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491164350517",
+    "name": "5491164350517",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165686935",
+    "name": "5491165686935",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153089651",
+    "name": "5491153089651",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155677852",
+    "name": "5491155677852",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162923735",
+    "name": "5491162923735",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491163647275",
+    "name": "5491163647275",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131352333",
+    "name": "5491131352333",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141765582",
+    "name": "5491141765582",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156623728",
+    "name": "5491156623728",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491169200999",
+    "name": "5491169200999",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130935699",
+    "name": "5491130935699",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150139399",
+    "name": "5491150139399",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153491246",
+    "name": "5491153491246",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493584392035",
+    "name": "5493584392035",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491167575647",
+    "name": "5491167575647",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154578098",
+    "name": "5491154578098",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491163687888",
+    "name": "5491163687888",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154234129",
+    "name": "5491154234129",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135598667",
+    "name": "5491135598667",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150369922",
+    "name": "5491150369922",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165683111",
+    "name": "5491165683111",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492227441203",
+    "name": "5492227441203",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162387368",
+    "name": "5491162387368",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130322955",
+    "name": "5491130322955",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141751159",
+    "name": "5491141751159",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491163329461",
+    "name": "5491163329461",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144700204",
+    "name": "5491144700204",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134277014",
+    "name": "5491134277014",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491168630329",
+    "name": "5491168630329",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162915621",
+    "name": "5491162915621",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130572861",
+    "name": "5491130572861",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153455872",
+    "name": "5491153455872",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150171346",
+    "name": "5491150171346",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162102285",
+    "name": "5491162102285",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159243020",
+    "name": "5491159243020",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158845384",
+    "name": "5491158845384",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150056553",
+    "name": "5491150056553",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151104298",
+    "name": "5491151104298",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491140436489",
+    "name": "5491140436489",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144718919",
+    "name": "5491144718919",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491137038910",
+    "name": "5491137038910",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144923005",
+    "name": "5491144923005",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159000048",
+    "name": "5491159000048",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141637407",
+    "name": "5491141637407",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158358537",
+    "name": "5491158358537",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136620842",
+    "name": "5491136620842",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161543265",
+    "name": "5491161543265",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491122506220",
+    "name": "5491122506220",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491167611851",
+    "name": "5491167611851",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162812699",
+    "name": "5491162812699",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131256239",
+    "name": "5491131256239",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144491709",
+    "name": "5491144491709",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492494574008",
+    "name": "5492494574008",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492396436575",
+    "name": "5492396436575",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144106114",
+    "name": "5491144106114",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151107583",
+    "name": "5491151107583",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136460243",
+    "name": "5491136460243",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491161918900",
+    "name": "5491161918900",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491159405890",
+    "name": "5491159405890",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156260808",
+    "name": "5491156260808",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154249545",
+    "name": "5491154249545",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156694199",
+    "name": "5491156694199",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493385462500",
+    "name": "5493385462500",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158059038",
+    "name": "5491158059038",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491137724342",
+    "name": "5491137724342",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145376440",
+    "name": "5491145376440",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491123340187",
+    "name": "5491123340187",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165885216",
+    "name": "5491165885216",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491166211311",
+    "name": "5491166211311",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491164594004",
+    "name": "5491164594004",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158233499",
+    "name": "5491158233499",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131255847",
+    "name": "5491131255847",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132692075",
+    "name": "5491132692075",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493388670654",
+    "name": "5493388670654",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153884448",
+    "name": "5491153884448",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491139478318",
+    "name": "5491139478318",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131800170",
+    "name": "5491131800170",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493364532477",
+    "name": "5493364532477",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155779065",
+    "name": "5491155779065",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492616916619",
+    "name": "5492616916619",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491156519295",
+    "name": "5491156519295",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157446249",
+    "name": "5491157446249",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153260777",
+    "name": "5491153260777",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491136257779",
+    "name": "5491136257779",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157807355",
+    "name": "5491157807355",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160528269",
+    "name": "5491160528269",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162883452",
+    "name": "5491162883452",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491167350776",
+    "name": "5491167350776",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141749553",
+    "name": "5491141749553",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491131803440",
+    "name": "5491131803440",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493388432050",
+    "name": "5493388432050",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491123013371",
+    "name": "5491123013371",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150147703",
+    "name": "5491150147703",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165681328",
+    "name": "5491165681328",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144450389",
+    "name": "5491144450389",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144707507",
+    "name": "5491144707507",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491158379533",
+    "name": "5491158379533",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491139394746",
+    "name": "5491139394746",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155282550",
+    "name": "5491155282550",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141845780",
+    "name": "5491141845780",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491169689454",
+    "name": "5491169689454",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5492494688484",
+    "name": "5492494688484",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491130617549",
+    "name": "5491130617549",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493548636041",
+    "name": "5493548636041",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491135682884",
+    "name": "5491135682884",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491121759281",
+    "name": "5491121759281",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491157655766",
+    "name": "5491157655766",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151832002",
+    "name": "5491151832002",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154025140",
+    "name": "5491154025140",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5493462503463",
+    "name": "5493462503463",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491160968638",
+    "name": "5491160968638",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134060306",
+    "name": "5491134060306",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162111116",
+    "name": "5491162111116",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165396721",
+    "name": "5491165396721",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491164088021",
+    "name": "Rufino Moreno Hueyo",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491124967043",
+    "name": "5491124967043",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162499990",
+    "name": "5491162499990",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491124541437",
+    "name": "5491124541437",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132097808",
+    "name": "5491132097808",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165062401",
+    "name": "5491165062401",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491137994987",
+    "name": "5491137994987",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132084850",
+    "name": "5491132084850",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491149379995",
+    "name": "5491149379995",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491132260483",
+    "name": "5491132260483",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491168724559",
+    "name": "5491168724559",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491155781610",
+    "name": "5491155781610",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162229022",
+    "name": "5491162229022",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491122980526",
+    "name": "5491122980526",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491154970082",
+    "name": "5491154970082",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491165093424",
+    "name": "5491165093424",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491162034870",
+    "name": "5491162034870",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491134142322",
+    "name": "5491134142322",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151061019",
+    "name": "5491151061019",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491153282076",
+    "name": "5491153282076",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151825453",
+    "name": "5491151825453",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491151502935",
+    "name": "5491151502935",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150497281",
+    "name": "5491150497281",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150015749",
+    "name": "5491150015749",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150114732",
+    "name": "5491150114732",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491150246359",
+    "name": "5491150246359",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145656904",
+    "name": "5491145656904",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491144716708",
+    "name": "5491144716708",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141716336",
+    "name": "5491141716336",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491141814594",
+    "name": "5491141814594",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491145401884",
+    "name": "Victoria",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491123122101",
+    "name": "5491123122101",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  },
+  {
+    "phone": "5491123265318",
+    "name": "Simon",
+    "current": {
+      "tipo": null,
+      "zona": null
+    },
+    "set": [
+      {
+        "name": "tipo_de_contacto",
+        "value": "Prospecto"
+      }
+    ],
+    "reasons": [
+      "sin tipo -> Prospecto (default)"
+    ]
+  }
+]

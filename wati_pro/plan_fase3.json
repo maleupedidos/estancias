@@ -1,0 +1,70 @@
+[
+  {
+    "phone": "5492494568935",
+    "name": "Pilar Murga",
+    "current": {
+      "tipo": "Home",
+      "zona": "(sin zona)"
+    },
+    "set": [
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      }
+    ],
+    "reasons": [
+      "valor basura \"(sin zona)\" -> Estancias del Pilar"
+    ]
+  },
+  {
+    "phone": "5491149280421",
+    "name": "Alejandra Gettas",
+    "current": {
+      "tipo": "Home",
+      "zona": "(sin zona)"
+    },
+    "set": [
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      }
+    ],
+    "reasons": [
+      "valor basura \"(sin zona)\" -> Estancias del Pilar"
+    ]
+  },
+  {
+    "phone": "5491131191008",
+    "name": "Pablo Andrieu",
+    "current": {
+      "tipo": "Home",
+      "zona": "(sin zona)"
+    },
+    "set": [
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      }
+    ],
+    "reasons": [
+      "valor basura \"(sin zona)\" -> Estancias del Pilar"
+    ]
+  },
+  {
+    "phone": "5491136303661",
+    "name": "Marina",
+    "current": {
+      "tipo": "Home",
+      "zona": "(sin zona)"
+    },
+    "set": [
+      {
+        "name": "zona",
+        "value": "Estancias del Pilar"
+      }
+    ],
+    "reasons": [
+      "valor basura \"(sin zona)\" -> Estancias del Pilar"
+    ]
+  }
+]
