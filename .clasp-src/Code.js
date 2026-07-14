@@ -14277,13 +14277,23 @@ function _doPostCrmSetVisitante(data) {
 //  de un punto base (movido/renombrado); 'a<ts>' = punto agregado. Borrado=TRUE lo
 //  oculta. El front carga el GeoJSON y aplica estas correcciones encima.
 // ════════════════════════════════════════════════════════════
+// Layout: [ID, Lote, Lat, Lng, Borrado, Updated, Tipo, Dueño]. Tipo (col 7) =
+// 'casa' (default) | 'anexo' (parcela que es parte de otra casa) | 'baldio'
+// (terreno vacío). Dueño (col 8) = nº de lote de la casa principal, solo para
+// anexos (así el cliente registrado bajo cualquier parcela cae en la casa).
+// Anexo y baldío se excluyen del denominador de penetración (no son unidades
+// vendibles). Tipo/Dueño se agregaron DESPUÉS de Updated para no migrar datos.
 function _crmPuntosSheet() {
   var sh = SS.getSheetByName('Lotes Puntos');
   if (!sh) {
     sh = SS.insertSheet('Lotes Puntos');
-    sh.getRange(1, 1, 1, 6).setValues([['ID', 'Lote', 'Lat', 'Lng', 'Borrado', 'Updated']])
+    sh.getRange(1, 1, 1, 8).setValues([['ID', 'Lote', 'Lat', 'Lng', 'Borrado', 'Updated', 'Tipo', 'Dueño']])
       .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
+  } else if (String(sh.getRange(1, 7).getValue() || '').trim() !== 'Tipo') {
+    // Sheet viejo (6 cols): agrego los encabezados de Tipo/Dueño una sola vez.
+    sh.getRange(1, 7, 1, 2).setValues([['Tipo', 'Dueño']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
   }
   return sh;
 }
@@ -14292,7 +14302,7 @@ function _doGetCrmPuntos(e) {
   var sh = _crmPuntosSheet();
   var out = [];
   if (sh.getLastRow() > 1) {
-    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues();
     for (var r = 0; r < data.length; r++) {
       var id = String(data[r][0] || '').trim();
       if (!id) continue;
@@ -14301,7 +14311,9 @@ function _doGetCrmPuntos(e) {
         lote: String(data[r][1] || '').trim(),
         lat: Number(data[r][2]),
         lng: Number(data[r][3]),
-        borrado: String(data[r][4] || '').trim().toUpperCase() === 'TRUE'
+        borrado: String(data[r][4] || '').trim().toUpperCase() === 'TRUE',
+        tipo: String(data[r][6] || '').trim().toLowerCase() || 'casa',
+        dueno: String(data[r][7] || '').trim()
       });
     }
   }
@@ -14317,12 +14329,15 @@ function _doPostCrmPuntoSave(data) {
   }
   var sh = _crmPuntosSheet();
   var borrado = (data.borrado === 1 || data.borrado === '1' || data.borrado === true) ? 'TRUE' : '';
-  var row = [id, String(data.lote || ''), Number(data.lat) || '', Number(data.lng) || '', borrado, new Date()];
+  var tipo = String(data.tipo || 'casa').trim().toLowerCase();
+  if (tipo !== 'anexo' && tipo !== 'baldio') tipo = 'casa';
+  var dueno = tipo === 'anexo' ? String(data.dueno || '').trim() : '';
+  var row = [id, String(data.lote || ''), Number(data.lat) || '', Number(data.lng) || '', borrado, new Date(), tipo, dueno];
   if (sh.getLastRow() > 1) {
     var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
     for (var r = 0; r < ids.length; r++) {
       if (String(ids[r][0] || '').trim() === id) {
-        sh.getRange(r + 2, 1, 1, 6).setValues([row]);
+        sh.getRange(r + 2, 1, 1, 8).setValues([row]);
         return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'punto actualizado'}))
           .setMimeType(ContentService.MimeType.JSON);
       }
