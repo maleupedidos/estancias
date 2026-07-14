@@ -3934,6 +3934,7 @@ function doPost(e) {
     if (data.action === 'crmZonaSave')          return _doPostCrmZonaSave(data);
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
     if (data.action === 'crmLoteSave')          return _doPostCrmLoteSave(data);
+    if (data.action === 'crmSetVisitante')      return _doPostCrmSetVisitante(data);
     if (data.action === 'hogaresMergeSave')     return _doPostHogaresMerge(data);
     if (data.action === 'crmPuntoSave')         return _doPostCrmPuntoSave(data);
     if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
@@ -10810,7 +10811,26 @@ function _doPostCobrarVendedorRed(data) {
   }
 
   if (updatedTotal === 0) {
-    return ContentService.createTextOutput(JSON.stringify({ok:true, updated:0, msg:'sin pedidos por cobrar'})).setMimeType(ContentService.MimeType.JSON);
+    // Distinguir "ya estaba todo pagado" (tranquilizador, card vieja) de "no coincide
+    // el nombre / no existe" (problema real). Así el frontend no asusta cuando el
+    // vendedor simplemente ya fue cobrado (caso Marcos 14/07: card cacheada).
+    var totalDelVend = 0, yaPagados = 0, ultimaFechaPago = '';
+    for (var iz = 1; iz < dAll.length; iz++) {
+      if (String(dAll[iz][7] || '').trim() !== vendedor) continue;
+      if (String(dAll[iz][11] || '').trim() === 'Cancelado') continue;
+      totalDelVend++;
+      var pmz = iPagoMaleu >= 0 ? String(dAll[iz][iPagoMaleu] || '').trim() : '';
+      if (pmz === 'Pagado' || pmz === 'Sí' || pmz === 'Si') {
+        yaPagados++;
+        var fpg = iFechaPagoMaleu >= 0 ? dAll[iz][iFechaPagoMaleu] : '';
+        if (fpg) ultimaFechaPago = (fpg instanceof Date) ? Utilities.formatDate(fpg, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fpg).split(' ')[0];
+      }
+    }
+    var reason = (totalDelVend === 0) ? 'sin_match' : (yaPagados > 0 ? 'ya_pagado' : 'sin_pendientes');
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true, updated: 0, reason: reason,
+      yaPagados: yaPagados, totalDelVend: totalDelVend, ultimaFechaPago: ultimaFechaPago
+    })).setMimeType(ContentService.MimeType.JSON);
   }
 
   // Crear filas en hoja Pagos Red Liq (una por semana ISO).
@@ -12903,14 +12923,15 @@ function _crmGetClientesMeta() {
   var sh = SS.getSheetByName('Clientes Meta');
   if (!sh) {
     sh = SS.insertSheet('Clientes Meta');
-    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra'];
+    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante'];
     sh.getRange(1, 1, 1, hdr.length).setValues([hdr]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
     sh.setColumnWidths(1, hdr.length, 140);
     return {};
   }
-  // Migración suave: si la hoja existe pero no tiene la col N (Canales Extra), agregar header.
+  // Migración suave: agregar headers de columnas nuevas si faltan.
   if (sh.getLastColumn() < 14) sh.getRange(1, 14).setValue('Canales Extra');
+  if (sh.getLastColumn() < 15) sh.getRange(1, 15).setValue('Visitante');
   if (sh.getLastRow() <= 1) return {};
   var data = sh.getDataRange().getValues();
   var map = {};
@@ -12932,6 +12953,9 @@ function _crmGetClientesMeta() {
       barrioMapa: String(data[r][11] || '').trim(),
       canalMapa: String(data[r][12] || '').trim(),
       canalesExtra: String(data[r][13] || '').split('|').map(function(s){ return s.trim(); }).filter(Boolean),
+      // Persona que pide a una casa de Estancias pero NO reside (ej. novia/prima/amigo).
+      // Se la saca de Clientes y Hogares (no es residente); el pedido/entrega queda intacto.
+      visitante: String(data[r][14] || '').trim().toUpperCase() === 'TRUE',
       _row: r + 1
     };
   }
@@ -13044,6 +13068,8 @@ function _crmFoldBucket(dst, src) {
   dst.deudaHome += src.deudaHome || 0;
   if (src.firstHome && (!dst.firstHome || src.firstHome < dst.firstHome)) dst.firstHome = src.firstHome;
   if (src.lastHome && (!dst.lastHome || src.lastHome > dst.lastHome)) dst.lastHome = src.lastHome;
+  dst.pendHome = (dst.pendHome || 0) + (src.pendHome || 0);
+  if (src.proxHome && (!dst.proxHome || src.proxHome < dst.proxHome)) dst.proxHome = src.proxHome;
   if (!dst.tel && src.tel) { dst.tel = src.tel; dst.telRaw = src.telRaw; }
 }
 
@@ -13097,7 +13123,12 @@ function _crmBuildClientesIndex() {
           lastFecha: null,
           // Solo canal Home entregado en Estancias del Pilar (retail del cockpit de
           // Estancias). El facturado general cruza canales (Clubes, Red…); estos NO.
-          factHome: 0, entHome: 0, cobrHome: 0, deudaHome: 0, firstHome: null, lastHome: null
+          factHome: 0, entHome: 0, cobrHome: 0, deudaHome: 0, firstHome: null, lastHome: null,
+          // Pedidos Home/Estancias cargados pero AÚN NO entregados (ej. pedido para
+          // mañana). No suman facturado ni cuentan como "entregado", pero el cliente
+          // NO está "sin compras": tiene una compra en curso. proxHome = fecha de
+          // entrega del pendiente más próximo (para mostrar "entrega mañana").
+          pendHome: 0, proxHome: null
         };
       }
       var c = bucket[key];
@@ -13192,6 +13223,13 @@ function _crmBuildClientesIndex() {
       // ¿Pedido Home entregado en Estancias del Pilar? (retail del cockpit de Estancias)
       var _esHomeEst = (cfg.name === 'Home') && (String(barrio || '').trim().toLowerCase() === 'estancias del pilar');
       if (_esHomeEst && fecha && (!c.firstHome || fecha < c.firstHome)) c.firstHome = fecha;
+      // Pendiente Home/Estancias (cargado, sin entregar). Los cancelados ya se
+      // filtraron arriba, así que "no Entregado" == pendiente/en curso.
+      if (_esHomeEst && estado !== 'Entregado') {
+        c.pendHome++;
+        var _pf = diaDate || fecha; // fecha de ENTREGA elegida; fallback: fecha del pedido
+        if (_pf && (!c.proxHome || _pf < c.proxHome)) c.proxHome = _pf;
+      }
       if (estado === 'Entregado') {
         c.countEntregados++;
         c.totalFacturado += total;
@@ -13359,6 +13397,10 @@ function _doGetCrmClientes(e) {
       ultimaFechaHome: c.lastHome ? Utilities.formatDate(c.lastHome, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
       diasUltimaHome: c.lastHome ? Math.round((new Date() - c.lastHome) / 86400000) : -1,
       primeraFechaHome: c.firstHome ? Utilities.formatDate(c.firstHome, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
+      // Pedidos Home/Estancias en curso (cargados, sin entregar) + fecha de entrega
+      // del más próximo. Para que un cliente con pedido para mañana no figure "Sin compras".
+      pendientesHome: c.pendHome || 0,
+      proxEntregaHome: c.proxHome ? Utilities.formatDate(c.proxHome, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : '',
       estado: k.estado,
       vip: k.vip,
       prodTop: prodTopAbrev,
@@ -13373,6 +13415,7 @@ function _doGetCrmClientes(e) {
       subBarrioMapa: (m && m.subBarrioMapa) || '',
       loteMapa: (m && m.loteMapa) || '',
       sinUbicacion: !!(m && m.sinUbicacion),
+      visitante: !!(m && m.visitante),   // no reside en Estancias (pidió a casa ajena)
       barrioMapa: (m && m.barrioMapa) || '',
       canalMapa: (m && m.canalMapa) || '',
       canalesExtra: (m && m.canalesExtra) || []   // canales manuales adicionales (ej. Eduardo: Clubes compra + Home casa)
@@ -14200,6 +14243,32 @@ function _doPostCrmLoteSave(data) {
   sh.appendRow(row);
   return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'lote creado'}))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  VISITANTE — persona que pide a una casa de Estancias pero NO reside ahí
+//  (novia/prima/amigo). Se la saca de Clientes y Hogares (no es residente), pero
+//  el pedido/entrega queda intacto (fue real → sigue contando en el Pulso). Flag
+//  de PERSONA en la meta (col 15), no-destructivo y reversible. Endpoint dedicado
+//  que toca SOLO esa celda (no pisa nombre/cumple/ubicación como el editor de ficha).
+// ════════════════════════════════════════════════════════════
+function _doPostCrmSetVisitante(data) {
+  var tel = String(data.tel || '').trim();
+  if (!tel) return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta tel'})).setMimeType(ContentService.MimeType.JSON);
+  var meta = _crmGetClientesMeta();  // asegura la hoja + header col 15 (Visitante)
+  var sh = SS.getSheetByName('Clientes Meta');
+  var on = (data.visitante === true || data.visitante === 1 || data.visitante === '1' || String(data.visitante).toUpperCase() === 'TRUE');
+  var val = on ? 'TRUE' : '';
+  var m = meta[tel];
+  if (m && m._row) {
+    sh.getRange(m._row, 15).setValue(val);
+  } else {
+    var updated = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+    sh.appendRow([tel, '', '', '', '', '', updated, '', '', '', '', '', '', '', val]);
+  }
+  _crmClearCache();
+  try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
+  return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel, visitante: on})).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════

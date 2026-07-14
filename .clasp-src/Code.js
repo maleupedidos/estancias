@@ -10811,7 +10811,26 @@ function _doPostCobrarVendedorRed(data) {
   }
 
   if (updatedTotal === 0) {
-    return ContentService.createTextOutput(JSON.stringify({ok:true, updated:0, msg:'sin pedidos por cobrar'})).setMimeType(ContentService.MimeType.JSON);
+    // Distinguir "ya estaba todo pagado" (tranquilizador, card vieja) de "no coincide
+    // el nombre / no existe" (problema real). Así el frontend no asusta cuando el
+    // vendedor simplemente ya fue cobrado (caso Marcos 14/07: card cacheada).
+    var totalDelVend = 0, yaPagados = 0, ultimaFechaPago = '';
+    for (var iz = 1; iz < dAll.length; iz++) {
+      if (String(dAll[iz][7] || '').trim() !== vendedor) continue;
+      if (String(dAll[iz][11] || '').trim() === 'Cancelado') continue;
+      totalDelVend++;
+      var pmz = iPagoMaleu >= 0 ? String(dAll[iz][iPagoMaleu] || '').trim() : '';
+      if (pmz === 'Pagado' || pmz === 'Sí' || pmz === 'Si') {
+        yaPagados++;
+        var fpg = iFechaPagoMaleu >= 0 ? dAll[iz][iFechaPagoMaleu] : '';
+        if (fpg) ultimaFechaPago = (fpg instanceof Date) ? Utilities.formatDate(fpg, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy') : String(fpg).split(' ')[0];
+      }
+    }
+    var reason = (totalDelVend === 0) ? 'sin_match' : (yaPagados > 0 ? 'ya_pagado' : 'sin_pendientes');
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true, updated: 0, reason: reason,
+      yaPagados: yaPagados, totalDelVend: totalDelVend, ultimaFechaPago: ultimaFechaPago
+    })).setMimeType(ContentService.MimeType.JSON);
   }
 
   // Crear filas en hoja Pagos Red Liq (una por semana ISO).
