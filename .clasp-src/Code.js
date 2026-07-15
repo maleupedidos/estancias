@@ -2082,12 +2082,14 @@ function _doPostEditarPedidoRed(data) {
     });
   }
 
-  // O (15) = Total, AS (45) = Costo
-  sh.getRange(row, 15).setValue(totalNew);
+  // O (15) = Total, AS (45) = Costo. El frontend de edición manda `total` = SOLO
+  // productos (sin envío). Sumamos el envío existente (col P) para que O = productos
+  // + envío y Facturado (=O-P) siga dando productos. El envío es 100% del vendedor.
+  sh.getRange(row, 15).setValue(totalNew + envio);
   sh.getRange(row, 45).setValue(costoTotal);
 
   // Q (17) Efectivo / R (18) Transferencia segun forma de pago vigente
-  var totalSinEnvio = totalNew - envio;
+  var totalSinEnvio = totalNew;
   if (formaPago === 'Efectivo') {
     sh.getRange(row, 17).setValue(totalSinEnvio);
     sh.getRange(row, 18).setValue(0);
@@ -2367,9 +2369,11 @@ function _doGetDashboardVendedor(e) {
           semanasMap[wKey].pedidos++;
           semanasMap[wKey].envio += envio;
         }
-        // Plata pendiente de cobrar al cliente (entregado pero no cobrado)
+        // Plata pendiente de cobrar al cliente (entregado pero no cobrado).
+        // El cliente paga productos + envío ($3.000, del vendedor), así que la
+        // "plata por cobrar" real incluye el envío. Facturado (col U) = solo productos.
         if (estado === 'Entregado' && estadoPago !== 'Cobrado') {
-          pendCobrar += facturado;
+          pendCobrar += facturado + envio;
         }
         // Plata cobrada pero no liquidada a Maleu (cobrado y no pagado a Maleu)
         // Marcos se queda con comisión 17%, el resto (83%) es para Maleu
@@ -12923,7 +12927,7 @@ function _crmGetClientesMeta() {
   var sh = SS.getSheetByName('Clientes Meta');
   if (!sh) {
     sh = SS.insertSheet('Clientes Meta');
-    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante'];
+    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante', 'Apodo'];
     sh.getRange(1, 1, 1, hdr.length).setValues([hdr]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
     sh.setColumnWidths(1, hdr.length, 140);
@@ -12932,6 +12936,7 @@ function _crmGetClientesMeta() {
   // Migración suave: agregar headers de columnas nuevas si faltan.
   if (sh.getLastColumn() < 14) sh.getRange(1, 14).setValue('Canales Extra');
   if (sh.getLastColumn() < 15) sh.getRange(1, 15).setValue('Visitante');
+  if (sh.getLastColumn() < 16) sh.getRange(1, 16).setValue('Apodo');
   if (sh.getLastRow() <= 1) return {};
   var data = sh.getDataRange().getValues();
   var map = {};
@@ -12956,6 +12961,7 @@ function _crmGetClientesMeta() {
       // Persona que pide a una casa de Estancias pero NO reside (ej. novia/prima/amigo).
       // Se la saca de Clientes y Hogares (no es residente); el pedido/entrega queda intacto.
       visitante: String(data[r][14] || '').trim().toUpperCase() === 'TRUE',
+      apodo: String(data[r][15] || '').trim(),   // sobrenombre para campañas WATI (col Apodo del CSV)
       _row: r + 1
     };
   }
@@ -13416,6 +13422,7 @@ function _doGetCrmClientes(e) {
       loteMapa: (m && m.loteMapa) || '',
       sinUbicacion: !!(m && m.sinUbicacion),
       visitante: !!(m && m.visitante),   // no reside en Estancias (pidió a casa ajena)
+      apodo: (m && m.apodo) || '',        // sobrenombre (para el CSV de WATI)
       barrioMapa: (m && m.barrioMapa) || '',
       canalMapa: (m && m.canalMapa) || '',
       canalesExtra: (m && m.canalesExtra) || []   // canales manuales adicionales (ej. Eduardo: Clubes compra + Home casa)
@@ -14004,6 +14011,9 @@ function _doPostCrmUpdateClienteMeta(data) {
   }
   // Formato texto en la celda Cumpleaños para que Sheets no la convierta en fecha.
   if (cumple) sh.getRange(found, 3).setNumberFormat('@').setValue(cumple);
+  // Apodo (col 16): se escribe SOLO si el caller lo mandó, para no pisarlo al editar
+  // otros campos. El write principal (cols 1-14) no toca 15 (Visitante) ni 16 (Apodo).
+  if (data.hasOwnProperty('apodo')) sh.getRange(found, 16).setValue(String(data.apodo || '').trim());
   // Invalidar caches para que la lista y la ficha reflejen el cambio al instante.
   _crmClearCache();
   try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
