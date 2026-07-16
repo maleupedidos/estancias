@@ -3939,6 +3939,7 @@ function doPost(e) {
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
     if (data.action === 'crmLoteSave')          return _doPostCrmLoteSave(data);
     if (data.action === 'crmSetVisitante')      return _doPostCrmSetVisitante(data);
+    if (data.action === 'crmSetResidencia')     return _doPostCrmSetResidencia(data);
     if (data.action === 'hogaresMergeSave')     return _doPostHogaresMerge(data);
     if (data.action === 'crmPuntoSave')         return _doPostCrmPuntoSave(data);
     if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
@@ -13043,7 +13044,7 @@ function _crmGetClientesMeta() {
   var sh = SS.getSheetByName('Clientes Meta');
   if (!sh) {
     sh = SS.insertSheet('Clientes Meta');
-    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante'];
+    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante', 'Apodo', 'Residencia'];
     sh.getRange(1, 1, 1, hdr.length).setValues([hdr]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
     sh.setColumnWidths(1, hdr.length, 140);
@@ -13052,6 +13053,8 @@ function _crmGetClientesMeta() {
   // Migración suave: agregar headers de columnas nuevas si faltan.
   if (sh.getLastColumn() < 14) sh.getRange(1, 14).setValue('Canales Extra');
   if (sh.getLastColumn() < 15) sh.getRange(1, 15).setValue('Visitante');
+  if (sh.getLastColumn() < 16) sh.getRange(1, 16).setValue('Apodo');
+  if (sh.getLastColumn() < 17) sh.getRange(1, 17).setValue('Residencia');
   if (sh.getLastRow() <= 1) return {};
   var data = sh.getDataRange().getValues();
   var map = {};
@@ -13073,9 +13076,12 @@ function _crmGetClientesMeta() {
       barrioMapa: String(data[r][11] || '').trim(),
       canalMapa: String(data[r][12] || '').trim(),
       canalesExtra: String(data[r][13] || '').split('|').map(function(s){ return s.trim(); }).filter(Boolean),
-      // Persona que pide a una casa de Estancias pero NO reside (ej. novia/prima/amigo).
-      // Se la saca de Clientes y Hogares (no es residente); el pedido/entrega queda intacto.
-      visitante: String(data[r][14] || '').trim().toUpperCase() === 'TRUE',
+      apodo: String(data[r][15] || '').trim(),   // sobrenombre para campañas WATI (col Apodo del CSV)
+      // Tipo de integrante (col 17). 'vive' = vive en Estancias · 'finde' = va los fines
+      // de semana · 'visita' = pide a casa ajena, no reside. Compat: si col 17 vacía pero
+      // col 15 (Visitante legacy) = TRUE → 'visita'. `visitante` se deriva de acá.
+      residencia: (function(){ var r17=String(data[r][16]||'').trim().toLowerCase(); if(r17==='vive'||r17==='finde'||r17==='visita')return r17; return (String(data[r][14]||'').trim().toUpperCase()==='TRUE')?'visita':''; })(),
+      visitante: (function(){ var r17=String(data[r][16]||'').trim().toLowerCase(); if(r17)return r17==='visita'; return String(data[r][14]||'').trim().toUpperCase()==='TRUE'; })(),
       _row: r + 1
     };
   }
@@ -13536,6 +13542,8 @@ function _doGetCrmClientes(e) {
       loteMapa: (m && m.loteMapa) || '',
       sinUbicacion: !!(m && m.sinUbicacion),
       visitante: !!(m && m.visitante),   // no reside en Estancias (pidió a casa ajena)
+      residencia: (m && m.residencia) || '',   // 'vive' | 'finde' | 'visita' | '' (sin clasificar)
+      apodo: (m && m.apodo) || '',        // sobrenombre (para el CSV de WATI)
       barrioMapa: (m && m.barrioMapa) || '',
       canalMapa: (m && m.canalMapa) || '',
       canalesExtra: (m && m.canalesExtra) || []   // canales manuales adicionales (ej. Eduardo: Clubes compra + Home casa)
@@ -14124,6 +14132,9 @@ function _doPostCrmUpdateClienteMeta(data) {
   }
   // Formato texto en la celda Cumpleaños para que Sheets no la convierta en fecha.
   if (cumple) sh.getRange(found, 3).setNumberFormat('@').setValue(cumple);
+  // Apodo (col 16): se escribe SOLO si el caller lo mandó, para no pisarlo al editar
+  // otros campos. El write principal (cols 1-14) no toca 15 (Visitante) ni 16 (Apodo).
+  if (data.hasOwnProperty('apodo')) sh.getRange(found, 16).setValue(String(data.apodo || '').trim());
   // Invalidar caches para que la lista y la ficha reflejen el cambio al instante.
   _crmClearCache();
   try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
@@ -14389,6 +14400,30 @@ function _doPostCrmSetVisitante(data) {
   _crmClearCache();
   try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
   return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel, visitante: on})).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Tipo de integrante (col 17): 'vive' | 'finde' | 'visita' | '' (sin clasificar).
+// Generaliza al flag Visitante: escribe col 17 y mantiene col 15 (Visitante legacy)
+// en sync (TRUE solo si 'visita'), para que _hogBuild y el resto sigan andando.
+function _doPostCrmSetResidencia(data) {
+  var tel = String(data.tel || '').trim();
+  if (!tel) return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta tel'})).setMimeType(ContentService.MimeType.JSON);
+  var r = String(data.residencia || '').trim().toLowerCase();
+  if (r !== 'vive' && r !== 'finde' && r !== 'visita') r = '';   // '' = sin clasificar
+  var visVal = (r === 'visita') ? 'TRUE' : '';
+  var meta = _crmGetClientesMeta();  // asegura headers col 15/16/17
+  var sh = SS.getSheetByName('Clientes Meta');
+  var m = meta[tel];
+  if (m && m._row) {
+    sh.getRange(m._row, 17).setValue(r);
+    sh.getRange(m._row, 15).setValue(visVal);   // sync legacy Visitante
+  } else {
+    var updated = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+    sh.appendRow([tel, '', '', '', '', '', updated, '', '', '', '', '', '', '', visVal, '', r]);
+  }
+  _crmClearCache();
+  try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
+  return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel, residencia: r})).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════
