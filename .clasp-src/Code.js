@@ -3939,7 +3939,6 @@ function doPost(e) {
     if (data.action === 'crmZonaDelete')        return _doPostCrmZonaDelete(data);
     if (data.action === 'crmLoteSave')          return _doPostCrmLoteSave(data);
     if (data.action === 'crmSetVisitante')      return _doPostCrmSetVisitante(data);
-    if (data.action === 'crmSetResidencia')     return _doPostCrmSetResidencia(data);
     if (data.action === 'hogaresMergeSave')     return _doPostHogaresMerge(data);
     if (data.action === 'crmPuntoSave')         return _doPostCrmPuntoSave(data);
     if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
@@ -9317,6 +9316,7 @@ function _doGetAdmin(opt) {
         ocLista.push({
           canal: canalOC,
           pedido: pedidoOC,
+          cliente: String(dataOC[ro][6] || '').trim(), // col G: fallback matching cuando N° pedido queda desalineado
           abbr: String(dataOC[ro][11] || '').trim(),
           q: Number(dataOC[ro][12]) || 0,
           proveedor: String(dataOC[ro][9] || '').trim(),
@@ -9878,54 +9878,44 @@ function _doPostSetOrigenProductos(data) {
 
   // Columna Origen según hoja
   var colOrigen = hoja === 'Clubes' ? 12 : hoja === 'Red' ? 10 : 9;
-  sh.getRange(row, colOrigen).setValue(summary);
 
-  // Guardar detalle JSON en columna "Origen Detalle".
-  // Formato nuevo: { abbr: { d: N, oc: Y } }   (mantiene compat de lectura con regex de fórmulas)
+  // Detalle JSON (col "Origen Detalle"). Formato: { abbr: { d: N, oc: Y } }.
   var headers = allData[0];
   var colDetalle = -1;
   for (var h = 0; h < headers.length; h++) {
     if (String(headers[h]).trim() === 'Origen Detalle') { colDetalle = h + 1; break; }
   }
+  var detailObj = {};
+  prodsNorm.forEach(function(p){ detailObj[p.a] = { d: p.d, oc: p.oc }; });
+
+  // ── Reconciliar la hoja "Orden de Compra" con el estado deseado ──
+  // Crea las OC que faltan, ajusta la cantidad de las que cambiaron y BORRA las que
+  // ya no van (ej: un producto que pasó de OC a Depósito). Idempotente y reversible:
+  // se puede ir y volver OC↔Depósito las veces que haga falta sin dejar OCs zombis.
+  // Si una op destructiva (borrar/bajar) toca una OC comprometida —Recibida, o Pedida
+  // ya pasado el cutoff del jueves 12hs— devuelve needsConfirm y NO toca NADA (ni la
+  // hoja OC ni el Origen del pedido) hasta que Tadeo confirme mandando force:true.
+  var clienteOrig = String(sh.getRange(row, hoja === 'Red' ? 9 : 8).getValue() || '').trim();
+  var force = (data.force === true || data.force === 'true');
+  var recon = _reconciliarOCPedido(hoja, pedidoId, row, prodsNorm, clienteOrig, force);
+  if (recon && recon.needsConfirm) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, needsConfirm: true, warn: recon.warn })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Recién ahora que la hoja OC quedó consistente, persistimos Origen + detalle.
+  sh.getRange(row, colOrigen).setValue(summary);
   if (colDetalle === -1) {
     colDetalle = headers.length + 1;
     sh.getRange(1, colDetalle).setValue('Origen Detalle');
   }
-  var detailObj = {};
-  prodsNorm.forEach(function(p){ detailObj[p.a] = { d: p.d, oc: p.oc }; });
   sh.getRange(row, colDetalle).setValue(JSON.stringify(detailObj));
 
-  // Generar OC para los productos con cantOC > 0 (con cantidad explícita).
-  // Anti-duplicado POR PRODUCTO: no regenera la OC de un abbr que el pedido ya
-  // tiene, pero SÍ genera las de los abbrs que aún no tienen OC. Esto permite
-  // agregar productos nuevos (ej. tartas) a un pedido que ya tenía OC sin
-  // duplicar las existentes.
-  // Antes era un guard global ("si existe CUALQUIER OC del pedido, no generar
-  // NINGUNA") que dejaba sin OC a las tartas agregadas al re-confirmar el origen
-  // de un pedido Red que ya tenía OC de otros productos.
-  var ocProds = prodsNorm.filter(function(p){ return p.oc > 0; });
-  if (ocProds.length > 0) {
-    var clienteOrig = String(sh.getRange(row, hoja === 'Red' ? 9 : 8).getValue() || '').trim();
-    var shOC = SS.getSheetByName('Orden de Compra');
-    var abbrsConOC = {};
-    if (shOC && shOC.getLastRow() > 1) {
-      // E..L (canal, N° pedido, cliente, tel, dir, prov, producto, abreviatura)
-      var existentes = shOC.getRange(2, 5, shOC.getLastRow() - 1, 8).getValues();
-      for (var i = 0; i < existentes.length; i++) {
-        if (String(existentes[i][0]).trim() === hoja &&        // E canal
-            String(existentes[i][1]).trim() === pedidoId &&     // F N° pedido
-            String(existentes[i][2]).trim() === clienteOrig) {  // G cliente
-          abbrsConOC[String(existentes[i][7]).trim()] = true;   // L abreviatura
-        }
-      }
-    }
-    var faltantes = ocProds.filter(function(p){ return !abbrsConOC[p.a]; });
-    if (faltantes.length > 0) {
-      _generarOCSelectiva(hoja, row, faltantes.map(function(p){ return { a: p.a, qty: p.oc, prov: p.prov }; }));
-    }
-  }
-
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, origen: summary })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true, origen: summary,
+    ocCreadas: recon ? recon.created : 0,
+    ocActualizadas: recon ? recon.updated : 0,
+    ocBorradas: recon ? recon.deleted : 0
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** POST action=cambiarOrigen — cambia Origen de un pedido (Deposito / Orden de Compra).
@@ -9991,6 +9981,30 @@ function _doPostCambiarOrigen(data) {
       sh.getRange(row, colDetalle).setValue(JSON.stringify(detail));
     }
   } catch (e) { /* no romper el cambio de origen si falla el detalle */ }
+
+  // Reconciliar la hoja OC con el nuevo origen plano (evita OCs zombis):
+  //   Deposito/Pendiente → borra las OC del pedido · Orden de Compra → crea/ajusta.
+  // force:true porque este toggle no tiene UI de confirmación; es una vía secundaria.
+  try {
+    var COL_MAP2 = (hoja === 'Pilar') ? PILAR_COL_TO_ABBR
+                 : (hoja === 'Clubes') ? CLUBES_COL_TO_ABBR
+                 : (hoja === 'Red')    ? RED_COL_TO_ABBR
+                                       : HOME_COL_TO_ABBR;
+    var rowVals2 = allData[row - 1];
+    var prodsNorm2 = [];
+    Object.keys(COL_MAP2).forEach(function(colStr) {
+      var ci = Number(colStr);
+      var abbr = COL_MAP2[ci];
+      var qty = Number(rowVals2[ci - 1]) || 0;
+      if (qty > 0) {
+        var oc = (origen === 'Orden de Compra') ? qty : 0;
+        var d  = (origen === 'Deposito') ? qty : 0;
+        prodsNorm2.push({ a: abbr, d: d, oc: oc, prov: '' });
+      }
+    });
+    var clienteOrig2 = String(sh.getRange(row, hoja === 'Red' ? 9 : 8).getValue() || '').trim();
+    _reconciliarOCPedido(hoja, pedidoId, row, prodsNorm2, clienteOrig2, true);
+  } catch (e2) { /* no romper el cambio de origen si falla la reconciliación de OC */ }
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true, origen: origen })).setMimeType(ContentService.MimeType.JSON);
 }
@@ -10738,6 +10752,107 @@ function _generarOCSelectiva(canal, row, abbrs) {
     shOC.getRange(formulaStart, 16, newRows.length, 3).setNumberFormat('$#,##0');
     shOC.getRange(formulaStart, 19, newRows.length, 1).setNumberFormat('0.0%');
   }
+}
+
+/** ¿Estamos pasado el cutoff semanal de pedidos a proveedores (Jueves 12:00 AR)?
+ *  Maleu es comercializadora: hasta el Jue 12hs recibe pedidos y decide origen libre;
+ *  a partir de ahí Tadeo consolida y le pasa el pedido a cada proveedor. Post-cutoff,
+ *  retroceder una OC "capaz ya se la pasó al proveedor" → conviene avisar.
+ *  Ventana post-cutoff = Jue≥12, Vie, Sáb. Dom–Mié y Jue<12 = pre-cutoff (libertad total).
+ *  Es solo la señal del AVISO (confirmá y seguí), no un bloqueo. */
+var CUTOFF_PROVEEDOR_HORA = 12; // Jueves 12:00 AR
+function _esPostCutoffProveedor() {
+  var arg = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  var dow = arg.getDay(); // 0 Dom … 4 Jue … 6 Sáb
+  if (dow === 4) return arg.getHours() >= CUTOFF_PROVEEDOR_HORA; // Jueves
+  if (dow === 5 || dow === 6) return true;                        // Vie, Sáb
+  return false;
+}
+
+/** Reconcilia la hoja "Orden de Compra" para que refleje EXACTAMENTE el estado deseado
+ *  de un pedido (prodsNorm = [{a, d, oc, prov}]). Es el corazón del ida-y-vuelta reversible:
+ *    - producto con oc>0 y sin OC existente  → CREA la OC (vía _generarOCSelectiva)
+ *    - producto con oc>0 y OC de otra cantidad → AJUSTA la cantidad (M) + costo total (O)
+ *    - producto con oc=0 y OC existente        → BORRA la fila de OC
+ *  Guarda destructiva: si una op de borrar/bajar toca una OC comprometida (estado
+ *  "Recibido", o "Pedido" ya pasado el cutoff del jueves) y force!==true → devuelve
+ *  { needsConfirm:true, warn:[...] } SIN tocar nada. El caller re-manda con force:true
+ *  después de que Tadeo confirme.
+ *  Devuelve { ok:true, created, updated, deleted } cuando aplica. */
+function _reconciliarOCPedido(hoja, pedidoId, row, prodsNorm, clienteOrig, force) {
+  var shOC = SS.getSheetByName('Orden de Compra');
+  if (!shOC) return { ok: false, err: 'sin hoja OC' };
+
+  // Estado deseado de OC por abbr
+  var desired = {}; // abbr → { oc, prov }
+  prodsNorm.forEach(function(p) {
+    desired[p.a] = { oc: Math.max(0, Number(p.oc) || 0), prov: p.prov || '' };
+  });
+
+  // OC existentes de este pedido (match Canal E + N° F + Cliente G)
+  var existing = []; // { rowOC, abbr, qty, estado }
+  if (shOC.getLastRow() > 1) {
+    var vals = shOC.getRange(2, 1, shOC.getLastRow() - 1, 21).getValues(); // A..U
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][4]).trim() === hoja &&           // E Canal
+          String(vals[i][5]).trim() === pedidoId &&        // F N° Pedido
+          String(vals[i][6]).trim() === clienteOrig) {     // G Cliente
+        existing.push({
+          rowOC:  i + 2,
+          abbr:   String(vals[i][11]).trim(),              // L Abreviatura
+          qty:    Number(vals[i][12]) || 0,                // M Cantidad
+          estado: String(vals[i][20]).trim()               // U Estado OC
+        });
+      }
+    }
+  }
+
+  var postCutoff = _esPostCutoffProveedor();
+  function esSensible(estado) {
+    return estado === 'Recibido' || (postCutoff && estado === 'Pedido');
+  }
+
+  var toUpdate = [], toDelete = [], sensitive = [], seenAbbr = {};
+  existing.forEach(function(o) {
+    seenAbbr[o.abbr] = true;
+    var wantOC = desired[o.abbr] ? desired[o.abbr].oc : 0;
+    if (wantOC <= 0) {
+      toDelete.push(o);
+      if (esSensible(o.estado)) sensitive.push({ abbr: o.abbr, estado: o.estado, accion: 'quitar' });
+    } else if (wantOC !== o.qty) {
+      toUpdate.push({ rowOC: o.rowOC, qty: wantOC });
+      if (wantOC < o.qty && esSensible(o.estado)) sensitive.push({ abbr: o.abbr, estado: o.estado, accion: 'bajar' });
+    }
+  });
+
+  var toCreate = [];
+  Object.keys(desired).forEach(function(ab) {
+    if (desired[ab].oc > 0 && !seenAbbr[ab]) toCreate.push({ a: ab, qty: desired[ab].oc, prov: desired[ab].prov });
+  });
+
+  // Guarda: si hay ops destructivas sobre OC comprometidas y no vino force → pedir confirmación.
+  if (sensitive.length > 0 && !force) {
+    return { needsConfirm: true, warn: sensitive };
+  }
+
+  // APLICAR. Orden importante: primero updates (no mueven filas), después deletes
+  // (de abajo hacia arriba, así los índices no se corren), por último creates (append).
+  toUpdate.forEach(function(u) {
+    shOC.getRange(u.rowOC, 13).setValue(u.qty); // M Cantidad
+    var celdaCT = shOC.getRange(u.rowOC, 15);   // O Costo Total (si no es fórmula)
+    if (!celdaCT.getFormula()) {
+      var cu = Number(shOC.getRange(u.rowOC, 14).getValue()) || 0; // N Costo Unitario
+      celdaCT.setValue(u.qty * cu);
+    }
+  });
+  toDelete.map(function(o){ return o.rowOC; })
+          .sort(function(a, b){ return b - a; })
+          .forEach(function(rr){ shOC.deleteRow(rr); });
+  if (toCreate.length > 0) {
+    _generarOCSelectiva(hoja, row, toCreate);
+  }
+
+  return { ok: true, created: toCreate.length, updated: toUpdate.length, deleted: toDelete.length };
 }
 
 /** POST action=marcarCobrado — marca un pedido como Cobrado desde el Panel.
@@ -12928,7 +13043,7 @@ function _crmGetClientesMeta() {
   var sh = SS.getSheetByName('Clientes Meta');
   if (!sh) {
     sh = SS.insertSheet('Clientes Meta');
-    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante', 'Apodo', 'Residencia'];
+    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante'];
     sh.getRange(1, 1, 1, hdr.length).setValues([hdr]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
     sh.setColumnWidths(1, hdr.length, 140);
@@ -12937,8 +13052,6 @@ function _crmGetClientesMeta() {
   // Migración suave: agregar headers de columnas nuevas si faltan.
   if (sh.getLastColumn() < 14) sh.getRange(1, 14).setValue('Canales Extra');
   if (sh.getLastColumn() < 15) sh.getRange(1, 15).setValue('Visitante');
-  if (sh.getLastColumn() < 16) sh.getRange(1, 16).setValue('Apodo');
-  if (sh.getLastColumn() < 17) sh.getRange(1, 17).setValue('Residencia');
   if (sh.getLastRow() <= 1) return {};
   var data = sh.getDataRange().getValues();
   var map = {};
@@ -12960,12 +13073,9 @@ function _crmGetClientesMeta() {
       barrioMapa: String(data[r][11] || '').trim(),
       canalMapa: String(data[r][12] || '').trim(),
       canalesExtra: String(data[r][13] || '').split('|').map(function(s){ return s.trim(); }).filter(Boolean),
-      apodo: String(data[r][15] || '').trim(),   // sobrenombre para campañas WATI (col Apodo del CSV)
-      // Tipo de integrante (col 17). 'vive' = vive en Estancias · 'finde' = va los fines
-      // de semana · 'visita' = pide a casa ajena, no reside. Compat: si col 17 vacía pero
-      // col 15 (Visitante legacy) = TRUE → 'visita'. `visitante` se deriva de acá.
-      residencia: (function(){ var r17=String(data[r][16]||'').trim().toLowerCase(); if(r17==='vive'||r17==='finde'||r17==='visita')return r17; return (String(data[r][14]||'').trim().toUpperCase()==='TRUE')?'visita':''; })(),
-      visitante: (function(){ var r17=String(data[r][16]||'').trim().toLowerCase(); if(r17)return r17==='visita'; return String(data[r][14]||'').trim().toUpperCase()==='TRUE'; })(),
+      // Persona que pide a una casa de Estancias pero NO reside (ej. novia/prima/amigo).
+      // Se la saca de Clientes y Hogares (no es residente); el pedido/entrega queda intacto.
+      visitante: String(data[r][14] || '').trim().toUpperCase() === 'TRUE',
       _row: r + 1
     };
   }
@@ -13426,8 +13536,6 @@ function _doGetCrmClientes(e) {
       loteMapa: (m && m.loteMapa) || '',
       sinUbicacion: !!(m && m.sinUbicacion),
       visitante: !!(m && m.visitante),   // no reside en Estancias (pidió a casa ajena)
-      residencia: (m && m.residencia) || '',   // 'vive' | 'finde' | 'visita' | '' (sin clasificar)
-      apodo: (m && m.apodo) || '',        // sobrenombre (para el CSV de WATI)
       barrioMapa: (m && m.barrioMapa) || '',
       canalMapa: (m && m.canalMapa) || '',
       canalesExtra: (m && m.canalesExtra) || []   // canales manuales adicionales (ej. Eduardo: Clubes compra + Home casa)
@@ -14016,9 +14124,6 @@ function _doPostCrmUpdateClienteMeta(data) {
   }
   // Formato texto en la celda Cumpleaños para que Sheets no la convierta en fecha.
   if (cumple) sh.getRange(found, 3).setNumberFormat('@').setValue(cumple);
-  // Apodo (col 16): se escribe SOLO si el caller lo mandó, para no pisarlo al editar
-  // otros campos. El write principal (cols 1-14) no toca 15 (Visitante) ni 16 (Apodo).
-  if (data.hasOwnProperty('apodo')) sh.getRange(found, 16).setValue(String(data.apodo || '').trim());
   // Invalidar caches para que la lista y la ficha reflejen el cambio al instante.
   _crmClearCache();
   try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
@@ -14284,30 +14389,6 @@ function _doPostCrmSetVisitante(data) {
   _crmClearCache();
   try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
   return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel, visitante: on})).setMimeType(ContentService.MimeType.JSON);
-}
-
-// Tipo de integrante (col 17): 'vive' | 'finde' | 'visita' | '' (sin clasificar).
-// Generaliza al flag Visitante: escribe col 17 y mantiene col 15 (Visitante legacy)
-// en sync (TRUE solo si 'visita'), para que _hogBuild y el resto sigan andando.
-function _doPostCrmSetResidencia(data) {
-  var tel = String(data.tel || '').trim();
-  if (!tel) return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta tel'})).setMimeType(ContentService.MimeType.JSON);
-  var r = String(data.residencia || '').trim().toLowerCase();
-  if (r !== 'vive' && r !== 'finde' && r !== 'visita') r = '';   // '' = sin clasificar
-  var visVal = (r === 'visita') ? 'TRUE' : '';
-  var meta = _crmGetClientesMeta();  // asegura headers col 15/16/17
-  var sh = SS.getSheetByName('Clientes Meta');
-  var m = meta[tel];
-  if (m && m._row) {
-    sh.getRange(m._row, 17).setValue(r);
-    sh.getRange(m._row, 15).setValue(visVal);   // sync legacy Visitante
-  } else {
-    var updated = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
-    sh.appendRow([tel, '', '', '', '', '', updated, '', '', '', '', '', '', '', visVal, '', r]);
-  }
-  _crmClearCache();
-  try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
-  return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel, residencia: r})).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════
