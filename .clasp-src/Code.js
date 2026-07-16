@@ -6013,7 +6013,7 @@ function generarOrdenDeCompra(canal, row) {
       0,                                         // R  Margen Bruto $ (fórmula)
       0,                                         // S  Margen % (fórmula)
       'Orden de Compra',                         // T  Origen
-      'Pedido',                                  // U  Estado OC
+      'Pendiente',                               // U  Estado OC (Momento 1: no pasada aún al proveedor)
       '',                                        // V  Fecha Pedido Prov
       '',                                        // W  Fecha Recibido
       'No',                                      // X  Pagado Proveedor
@@ -10732,7 +10732,10 @@ function _generarOCSelectiva(canal, row, abbrs) {
       ocId, fechaStr, semana, mesNombre, canal, numPedido, cliente, telefono, direccion,
       proveedorFinal, abbrToNameMap[abbr] || abbr, abbr, qty,
       costoUnit, costoTotal, precioVenta, 0, 0, 0,
-      'Orden de Compra', 'Pedido', fechaStr, '', 'No', 'No'
+      // Nace "Pendiente" (Momento 1: marcada, Tadeo todavía decidiendo, NO pasada a
+      // proveedor). Pasa a "Pedido" cuando Tadeo la pasa al proveedor desde Abastecimiento
+      // (botón "Marcar como Pedido"). Por eso V (Fecha Pedido Prov) queda vacía al nacer.
+      'Orden de Compra', 'Pendiente', '', '', 'No', 'No'
     ]);
   });
 
@@ -10808,9 +10811,13 @@ function _reconciliarOCPedido(hoja, pedidoId, row, prodsNorm, clienteOrig, force
     }
   }
 
-  var postCutoff = _esPostCutoffProveedor();
+  // Una OC es "sensible" (retroceder/bajar amerita aviso+confirmación) cuando ya está
+  // comprometida con el proveedor: estado "Pedido" (ya se la pasé a ESE proveedor) o
+  // "Recibido" (la mercadería ya entró). "Pendiente" = Momento 1, todavía decidiendo →
+  // libre y silencioso. El discriminador es el estado REAL por proveedor, no el reloj:
+  // cada proveedor se cierra en su momento (Claudia el lunes, otros el jueves 12hs).
   function esSensible(estado) {
-    return estado === 'Recibido' || (postCutoff && estado === 'Pedido');
+    return estado === 'Pedido' || estado === 'Recibido';
   }
 
   var toUpdate = [], toDelete = [], sensitive = [], seenAbbr = {};
