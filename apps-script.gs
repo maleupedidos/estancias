@@ -270,6 +270,7 @@ function doGet(e) {
   if (action === 'entregas') return _doGetEntregas(e);
   if (action === 'vendedores') return _doGetVendedores();
   if (action === 'dashboardVendedor') return _doGetDashboardVendedor(e);
+  if (action === 'resolverVendedor') return _doGetResolverVendedor(e);
   if (action === 'busqueda') return _doGetBusqueda();
   if (action === 'catalogo') return _doGetCatalogo();
   if (action === 'admin') return _doGetAdmin();
@@ -2240,6 +2241,43 @@ function _doPostMarcarSemanaPagadaRed(data) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** GET ?action=resolverVendedor&usuario=X[&wa=Y] — devuelve el nombre canónico
+ *  ACTUAL de un vendedor a partir de su identidad estable (usuario o WhatsApp).
+ *  El portal lo usa para auto-corregir la sesión si el vendedor fue renombrado
+ *  en la hoja (bug Fini 16/07/2026: sesión vieja "Josefina" vs pedidos "Fini").
+ *  Solo devuelve nombre/comisión — no expone PIN. */
+function _doGetResolverVendedor(e) {
+  var usuario = String(e && e.parameter && e.parameter.usuario || '').trim().toLowerCase();
+  var wa      = String(e && e.parameter && e.parameter.wa || '').replace(/\D/g, '');
+  if (!usuario && !wa) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'usuario o wa requerido' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var sh = SS.getSheetByName('Vendedores');
+  if (!sh || sh.getLastRow() <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'sin vendedores' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var rows = sh.getDataRange().getValues();
+  for (var r = 1; r < rows.length; r++) {
+    var estado = String(rows[r][6] || '').trim();
+    if (estado !== 'Activo') continue;
+    var u = String(rows[r][7] || '').trim().toLowerCase();      // col H = Usuario
+    var w = String(rows[r][1] || '').replace(/\D/g, '');        // col B = WhatsApp
+    if ((usuario && u === usuario) || (wa && w && w === wa)) {
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: true,
+        nombre: String(rows[r][0] || ''),
+        usuario: u,
+        wa: w,
+        comision: Number(rows[r][9]) || 17
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, err: 'no encontrado' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function _doGetDashboardVendedor(e) {
   var nombre = String(e && e.parameter && e.parameter.nombre || '').trim();
   if (!nombre) {
@@ -2645,7 +2683,7 @@ function _doGetBusqueda() {
     { name: 'Home',   colId: 2, colEst: 11, colFEnt: 50 }, // Home: AX = Fecha Entrega (col 50, idx 49)
     { name: 'Pilar',  colId: 2, colEst: 11, colFEnt: 53 }, // Pilar: BA = Fecha Entrega (col 53, idx 52)
     { name: 'Clubes', colId: 2, colEst: 14, colFEnt: 13 }, // Clubes: M = Dia de Entrega Elegido (col 13, idx 12)
-    { name: 'Red',    colId: 2, colEst: 12, colFEnt: 11, colEntVend: 57 }  // Red: K=Dia Entrega, BE(57)=Entregado a Vendedor
+    { name: 'Red',    colId: 2, colEst: 12, colFEnt: 11, colEntVend: 57, colVend: 8 }  // Red: K=Dia Entrega, BE(57)=Entregado a Vendedor, H(8)=Vendedor
   ];
   hojasCanal.forEach(function(h) {
     var shCanal = SS.getSheetByName(h.name);
@@ -2657,6 +2695,9 @@ function _doGetBusqueda() {
       if (!idPed) continue;
       var estEnt = String(dataCanal[ri][h.colEst - 1] || '').trim();
       var entVend = h.colEntVend ? String(dataCanal[ri][h.colEntVend - 1] || '').trim() : '';
+      // Red: capturar el vendedor (col H) para que ARMADO agrupe por vendedor real
+      // (Marcos/Fini/Rufino) en vez de caer al default 'Marcos Bottcher' en el frontend.
+      var vendPed = h.colVend ? String(dataCanal[ri][h.colVend - 1] || '').trim() : '';
       // Fecha entrega: parsear el campo correspondiente. Si esta vacio o no parsea,
       // caer a col D (fecha pedido = creacion).
       var fEntDate = _parseFechaCualquiera(dataCanal[ri][h.colFEnt - 1]);
@@ -2666,7 +2707,7 @@ function _doGetBusqueda() {
         semEnt = _isoWeek(fEntDate);
         anioEnt = fEntDate.getFullYear();
       }
-      estadosEntrega[h.name + '|' + idPed] = { est: estEnt, entVend: entVend, semEnt: semEnt, anioEnt: anioEnt };
+      estadosEntrega[h.name + '|' + idPed] = { est: estEnt, entVend: entVend, semEnt: semEnt, anioEnt: anioEnt, vendedor: vendPed };
     }
   });
 
@@ -2810,7 +2851,7 @@ function _doGetBusqueda() {
     // Para Depósito agregamos la semana al cKey: cada semana tiene su propia card.
     if (!yaEntregado) {
       var cKey = cliente + '|' + nPedido + (esDepCanal ? ('|sem' + semEntPed + '-' + anioEntPed) : '');
-      if (!porCliente[cKey]) porCliente[cKey] = { n: cliente, canal: canal, dir: dir, tel: tel, ped: nPedido, items: [], ing: 0, semEnt: semEntPed, anioEnt: anioEntPed };
+      if (!porCliente[cKey]) porCliente[cKey] = { n: cliente, canal: canal, dir: dir, tel: tel, ped: nPedido, items: [], ing: 0, semEnt: semEntPed, anioEnt: anioEntPed, vendedor: (canal === 'Red' && entInfo ? (entInfo.vendedor || '') : '') };
       porCliente[cKey].items.push({ prod: _renameProd(producto), abbr: abbr, q: qty, pv: ingresoT, est: estado });
       porCliente[cKey].ing += ingresoT;
     }
