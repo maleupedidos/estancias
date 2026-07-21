@@ -1708,7 +1708,18 @@ function _getPermisos() {
     { rol:'admin',      tab:'pedidoshome', def:'Sí' },
     { rol:'empleado',   tab:'pedidoshome', def:'Sí' },
     { rol:'repartidor', tab:'pedidoshome', def:'Sí' },
-    { rol:'vendedor',   tab:'pedidoshome', def:'No' }
+    { rol:'vendedor',   tab:'pedidoshome', def:'No' },
+    // Tabs que existían en el Panel pero faltaban en la hoja Permisos (admin las veía
+    // por data-roles, pero al preferir tabs[] del backend quedaban ocultas). Se auto-reparan.
+    { rol:'admin',      tab:'planificacion', def:'Sí' },
+    { rol:'admin',      tab:'estancias',     def:'Sí' },
+    { rol:'empleado',   tab:'estancias',     def:'Sí' },
+    { rol:'admin',      tab:'proveedores',   def:'Sí' },
+    // Tab Ajustes (configuración del ERP): solo admin.
+    { rol:'admin',      tab:'ajustes',     def:'Sí' },
+    { rol:'empleado',   tab:'ajustes',     def:'No' },
+    { rol:'repartidor', tab:'ajustes',     def:'No' },
+    { rol:'vendedor',   tab:'ajustes',     def:'No' }
   ];
   var existing = {};
   if (sh.getLastRow() > 1) {
