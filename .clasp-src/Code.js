@@ -304,6 +304,8 @@ function doGet(e) {
   if (action === 'cierreMensual') return _doGetCierreMensual(e);
   if (action === 'planMes') return _doGetPlanMes(e);
   if (action === 'repartidoresList') return _doGetRepartidoresList();
+  if (action === 'ajustesData') return _doGetAjustesData();
+  if (action === 'saldosClientes') return _doGetSaldosClientes();
   // ─── Motor Comercial · Bloque 2: prueba técnica AISLADA del canal (temporal, gated). NO es un trigger. ───
   // Usa _motorTestDiag (NO lanza) para devolver el diagnóstico completo como JSON.
   if (action === 'motorTestSend') {
@@ -1713,7 +1715,18 @@ function _getPermisos() {
     { rol:'admin',      tab:'pedidoshome', def:'Sí' },
     { rol:'empleado',   tab:'pedidoshome', def:'Sí' },
     { rol:'repartidor', tab:'pedidoshome', def:'Sí' },
-    { rol:'vendedor',   tab:'pedidoshome', def:'No' }
+    { rol:'vendedor',   tab:'pedidoshome', def:'No' },
+    // Tabs que existían en el Panel pero faltaban en la hoja Permisos (admin las veía
+    // por data-roles, pero al preferir tabs[] del backend quedaban ocultas). Se auto-reparan.
+    { rol:'admin',      tab:'planificacion', def:'Sí' },
+    { rol:'admin',      tab:'estancias',     def:'Sí' },
+    { rol:'empleado',   tab:'estancias',     def:'Sí' },
+    { rol:'admin',      tab:'proveedores',   def:'Sí' },
+    // Tab Ajustes (configuración del ERP): solo admin.
+    { rol:'admin',      tab:'ajustes',     def:'Sí' },
+    { rol:'empleado',   tab:'ajustes',     def:'No' },
+    { rol:'repartidor', tab:'ajustes',     def:'No' },
+    { rol:'vendedor',   tab:'ajustes',     def:'No' }
   ];
   var existing = {};
   if (sh.getLastRow() > 1) {
@@ -4017,6 +4030,14 @@ function doPost(e) {
     if (data.action === 'planAccionAdd')   return _doPostPlanAccionAdd(data);
     if (data.action === 'planAccionUpdate')return _doPostPlanAccionUpdate(data);
     if (data.action === 'planAccionDelete')return _doPostPlanAccionDelete(data);
+    if (data.action === 'usuarioSet')      return _doPostUsuarioSet(data);
+    if (data.action === 'usuarioDelete')   return _doPostUsuarioDelete(data);
+    if (data.action === 'permisoSet')      return _doPostPermisoSet(data);
+    if (data.action === 'configMaleuSet')  return _doPostConfigMaleuSet(data);
+    if (data.action === 'provisionSet')    return _doPostProvisionSet(data);
+    if (data.action === 'provisionDelete') return _doPostProvisionDelete(data);
+    if (data.action === 'configOpSet')     return _doPostConfigOpSet(data);
+    if (data.action === 'vendedorSet')     return _doPostVendedorSet(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
@@ -9762,6 +9783,7 @@ function _doGetAdmin(opt) {
       movimientos: movimientos,
       vueltos: vueltos,
       sobres: sobresLista,
+      config: _ajConfigMaleuArr(),
       saludHome: _saludHomeSemana(argNow)
     }))
     .setMimeType(ContentService.MimeType.JSON);
