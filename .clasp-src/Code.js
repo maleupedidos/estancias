@@ -12903,7 +12903,8 @@ function _channelSendTemplate(phone, templateName, params) {
     try { j = JSON.parse(out.raw); } catch (_e) {}
     out.result = (j && typeof j.result !== 'undefined') ? j.result : null;
     out.info   = (j && j.info) || '';
-    out.messageId = (j && (j.id || (j.message && j.message.id) || j.messageId)) || '';
+    // WATI devuelve el id como local_message_id; contemplamos variantes por robustez.
+    out.messageId = (j && (j.local_message_id || j.id || (j.message && j.message.id) || j.messageId)) || '';
     // ok ESTRICTO: solo si WATI confirma result === true.
     out.ok = (out.httpCode >= 200 && out.httpCode < 300) && (out.result === true);
   } catch (err) {
