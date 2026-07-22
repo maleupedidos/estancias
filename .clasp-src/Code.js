@@ -305,8 +305,9 @@ function doGet(e) {
   if (action === 'planMes') return _doGetPlanMes(e);
   if (action === 'repartidoresList') return _doGetRepartidoresList();
   // ─── Motor Comercial · Bloque 2: prueba técnica AISLADA del canal (temporal, gated). NO es un trigger. ───
+  // Usa _motorTestDiag (NO lanza) para devolver el diagnóstico completo como JSON.
   if (action === 'motorTestSend') {
-    var _mts = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? motorTestSend() : { ok: false, error: 'forbidden' };
+    var _mts = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? _motorTestDiag() : { ok: false, error: 'forbidden' };
     return ContentService.createTextOutput(JSON.stringify(_mts)).setMimeType(ContentService.MimeType.JSON);
   }
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
@@ -12868,8 +12869,8 @@ function _normalizePhoneWATI_(phone) {
 //  No escribe en ninguna hoja. Devuelve el resultado crudo para inspección.
 // ════════════════════════════════════════════════════════════
 
-// Constantes de PRUEBA (temporales — solo las usa motorTestSend / Bloque 2).
-var MOTOR_TEST_PHONE_ = '5491136887500';        // número de Tadeo (contacto válido en WATI)
+// Constantes de PRUEBA (temporales — solo las usa el diagnóstico del Bloque 2).
+var MOTOR_TEST_PHONE_ = '5491136887500';        // número de Tadeo (contacto válido en WATI, formato sin +)
 var MOTOR_TEST_KEY_   = 'mtr_b2_7Kq9zP2x';      // gate del endpoint de prueba
 
 /**
@@ -12877,7 +12878,7 @@ var MOTOR_TEST_KEY_   = 'mtr_b2_7Kq9zP2x';      // gate del endpoint de prueba
  * @param {string} phone         teléfono crudo
  * @param {string} templateName  nombre del template aprobado
  * @param {Array}  params        [{name:'apodo', value:'...'}] — custom params del template
- * @return {{ok, httpCode, messageId, result, raw, phone, template}} — NO persiste nada
+ * @return diagnóstico completo {ok, httpCode, result, info, messageId, raw, phone, template, payload} — NO persiste
  */
 function _channelSendTemplate(phone, templateName, params) {
   var normPhone = _normalizePhoneWATI_(phone);
@@ -12887,41 +12888,78 @@ function _channelSendTemplate(phone, templateName, params) {
     broadcast_name: 'motor_' + templateName,
     parameters:     params || []
   };
-  var out = { ok: false, httpCode: 0, messageId: '', result: null, raw: '', phone: normPhone, template: templateName };
+  var out = { ok: false, httpCode: 0, result: null, info: '', messageId: '', raw: '', phone: normPhone, template: templateName, payload: payload };
   try {
     var resp = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + WATI_TOKEN_ },
       payload: JSON.stringify(payload),
-      muteHttpExceptions: true
+      muteHttpExceptions: true   // ver el cuerpo aunque WATI responda 4xx/5xx
     });
     out.httpCode = resp.getResponseCode();
     out.raw = resp.getContentText();
     var j = {};
     try { j = JSON.parse(out.raw); } catch (_e) {}
     out.result = (j && typeof j.result !== 'undefined') ? j.result : null;
-    // messageId puede venir en distintos lugares según WATI — capturamos lo que haya.
+    out.info   = (j && j.info) || '';
     out.messageId = (j && (j.id || (j.message && j.message.id) || j.messageId)) || '';
-    out.ok = (out.httpCode >= 200 && out.httpCode < 300) && (out.result === true || out.result === null);
+    // ok ESTRICTO: solo si WATI confirma result === true.
+    out.ok = (out.httpCode >= 200 && out.httpCode < 300) && (out.result === true);
   } catch (err) {
     out.raw = 'EXCEPTION: ' + err.message;
+    out.info = err.message;
   }
   return out;
 }
 
+// Hoja de diagnóstico TEMPORAL (Bloque 2): fuente de verdad visible sin entrar a logs.
+function _motorDiagSheet() {
+  var sh = SS.getSheetByName('Motor Diagnostico');
+  if (!sh) {
+    sh = SS.insertSheet('Motor Diagnostico');
+    sh.getRange(1, 1, 1, 9).setValues([['Timestamp', 'Telefono', 'Template', 'PayloadJSON', 'HttpCode', 'Ok', 'Result/Info', 'MessageId', 'RawBody']])
+      .setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
+    sh.setFrozenRows(1);
+    sh.setColumnWidths(1, 3, 140); sh.setColumnWidths(4, 1, 320); sh.setColumnWidths(9, 1, 420);
+  }
+  return sh;
+}
+
 /**
- * PRUEBA TÉCNICA AISLADA del canal (Bloque 2). Manual — NO se llama desde
- * ningún trigger ni desde la lógica comercial. Envía home_recompra_liviana
- * al número de prueba y devuelve la respuesta COMPLETA de WATI.
- * No escribe en 'Motor Acciones' ni en 'Interacciones CRM'.
+ * Corre el envío de prueba, LOGUEA todo (console.log + Logger.log) y lo guarda
+ * en 'Motor Diagnostico'. NO lanza — pensado para el endpoint (devuelve JSON).
+ * No escribe en 'Motor Acciones' ni en 'Interacciones CRM' (prueba aislada del canal).
+ */
+function _motorTestDiag() {
+  var params = [{ name: 'apodo', value: 'Tadeo (prueba Motor)' }];
+  var d = _channelSendTemplate(MOTOR_TEST_PHONE_, 'home_recompra_liviana', params);
+  var resumen = 'MOTOR TEST → HTTP=' + d.httpCode + ' ok=' + d.ok + ' result=' + d.result +
+                ' info="' + (d.info || '') + '" msgId=' + (d.messageId || '') + ' phone=' + d.phone;
+  console.log(resumen);            Logger.log(resumen);
+  console.log('PAYLOAD: ' + JSON.stringify(d.payload));
+  console.log('RAW WATI: ' + d.raw);
+  try {
+    _motorDiagSheet().appendRow([
+      new Date(), d.phone, d.template, JSON.stringify(d.payload),
+      d.httpCode, d.ok, (d.result === true ? 'true' : (String(d.result) + ' · ' + (d.info || ''))),
+      d.messageId, d.raw
+    ]);
+  } catch (e) { console.log('diag sheet err: ' + e.message); }
+  return d;
+}
+
+/**
+ * PARA EL EDITOR de Apps Script: corre el diagnóstico y LANZA si el envío no fue ok,
+ * para que la ejecución figure como "Error" (no "Completada") cuando WATI rechaza.
  */
 function motorTestSend() {
-  return _channelSendTemplate(
-    MOTOR_TEST_PHONE_,
-    'home_recompra_liviana',
-    [{ name: 'apodo', value: 'Tadeo (prueba Motor)' }]
-  );
+  var d = _motorTestDiag();
+  if (d.ok !== true) {
+    throw new Error('WATI send FALLÓ → HTTP=' + d.httpCode + ' result=' + d.result +
+                    ' info="' + (d.info || '') + '" | raw=' + d.raw);
+  }
+  return d;
 }
 
 function _zonaFromSubBarrio_(sub) {
