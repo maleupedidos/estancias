@@ -318,6 +318,10 @@ function doGet(e) {
     var _mr = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? motorTick() : { ok: false, error: 'forbidden' };
     return ContentService.createTextOutput(JSON.stringify(_mr)).setMimeType(ContentService.MimeType.JSON);
   }
+  if (action === 'motorInstallTrigger') {
+    var _mit = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? motorInstallTrigger() : { ok: false, error: 'forbidden' };
+    return ContentService.createTextOutput(JSON.stringify(_mit)).setMimeType(ContentService.MimeType.JSON);
+  }
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -14899,8 +14903,11 @@ function _doPostCrmLogCampania(data) {
 //     El Motor sólo AGREGA por hogar y aplica la ventana (que vive en Config).
 //   · El Ledger (hoja 'Motor Acciones') es la ÚNICA fuente de verdad.
 //   · SHADOW: escribe filas 'simulada'/'suprimida'; NUNCA envía (eso es Bloque 4).
-//   · DETERMINÍSTICO: DedupeKey = hogar|jugada|semanaISO → correr dos veces el
-//     mismo día NO crea filas nuevas ni cambia el estado del Ledger.
+//   · CADENCIA "acompañar, no perseguir": UN solo recordatorio por ENTRADA a la
+//     ventana. DedupeKey = hogar|jugada|<última compra Home>. Mientras el hogar no
+//     compre, su última compra no cambia → misma key → no se le vuelve a escribir
+//     (aunque el trigger corra a diario y siga en ventana). Compra → nueva última
+//     compra → nueva key → elegible de nuevo en su próxima ventana. Determinístico.
 //  Todo es ADITIVO y REVERSIBLE (borrar estas funciones + la hoja no afecta nada).
 // ════════════════════════════════════════════════════════════
 
@@ -15030,9 +15037,10 @@ function _motorSensorRecompra() {
     var diasUltima = Math.round((hoy - h.lastHome) / 86400000);
     var lo = Math.round(freq * MIN), hi = Math.round(freq * MAX);
     if (diasUltima < lo || diasUltima > hi) return;        // fuera de la ventana de recompra
+    var lastHomeISO = Utilities.formatDate(new Date(h.lastHome), 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
     out.push({ hogarKey: hk, sub: h.sub, lote: h.lote, tel: h.domTel, nombre: h.domNombre,
                apodo: h.domApodo || h.domNombre, prodTop: h.domProd, freq: freq, diasUltima: diasUltima,
-               deuda: h.deuda, pend: h.pend });
+               lastHomeISO: lastHomeISO, deuda: h.deuda, pend: h.pend });
   });
   return out;
 }
@@ -15102,9 +15110,11 @@ function _motorLedgerHogaresRecientes(capDias) {   // hogares accionados ≤ cap
 /**
  * ══════════ motorTick — el "reloj" del Motor ══════════
  * Corre Sensor → Governor → Ledger en SHADOW. NO envía (Dispatcher = Bloque 4).
- * Idempotente y determinístico: LockService + DedupeKey semanal. Pensado para un
- * trigger diario. Escribe una fila por decisión: 'simulada' (habría contactado) o
- * 'suprimida' (con su motivo). Correr dos veces el mismo día no agrega filas.
+ * Idempotente y determinístico: LockService + DedupeKey por entrada-a-ventana
+ * (hogar|jugada|últimaCompra). Pensado para un trigger diario. Escribe una fila por
+ * decisión: 'simulada' (habría contactado) o 'suprimida' (con su motivo). Correr
+ * dos veces el mismo día no agrega filas; correr días seguidos tampoco re-contacta
+ * a un hogar ya recordado hasta que compre o entre a una ventana nueva.
  */
 function motorTick() {
   var lock = LockService.getScriptLock();
@@ -15125,8 +15135,8 @@ function motorTick() {
     var rows = [], creadas = 0, suprimidas = 0, dupes = 0;
     for (var i = 0; i < cands.length; i++) {
       var cd = cands[i];
-      var dk = cd.hogarKey + '|recompra|' + semana;
-      if (dedupe[dk]) { dupes++; continue; }               // ya existe → determinismo
+      var dk = cd.hogarKey + '|recompra|' + cd.lastHomeISO;  // 1 recordatorio por ENTRADA a la ventana (anclado a la última compra)
+      if (dedupe[dk]) { dupes++; continue; }               // ya recordado en esta ventana → no re-contactar
       dedupe[dk] = true;
       var gov = _motorGovernor(cd, ctx);
       var estado = gov.ok ? 'simulada' : 'suprimida';
@@ -15154,7 +15164,9 @@ function motorInstallTrigger() {
   var tg = ScriptApp.getProjectTriggers(), borrados = 0;
   for (var i = 0; i < tg.length; i++) if (tg[i].getHandlerFunction() === 'motorTick') { ScriptApp.deleteTrigger(tg[i]); borrados++; }
   ScriptApp.newTrigger('motorTick').timeBased().everyDays(1).atHour(9).create();
-  return { ok: true, borradosPrevios: borrados, instalado: 'motorTick diario ~9hs AR' };
+  var after = ScriptApp.getProjectTriggers(), n = 0;
+  for (var j = 0; j < after.length; j++) if (after[j].getHandlerFunction() === 'motorTick') n++;
+  return { ok: true, borradosPrevios: borrados, motorTickTriggers: n, instalado: 'motorTick diario ~9hs AR (Shadow)' };
 }
 function motorUninstallTrigger() {
   var tg = ScriptApp.getProjectTriggers(), n = 0;
