@@ -304,6 +304,11 @@ function doGet(e) {
   if (action === 'cierreMensual') return _doGetCierreMensual(e);
   if (action === 'planMes') return _doGetPlanMes(e);
   if (action === 'repartidoresList') return _doGetRepartidoresList();
+  // ─── Motor Comercial · Bloque 2: prueba técnica AISLADA del canal (temporal, gated). NO es un trigger. ───
+  if (action === 'motorTestSend') {
+    var _mts = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? motorTestSend() : { ok: false, error: 'forbidden' };
+    return ContentService.createTextOutput(JSON.stringify(_mts)).setMimeType(ContentService.MimeType.JSON);
+  }
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -12854,6 +12859,69 @@ function _normalizePhoneWATI_(phone) {
   if (s.length === 10) return '549' + s;
   if (s.length === 8)  return '54911' + s;
   return s;
+}
+
+// ════════════════════════════════════════════════════════════
+//  MOTOR COMERCIAL — Channel Adapter (Bloque 2)
+//  ÚNICA función que ENVÍA por WATI. Desacople: cambiar de proveedor
+//  = reescribir SOLO _channelSendTemplate (la lógica del motor no lo sabe).
+//  No escribe en ninguna hoja. Devuelve el resultado crudo para inspección.
+// ════════════════════════════════════════════════════════════
+
+// Constantes de PRUEBA (temporales — solo las usa motorTestSend / Bloque 2).
+var MOTOR_TEST_PHONE_ = '5491136887500';        // número de Tadeo (contacto válido en WATI)
+var MOTOR_TEST_KEY_   = 'mtr_b2_7Kq9zP2x';      // gate del endpoint de prueba
+
+/**
+ * Envía un template aprobado por WATI. Capa de canal (swappable).
+ * @param {string} phone         teléfono crudo
+ * @param {string} templateName  nombre del template aprobado
+ * @param {Array}  params        [{name:'apodo', value:'...'}] — custom params del template
+ * @return {{ok, httpCode, messageId, result, raw, phone, template}} — NO persiste nada
+ */
+function _channelSendTemplate(phone, templateName, params) {
+  var normPhone = _normalizePhoneWATI_(phone);
+  var url = WATI_URL_ + '/api/v1/sendTemplateMessage?whatsappNumber=' + encodeURIComponent(normPhone);
+  var payload = {
+    template_name:  templateName,
+    broadcast_name: 'motor_' + templateName,
+    parameters:     params || []
+  };
+  var out = { ok: false, httpCode: 0, messageId: '', result: null, raw: '', phone: normPhone, template: templateName };
+  try {
+    var resp = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + WATI_TOKEN_ },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    out.httpCode = resp.getResponseCode();
+    out.raw = resp.getContentText();
+    var j = {};
+    try { j = JSON.parse(out.raw); } catch (_e) {}
+    out.result = (j && typeof j.result !== 'undefined') ? j.result : null;
+    // messageId puede venir en distintos lugares según WATI — capturamos lo que haya.
+    out.messageId = (j && (j.id || (j.message && j.message.id) || j.messageId)) || '';
+    out.ok = (out.httpCode >= 200 && out.httpCode < 300) && (out.result === true || out.result === null);
+  } catch (err) {
+    out.raw = 'EXCEPTION: ' + err.message;
+  }
+  return out;
+}
+
+/**
+ * PRUEBA TÉCNICA AISLADA del canal (Bloque 2). Manual — NO se llama desde
+ * ningún trigger ni desde la lógica comercial. Envía home_recompra_liviana
+ * al número de prueba y devuelve la respuesta COMPLETA de WATI.
+ * No escribe en 'Motor Acciones' ni en 'Interacciones CRM'.
+ */
+function motorTestSend() {
+  return _channelSendTemplate(
+    MOTOR_TEST_PHONE_,
+    'home_recompra_liviana',
+    [{ name: 'apodo', value: 'Tadeo (prueba Motor)' }]
+  );
 }
 
 function _zonaFromSubBarrio_(sub) {
