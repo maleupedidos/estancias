@@ -304,7 +304,6 @@ function doGet(e) {
   if (action === 'cierreMensual') return _doGetCierreMensual(e);
   if (action === 'planMes') return _doGetPlanMes(e);
   if (action === 'repartidoresList') return _doGetRepartidoresList();
-  if (action === 'ajustesData') return _doGetAjustesData();
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -1708,18 +1707,7 @@ function _getPermisos() {
     { rol:'admin',      tab:'pedidoshome', def:'Sí' },
     { rol:'empleado',   tab:'pedidoshome', def:'Sí' },
     { rol:'repartidor', tab:'pedidoshome', def:'Sí' },
-    { rol:'vendedor',   tab:'pedidoshome', def:'No' },
-    // Tabs que existían en el Panel pero faltaban en la hoja Permisos (admin las veía
-    // por data-roles, pero al preferir tabs[] del backend quedaban ocultas). Se auto-reparan.
-    { rol:'admin',      tab:'planificacion', def:'Sí' },
-    { rol:'admin',      tab:'estancias',     def:'Sí' },
-    { rol:'empleado',   tab:'estancias',     def:'Sí' },
-    { rol:'admin',      tab:'proveedores',   def:'Sí' },
-    // Tab Ajustes (configuración del ERP): solo admin.
-    { rol:'admin',      tab:'ajustes',     def:'Sí' },
-    { rol:'empleado',   tab:'ajustes',     def:'No' },
-    { rol:'repartidor', tab:'ajustes',     def:'No' },
-    { rol:'vendedor',   tab:'ajustes',     def:'No' }
+    { rol:'vendedor',   tab:'pedidoshome', def:'No' }
   ];
   var existing = {};
   if (sh.getLastRow() > 1) {
@@ -4023,14 +4011,6 @@ function doPost(e) {
     if (data.action === 'planAccionAdd')   return _doPostPlanAccionAdd(data);
     if (data.action === 'planAccionUpdate')return _doPostPlanAccionUpdate(data);
     if (data.action === 'planAccionDelete')return _doPostPlanAccionDelete(data);
-    if (data.action === 'usuarioSet')      return _doPostUsuarioSet(data);
-    if (data.action === 'usuarioDelete')   return _doPostUsuarioDelete(data);
-    if (data.action === 'permisoSet')      return _doPostPermisoSet(data);
-    if (data.action === 'configMaleuSet')  return _doPostConfigMaleuSet(data);
-    if (data.action === 'provisionSet')    return _doPostProvisionSet(data);
-    if (data.action === 'provisionDelete') return _doPostProvisionDelete(data);
-    if (data.action === 'configOpSet')     return _doPostConfigOpSet(data);
-    if (data.action === 'vendedorSet')     return _doPostVendedorSet(data);
     return _doPostPedido(data);
   } catch(err) {
     // LOG DE ERROR: guardar pedido fallido para no perderlo jamás
@@ -9776,7 +9756,6 @@ function _doGetAdmin(opt) {
       movimientos: movimientos,
       vueltos: vueltos,
       sobres: sobresLista,
-      config: _ajConfigMaleuArr(),
       saludHome: _saludHomeSemana(argNow)
     }))
     .setMimeType(ContentService.MimeType.JSON);
@@ -13059,20 +13038,39 @@ function _crmHojasConfig() {
   ];
 }
 
-// Lee headers de productos de cada hoja para mapear columna → abreviatura.
+// Set de abreviaturas de producto VÁLIDAS (col C de la hoja Productos). Cacheado
+// por ejecución. Es la fuente de verdad para saber qué columnas de cada hoja son
+// productos (incluye Wraps RC/RP, Tartas, y cualquier producto futuro).
+var _CRM_ABBREV_CACHE = null;
+function _crmValidAbbrevs() {
+  if (_CRM_ABBREV_CACHE) return _CRM_ABBREV_CACHE;
+  var set = {};
+  var shP = SS.getSheetByName('Productos');
+  if (shP && shP.getLastRow() > 1) {
+    var vals = shP.getRange(2, 3, shP.getLastRow() - 1, 1).getValues(); // col C = Abreviatura
+    for (var i = 0; i < vals.length; i++) {
+      var a = String(vals[i][0] || '').trim();
+      if (a) set[a] = true;
+    }
+  }
+  _CRM_ABBREV_CACHE = set;
+  return set;
+}
+
+// Mapea columna → abreviatura para cada hoja de ventas. ROBUSTO: recorre TODO el
+// header y toma cualquier columna cuyo título sea un abrev de producto válido
+// (según la hoja Productos). Antes leía solo los rangos prodStart..prodEnd +
+// tarta, y se perdían los Wraps (RC/RP), que viven en columnas separadas al final
+// de Home/Pilar/Red — bug recurrente "no toma los wraps". Con este enfoque, los
+// wraps y cualquier producto nuevo se cuentan solos sin tocar rangos. Los args de
+// rango quedan por compatibilidad de firma (los 6 callers no cambian).
 function _crmProductHeaders(sh, prodStart, prodEnd, tartaStart, tartaEnd) {
+  var valid = _crmValidAbbrevs();
   var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   var map = {};
-  for (var i = prodStart; i <= prodEnd && i < headers.length; i++) {
-    var abrev = String(headers[i] || '').trim();
-    if (abrev) map[i] = abrev;
-  }
-  // Tartas (rango adicional)
-  if (tartaStart != null && tartaEnd != null) {
-    for (var j = tartaStart; j <= tartaEnd && j < headers.length; j++) {
-      var ab = String(headers[j] || '').trim();
-      if (ab) map[j] = ab;
-    }
+  for (var i = 0; i < headers.length; i++) {
+    var ab = String(headers[i] || '').trim();
+    if (ab && valid[ab]) map[i] = ab;
   }
   return map;
 }
@@ -16647,298 +16645,3 @@ function _doGetRepartidoresList() {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-
-// ════════════════════════════════════════════════════════════════════════
-//  AJUSTES — Configuración editable desde el Panel (tab "Ajustes", solo admin)
-//  Reemplaza la edición manual del Sheets. Hojas cubiertas:
-//    Usuarios · Permisos · Config_Maleu · Provisiones_Fijas · Config · Vendedores
-// ════════════════════════════════════════════════════════════════════════
-
-// Tabs del Panel que un rol puede tener permiso de ver (para la matriz Permisos).
-var _AJ_TABS_META = [
-  { id:'inicio', label:'Inicio' }, { id:'ventas', label:'Ventas' },
-  { id:'planificacion', label:'Planificación' }, { id:'pedidos', label:'Pedidos' },
-  { id:'caja', label:'Caja' }, { id:'egresos', label:'Pagos' },
-  { id:'stock', label:'Stock' }, { id:'ruta', label:'Ruta' },
-  { id:'busqueda', label:'Abastecimiento' }, { id:'bbdd', label:'BBDD' },
-  { id:'estancias', label:'Estancias' }, { id:'proveedores', label:'Proveedores' },
-  { id:'miportal', label:'Mi Portal' }, { id:'pedidoshome', label:'Pedidos Home' },
-  { id:'mireparto', label:'Mi Reparto' }, { id:'ajustes', label:'Ajustes' }
-];
-var _AJ_ROLES = ['admin','empleado','repartidor','vendedor'];
-
-function _ajJson(obj){
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
-}
-function _ajSiNo(v){ var s=String(v==null?'':v).trim().toLowerCase(); return s==='sí'||s==='si'||s==='true'||s==='1'||s==='yes'; }
-// Parsea "$1.500.000" / "0,08" / "50" -> número. Mismo criterio que _resumenCfgNum.
-function _ajNum(v){
-  var s=String(v==null?'':v).replace(/[^0-9.,\-]/g,'').replace(/\./g,'').replace(',','.');
-  var n=parseFloat(s); return isNaN(n)?0:n;
-}
-
-// Config_Maleu como array [{param,valor(number),desde,notas}] — se inyecta en D.config
-// para que el EERR del Panel corra con valores VIVOS (no el fallback hardcodeado).
-function _ajConfigMaleuArr(){
-  var out=[];
-  try{
-    var sh=SS.getSheetByName('Config_Maleu');
-    if(!sh||sh.getLastRow()<2) return out;
-    var d=sh.getDataRange().getValues();
-    for(var r=1;r<d.length;r++){
-      var p=String(d[r][0]||'').trim(); if(!p) continue;
-      out.push({ param:p, valor:_ajNum(d[r][1]), desde:String(d[r][2]||'').trim(), notas:String(d[r][3]||'') });
-    }
-  }catch(e){}
-  return out;
-}
-
-// ── GET ajustesData — foto completa de todas las hojas de configuración ──
-function _doGetAjustesData(){
-  var out={ ok:true, tabsMeta:_AJ_TABS_META, roles:_AJ_ROLES };
-
-  // Usuarios: Usuario·PIN·Rol·Nombre·Activo·Notas
-  var usuarios=[];
-  var shU=SS.getSheetByName('Usuarios');
-  if(shU && shU.getLastRow()>1){
-    var dU=shU.getRange(2,1,shU.getLastRow()-1,6).getValues();
-    for(var i=0;i<dU.length;i++){
-      var u=String(dU[i][0]||'').trim(); if(!u) continue;
-      usuarios.push({ usuario:u, pin:String(dU[i][1]||''), rol:String(dU[i][2]||'').trim().toLowerCase()||'empleado',
-        nombre:String(dU[i][3]||''), activo:_ajSiNo(dU[i][4]===''?'sí':dU[i][4]), notas:String(dU[i][5]||'') });
-    }
-  }
-  out.usuarios=usuarios;
-
-  // Permisos: matriz rol -> [tabs con acceso Sí]
-  out.permisos=_getPermisos();
-
-  // Config_Maleu (valor legible tal cual está en la hoja)
-  var confM=[];
-  var shC=SS.getSheetByName('Config_Maleu');
-  if(shC && shC.getLastRow()>1){
-    var dC=shC.getDataRange().getValues();
-    for(var c=1;c<dC.length;c++){
-      var pm=String(dC[c][0]||'').trim(); if(!pm) continue;
-      confM.push({ param:pm, valor:String(dC[c][1]||''), desde:String(dC[c][2]||'').trim(), notas:String(dC[c][3]||'') });
-    }
-  }
-  out.configMaleu=confM;
-
-  // Provisiones_Fijas: Concepto·Categoría·Monto·Desde·Hasta·Notas
-  var prov=[];
-  var shP=SS.getSheetByName('Provisiones_Fijas');
-  if(shP && shP.getLastRow()>1){
-    var dP=shP.getRange(2,1,shP.getLastRow()-1,6).getValues();
-    for(var p2=0;p2<dP.length;p2++){
-      var cc=String(dP[p2][0]||'').trim(); if(!cc) continue;
-      prov.push({ concepto:cc, categoria:String(dP[p2][1]||''), monto:String(dP[p2][2]||''),
-        desde:String(dP[p2][3]||'').trim(), hasta:String(dP[p2][4]||'').trim(), notas:String(dP[p2][5]||'') });
-    }
-  }
-  out.provisiones=prov;
-
-  // Config: separo parámetros de negocio (editables) de contadores (peligrosos)
-  var negocio=[], contadores=[];
-  var shCfg=SS.getSheetByName('Config');
-  if(shCfg && shCfg.getLastRow()>0){
-    var dCfg=shCfg.getDataRange().getValues();
-    for(var g=0;g<dCfg.length;g++){
-      var k=String(dCfg[g][0]||'').trim();
-      if(!k || k==='Parámetro' || k==='Parámetro Negocio') continue;
-      var val=String(dCfg[g][1]||'');
-      if(k.indexOf('Último')===0) contadores.push({ param:k, valor:val });
-      else negocio.push({ param:k, valor:val });
-    }
-  }
-  out.configNegocio=negocio;
-  out.contadores=contadores;
-
-  // Vendedores Red: Nombre·WA·AliasMP·Barrios·Partido·Localidad·Estado·Usuario·PIN·Comisión·Notas
-  var vend=[];
-  var shV=SS.getSheetByName('Vendedores');
-  if(shV && shV.getLastRow()>1){
-    var dV=shV.getRange(2,1,shV.getLastRow()-1,11).getValues();
-    for(var v=0;v<dV.length;v++){
-      var nm=String(dV[v][0]||'').trim(); if(!nm) continue;
-      vend.push({ nombre:nm, wa:String(dV[v][1]||''), aliasMp:String(dV[v][2]||''), barrios:String(dV[v][3]||''),
-        partido:String(dV[v][4]||''), localidad:String(dV[v][5]||''), estado:String(dV[v][6]||''),
-        usuario:String(dV[v][7]||''), pin:String(dV[v][8]||''), comision:Number(dV[v][9])||17, notas:String(dV[v][10]||'') });
-    }
-  }
-  out.vendedores=vend;
-
-  return _ajJson(out);
-}
-
-// ── Usuarios ──
-function _doPostUsuarioSet(data){
-  var usuario=String(data.usuario||'').trim().toLowerCase();
-  if(!usuario) return _ajJson({ ok:false, err:'Falta usuario' });
-  var pin=String(data.pin||'').trim();
-  var rol=String(data.rol||'empleado').trim().toLowerCase();
-  var nombre=String(data.nombre||'').trim();
-  var activo=(data.activo===false||String(data.activo).toLowerCase()==='no')?'No':'Sí';
-  var notas=String(data.notas||'').trim();
-  var orig=String(data.origUsuario||'').trim().toLowerCase();
-  var sh=SS.getSheetByName('Usuarios');
-  if(!sh){
-    sh=SS.insertSheet('Usuarios');
-    sh.appendRow(['Usuario','PIN','Rol','Nombre','Activo','Notas']);
-    sh.getRange('A1:F1').setFontWeight('bold').setBackground('#331C1C').setFontColor('#fff');
-  }
-  var key=orig||usuario;
-  var row=-1;
-  if(sh.getLastRow()>1){
-    var d=sh.getRange(2,1,sh.getLastRow()-1,1).getValues();
-    for(var i=0;i<d.length;i++){ if(String(d[i][0]||'').trim().toLowerCase()===key){ row=i+2; break; } }
-  }
-  // No permitir duplicar usuario (alta nueva o rename hacia uno ya existente)
-  if((row===-1||key!==usuario) && sh.getLastRow()>1){
-    var d2=sh.getRange(2,1,sh.getLastRow()-1,1).getValues();
-    for(var j=0;j<d2.length;j++){
-      if(String(d2[j][0]||'').trim().toLowerCase()===usuario && (j+2)!==row) return _ajJson({ ok:false, err:'Ese usuario ya existe' });
-    }
-  }
-  var vals=[usuario,pin,rol,nombre,activo,notas];
-  if(row===-1) sh.appendRow(vals);
-  else sh.getRange(row,1,1,6).setValues([vals]);
-  return _ajJson({ ok:true, usuario:usuario });
-}
-function _doPostUsuarioDelete(data){
-  var usuario=String(data.usuario||'').trim().toLowerCase();
-  if(!usuario) return _ajJson({ ok:false, err:'Falta usuario' });
-  if(usuario==='tadeo') return _ajJson({ ok:false, err:'No se puede borrar al admin principal' });
-  var sh=SS.getSheetByName('Usuarios');
-  if(!sh||sh.getLastRow()<2) return _ajJson({ ok:false, err:'Sin usuarios' });
-  var d=sh.getRange(2,1,sh.getLastRow()-1,1).getValues();
-  for(var i=0;i<d.length;i++){
-    if(String(d[i][0]||'').trim().toLowerCase()===usuario){ sh.deleteRow(i+2); return _ajJson({ ok:true }); }
-  }
-  return _ajJson({ ok:false, err:'No encontrado' });
-}
-
-// ── Permisos (matriz rol×tab) ──
-function _doPostPermisoSet(data){
-  var rol=String(data.rol||'').trim().toLowerCase();
-  var tab=String(data.tab||'').trim().toLowerCase();
-  if(!rol||!tab) return _ajJson({ ok:false, err:'Falta rol o tab' });
-  var acceso=_ajSiNo(data.acceso)?'Sí':'No';
-  _getPermisos(); // asegura que la hoja exista con defaults + migración
-  var sh=SS.getSheetByName('Permisos');
-  var row=-1;
-  if(sh.getLastRow()>1){
-    var d=sh.getRange(2,1,sh.getLastRow()-1,2).getValues();
-    for(var i=0;i<d.length;i++){
-      if(String(d[i][0]||'').trim().toLowerCase()===rol && String(d[i][1]||'').trim().toLowerCase()===tab){ row=i+2; break; }
-    }
-  }
-  if(row===-1) sh.appendRow([rol,tab,acceso]);
-  else sh.getRange(row,3).setValue(acceso);
-  return _ajJson({ ok:true });
-}
-
-// ── Config_Maleu (parámetros con trazabilidad "Activo desde") ──
-function _doPostConfigMaleuSet(data){
-  var param=String(data.param||'').trim();
-  if(!param) return _ajJson({ ok:false, err:'Falta parámetro' });
-  var valor=String(data.valor==null?'':data.valor).trim();
-  var desde=String(data.desde||'').trim();
-  var notas=String(data.notas||'').trim();
-  var sh=SS.getSheetByName('Config_Maleu');
-  if(!sh){
-    sh=SS.insertSheet('Config_Maleu');
-    sh.appendRow(['Parámetro','Valor','Activo desde','Notas']);
-    sh.getRange('A1:D1').setFontWeight('bold').setBackground('#331C1C').setFontColor('#fff');
-  }
-  // Upsert por (param + desde). Misma vigencia -> update; vigencia nueva -> fila nueva (histórico).
-  var row=-1;
-  if(sh.getLastRow()>1){
-    var d=sh.getRange(2,1,sh.getLastRow()-1,4).getValues();
-    for(var i=0;i<d.length;i++){
-      if(String(d[i][0]||'').trim()===param && String(d[i][2]||'').trim()===desde){ row=i+2; break; }
-    }
-  }
-  if(row===-1) sh.appendRow([param,valor,desde,notas]);
-  else { sh.getRange(row,2).setValue(valor); if(notas) sh.getRange(row,4).setValue(notas); }
-  return _ajJson({ ok:true });
-}
-
-// ── Provisiones_Fijas ──
-function _doPostProvisionSet(data){
-  var concepto=String(data.concepto||'').trim();
-  if(!concepto) return _ajJson({ ok:false, err:'Falta concepto' });
-  var categoria=String(data.categoria||'').trim();
-  var monto=String(data.monto==null?'':data.monto).trim();
-  var desde=String(data.desde||'').trim();
-  var hasta=String(data.hasta||'').trim();
-  var notas=String(data.notas||'').trim();
-  var orig=String(data.origConcepto||'').trim();
-  var sh=SS.getSheetByName('Provisiones_Fijas');
-  if(!sh){
-    sh=SS.insertSheet('Provisiones_Fijas');
-    sh.appendRow(['Concepto','Categoría EERR','Monto Mensual','Activa desde','Activa hasta','Notas']);
-    sh.getRange('A1:F1').setFontWeight('bold').setBackground('#331C1C').setFontColor('#fff');
-  }
-  var key=orig||concepto;
-  var row=-1;
-  if(sh.getLastRow()>1){
-    var d=sh.getRange(2,1,sh.getLastRow()-1,1).getValues();
-    for(var i=0;i<d.length;i++){ if(String(d[i][0]||'').trim()===key){ row=i+2; break; } }
-  }
-  var vals=[concepto,categoria,monto,desde,hasta,notas];
-  if(row===-1) sh.appendRow(vals);
-  else sh.getRange(row,1,1,6).setValues([vals]);
-  return _ajJson({ ok:true });
-}
-function _doPostProvisionDelete(data){
-  var concepto=String(data.concepto||'').trim();
-  if(!concepto) return _ajJson({ ok:false, err:'Falta concepto' });
-  var sh=SS.getSheetByName('Provisiones_Fijas');
-  if(!sh||sh.getLastRow()<2) return _ajJson({ ok:false, err:'Sin provisiones' });
-  var d=sh.getRange(2,1,sh.getLastRow()-1,1).getValues();
-  for(var i=0;i<d.length;i++){
-    if(String(d[i][0]||'').trim()===concepto){ sh.deleteRow(i+2); return _ajJson({ ok:true }); }
-  }
-  return _ajJson({ ok:false, err:'No encontrado' });
-}
-
-// ── Config (parámetros de negocio: envío, umbral stock, contadores) ──
-function _doPostConfigOpSet(data){
-  var param=String(data.param||'').trim();
-  if(!param) return _ajJson({ ok:false, err:'Falta parámetro' });
-  var valor=data.valor;
-  var sh=SS.getSheetByName('Config');
-  if(!sh) return _ajJson({ ok:false, err:'No existe hoja Config' });
-  var d=sh.getDataRange().getValues();
-  for(var i=0;i<d.length;i++){
-    if(String(d[i][0]||'').trim()===param){
-      var num=_ajNum(valor);
-      sh.getRange(i+1,2).setValue(isNaN(num)?valor:num);
-      return _ajJson({ ok:true });
-    }
-  }
-  return _ajJson({ ok:false, err:'Parámetro no encontrado' });
-}
-
-// ── Vendedores Red ──
-function _doPostVendedorSet(data){
-  var usuario=String(data.usuario||'').trim().toLowerCase();
-  var nombre=String(data.nombre||'').trim();
-  if(!usuario||!nombre) return _ajJson({ ok:false, err:'Falta nombre o usuario' });
-  var sh=SS.getSheetByName('Vendedores');
-  if(!sh) return _ajJson({ ok:false, err:'No existe hoja Vendedores' });
-  var orig=String(data.origUsuario||'').trim().toLowerCase();
-  var key=orig||usuario;
-  var row=-1;
-  if(sh.getLastRow()>1){
-    var d=sh.getRange(2,8,sh.getLastRow()-1,1).getValues(); // col H = Usuario
-    for(var i=0;i<d.length;i++){ if(String(d[i][0]||'').trim().toLowerCase()===key){ row=i+2; break; } }
-  }
-  var vals=[nombre, String(data.wa||''), String(data.aliasMp||''), String(data.barrios||''),
-    String(data.partido||''), String(data.localidad||''), String(data.estado||'Activo'),
-    usuario, String(data.pin||''), (Number(data.comision)||17), String(data.notas||'')];
-  if(row===-1) sh.appendRow(vals);
-  else sh.getRange(row,1,1,11).setValues([vals]);
-  return _ajJson({ ok:true });
-}

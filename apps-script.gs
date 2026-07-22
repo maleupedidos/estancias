@@ -13038,20 +13038,39 @@ function _crmHojasConfig() {
   ];
 }
 
-// Lee headers de productos de cada hoja para mapear columna → abreviatura.
+// Set de abreviaturas de producto VÁLIDAS (col C de la hoja Productos). Cacheado
+// por ejecución. Es la fuente de verdad para saber qué columnas de cada hoja son
+// productos (incluye Wraps RC/RP, Tartas, y cualquier producto futuro).
+var _CRM_ABBREV_CACHE = null;
+function _crmValidAbbrevs() {
+  if (_CRM_ABBREV_CACHE) return _CRM_ABBREV_CACHE;
+  var set = {};
+  var shP = SS.getSheetByName('Productos');
+  if (shP && shP.getLastRow() > 1) {
+    var vals = shP.getRange(2, 3, shP.getLastRow() - 1, 1).getValues(); // col C = Abreviatura
+    for (var i = 0; i < vals.length; i++) {
+      var a = String(vals[i][0] || '').trim();
+      if (a) set[a] = true;
+    }
+  }
+  _CRM_ABBREV_CACHE = set;
+  return set;
+}
+
+// Mapea columna → abreviatura para cada hoja de ventas. ROBUSTO: recorre TODO el
+// header y toma cualquier columna cuyo título sea un abrev de producto válido
+// (según la hoja Productos). Antes leía solo los rangos prodStart..prodEnd +
+// tarta, y se perdían los Wraps (RC/RP), que viven en columnas separadas al final
+// de Home/Pilar/Red — bug recurrente "no toma los wraps". Con este enfoque, los
+// wraps y cualquier producto nuevo se cuentan solos sin tocar rangos. Los args de
+// rango quedan por compatibilidad de firma (los 6 callers no cambian).
 function _crmProductHeaders(sh, prodStart, prodEnd, tartaStart, tartaEnd) {
+  var valid = _crmValidAbbrevs();
   var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   var map = {};
-  for (var i = prodStart; i <= prodEnd && i < headers.length; i++) {
-    var abrev = String(headers[i] || '').trim();
-    if (abrev) map[i] = abrev;
-  }
-  // Tartas (rango adicional)
-  if (tartaStart != null && tartaEnd != null) {
-    for (var j = tartaStart; j <= tartaEnd && j < headers.length; j++) {
-      var ab = String(headers[j] || '').trim();
-      if (ab) map[j] = ab;
-    }
+  for (var i = 0; i < headers.length; i++) {
+    var ab = String(headers[i] || '').trim();
+    if (ab && valid[ab]) map[i] = ab;
   }
   return map;
 }
