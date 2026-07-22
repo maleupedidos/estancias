@@ -312,6 +312,12 @@ function doGet(e) {
     var _mts = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? _motorTestDiag() : { ok: false, error: 'forbidden' };
     return ContentService.createTextOutput(JSON.stringify(_mts)).setMimeType(ContentService.MimeType.JSON);
   }
+  // ─── Motor Comercial · Bloque 3: Ledger (lectura) + correr Shadow on-demand (gated). ───
+  if (action === 'motorAcciones') return _doGetMotorAcciones(e);
+  if (action === 'motorRunShadow') {
+    var _mr = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? motorTick() : { ok: false, error: 'forbidden' };
+    return ContentService.createTextOutput(JSON.stringify(_mr)).setMimeType(ContentService.MimeType.JSON);
+  }
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -14878,6 +14884,301 @@ function _doPostCrmLogCampania(data) {
   sh.getRange(startRow, 2, rows.length, 1).setNumberFormat('@');
   return ContentService.createTextOutput(JSON.stringify({ok: true, n: rows.length, interacciones: out}))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  MOTOR COMERCIAL — Bloque 3: Sensor + Governor + Ledger (SHADOW)
+//  ------------------------------------------------------------
+//  Hipótesis que valida la v1: ¿puede el ERP detectar solo una oportunidad
+//  de recompra, decidir si corresponde contactar al hogar, registrar esa
+//  decisión y SIMULAR qué habría hecho, sin intervención humana?
+//
+//  Principios:
+//   · REUSA el CRM, no duplica: la frecuencia y la recencia salen del índice
+//     canónico _crmBuildClientesIndex() (mismos campos Home que usa el Panel).
+//     El Motor sólo AGREGA por hogar y aplica la ventana (que vive en Config).
+//   · El Ledger (hoja 'Motor Acciones') es la ÚNICA fuente de verdad.
+//   · SHADOW: escribe filas 'simulada'/'suprimida'; NUNCA envía (eso es Bloque 4).
+//   · DETERMINÍSTICO: DedupeKey = hogar|jugada|semanaISO → correr dos veces el
+//     mismo día NO crea filas nuevas ni cambia el estado del Ledger.
+//  Todo es ADITIVO y REVERSIBLE (borrar estas funciones + la hoja no afecta nada).
+// ════════════════════════════════════════════════════════════
+
+// ---- Lectores de Config_Maleu (es_AR robusto). NO usa _resumenCfgNum (que
+//      borra puntos y rompería un 0,85). Respeta celdas ya-numéricas. ----
+function _motorCfgNum(nombre, def) {
+  try {
+    var sh = SS.getSheetByName('Config_Maleu');
+    if (!sh || sh.getLastRow() < 2) return def;
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][0]).trim() === nombre) {
+        var v = data[r][1];
+        if (typeof v === 'number') return v;   // celda tipeada por UI → número real
+        var s = String(v).replace(/[^0-9.,\-]/g, '').replace(/\./g, '').replace(',', '.');
+        var n = parseFloat(s);
+        return isNaN(n) ? def : n;
+      }
+    }
+  } catch (_e) {}
+  return def;
+}
+function _motorCfgStr(nombre, def) {
+  try {
+    var sh = SS.getSheetByName('Config_Maleu');
+    if (!sh || sh.getLastRow() < 2) return def;
+    var data = sh.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][0]).trim() === nombre) return String(data[r][1] || '').trim();
+    }
+  } catch (_e) {}
+  return def;
+}
+
+// ---- Semana ISO 'YYYY-Www' — la ventana de dedupe de la jugada recompra. ----
+function _motorISOWeek(d) {
+  var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  var day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  var yStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  var wk = Math.ceil((((t - yStart) / 86400000) + 1) / 7);
+  return t.getUTCFullYear() + '-W' + (wk < 10 ? '0' + wk : wk);
+}
+
+// ---- Clave de HOGAR (unidad del CRM en Estancias): subBarrio|lote canónico.
+//      Si falta el lote, cae a la persona (TEL:) para no fusionar dirtys. ----
+function _motorHogarKey(subBarrio, lote, tel) {
+  var sb = String(subBarrio || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  var lo = String(lote || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  var loOk = lo && lo !== '-' && !/^(mi casa|casa|s\/?n)$/.test(lo);
+  if (sb && loOk) return 'H:' + sb + '|' + lo;
+  var t = _crmNormTel(tel);
+  return t ? 'T:' + t : '';
+}
+function _motorParseFechaAR(v) {   // 'dd/MM/yyyy HH:mm' (texto de la bitácora) o Date → ms
+  if (v instanceof Date) return v.getTime();
+  var s = String(v || '').trim();
+  var m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if (!m) { var p = Date.parse(s); return isNaN(p) ? 0 : p; }
+  return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)).getTime();
+}
+
+/**
+ * ══════════ SENSOR de recompra ══════════
+ * Detecta hogares de Home / Estancias del Pilar que entraron en su VENTANA NATURAL
+ * de recompra (ni recién compraron, ni ya se durmieron).
+ *
+ * REUSO (clave — no duplica cálculos): parte de _crmBuildClientesIndex() y de sus
+ * campos Home ya calculados por cliente (lastHome/firstHome/entHome/deudaHome/
+ * pendHome/productos). Agrega por HOGAR (lote):
+ *   firstHome = mín. de los miembros · lastHome = máx. → recencia = hoy - lastHome
+ *   nPedidos  = suma de entregados Home
+ *   freq      = span/(nPedidos-1)   ← MISMA definición canónica de _crmComputeKpis
+ *   deuda/pend = agregados (los usa el Governor) · apodo/nombre/tel/prodTop = del
+ *   miembro dominante (el que más pide del hogar).
+ *
+ * Ventana (Config_Maleu, NO hardcodeada): diasUltima ∈ [round(freq·MIN), round(freq·MAX)].
+ * Devuelve hogares candidatos. Determinístico (mismo día → misma lista).
+ */
+function _motorSensorRecompra() {
+  var MIN = _motorCfgNum('MOTOR_RECOMPRA_MIN_FACTOR', 0.85);
+  var MAX = _motorCfgNum('MOTOR_RECOMPRA_MAX_FACTOR', 1.6);
+  var index = _crmBuildClientesIndex();
+  var meta = _crmGetClientesMeta();
+  var hog = {};
+
+  Object.keys(index).forEach(function(cKey) {
+    var c = index[cKey];
+    var canalDom = _crmTopValue(c.canales);
+    if (canalDom !== 'Home') return;                       // sólo Home
+    var m0 = c.tel ? meta[c.tel] : null;
+    var barrio = _crmTopValue(c.barrios);
+    if (m0 && m0.barrioMapa) barrio = m0.barrioMapa;       // respeta override manual
+    if (_barrioKey(barrio) !== 'estancias del pilar') return;  // sólo Estancias del Pilar
+    if (!c.lastHome || !(c.entHome > 0)) return;           // debe tener actividad Home real
+
+    var sub = _crmTopValue(c.subBarrios);
+    var lote = _crmTopValue(c.domicilios);
+    if (m0 && !m0.sinUbicacion) { if (m0.subBarrioMapa) sub = m0.subBarrioMapa; if (m0.loteMapa) lote = m0.loteMapa; }
+    var hk = _motorHogarKey(sub, lote, c.tel);
+    if (!hk) return;
+
+    var h = hog[hk] || (hog[hk] = { key: hk, sub: sub, lote: lote, firstHome: c.firstHome, lastHome: c.lastHome,
+                                    nPedidos: 0, deuda: 0, pend: 0, domTel: '', domNombre: '', domApodo: '', domProd: '', domN: -1 });
+    if (c.firstHome && (!h.firstHome || c.firstHome < h.firstHome)) h.firstHome = c.firstHome;
+    if (c.lastHome  && (!h.lastHome  || c.lastHome  > h.lastHome )) h.lastHome  = c.lastHome;
+    h.nPedidos += (c.entHome || 0);
+    h.deuda += (c.deudaHome || 0);
+    h.pend  += (c.pendHome || 0);
+    if ((c.entHome || 0) > h.domN) {                       // miembro dominante del hogar
+      h.domN = (c.entHome || 0);
+      h.domTel = c.tel || _crmTopValue(c.telefonos);
+      h.domNombre = (m0 && m0.nombreCanonico) || _crmTopValue(c.nombres);
+      h.domApodo = (m0 && m0.apodo) || '';
+      var pt = '', mx = -1;
+      if (c.productos) Object.keys(c.productos).forEach(function(ab) { var q = (c.productos[ab] && c.productos[ab].cant) || 0; if (q > mx) { mx = q; pt = ab; } });
+      h.domProd = pt;
+    }
+  });
+
+  var hoy = new Date(), out = [];
+  Object.keys(hog).forEach(function(hk) {
+    var h = hog[hk];
+    if (!(h.nPedidos >= 2) || !h.firstHome || !h.lastHome || h.lastHome <= h.firstHome) return;  // sin ritmo medible
+    var freq = Math.round(((h.lastHome - h.firstHome) / 86400000) / (h.nPedidos - 1));
+    if (!(freq > 0)) return;
+    var diasUltima = Math.round((hoy - h.lastHome) / 86400000);
+    var lo = Math.round(freq * MIN), hi = Math.round(freq * MAX);
+    if (diasUltima < lo || diasUltima > hi) return;        // fuera de la ventana de recompra
+    out.push({ hogarKey: hk, sub: h.sub, lote: h.lote, tel: h.domTel, nombre: h.domNombre,
+               apodo: h.domApodo || h.domNombre, prodTop: h.domProd, freq: freq, diasUltima: diasUltima,
+               deuda: h.deuda, pend: h.pend });
+  });
+  return out;
+}
+
+/**
+ * ══════════ GOVERNOR ══════════
+ * La conciencia de riesgo del Motor: decide si CORRESPONDE contactar a un hogar
+ * candidato (protege la relación con el cliente y la reputación de la cuenta WhatsApp).
+ * Devuelve {ok:true} o {ok:false, motivo}. Todas las reglas reusan datos existentes:
+ *  1) DEUDA (deudaHome>0)        → primero se cobra, no se promociona.
+ *  2) PEDIDO EN CURSO (pendHome>0)→ ya tiene pedido cargado/por entregar, no lo empujamos.
+ *  3) CONTACTO RECIENTE (bitácora 'Interacciones CRM' ≤ FREQ_CAP_DIAS) → anti-fatiga.
+ *  4) FREQ-CAP (memoria del Motor, hoja 'Motor Acciones' ≤ FREQ_CAP_DIAS) → no repetir.
+ * (Quiet-hours y throttle diario se aplican en el Dispatcher del Bloque 4, no acá:
+ *  en Shadow no se envía y el tick corre 1 vez/día en horario válido.)
+ */
+function _motorGovernor(cand, ctx) {
+  if (cand.deuda > 0) return { ok: false, motivo: 'deuda $' + Math.round(cand.deuda) };
+  if (cand.pend > 0)  return { ok: false, motivo: 'pedido en curso' };
+  var telN = _crmNormTel(cand.tel);
+  if (telN && ctx.telsRecientes[telN]) return { ok: false, motivo: 'contactado en bitácora ≤' + ctx.capDias + 'd' };
+  if (ctx.hogaresLedger[cand.hogarKey]) return { ok: false, motivo: 'ya accionado por el Motor ≤' + ctx.capDias + 'd' };
+  return { ok: true };
+}
+
+// Teléfonos contactados en la bitácora dentro de capDias (para el Governor).
+function _motorBitacoraTelsRecientes(capDias) {
+  var set = {}, sh = SS.getSheetByName('Interacciones CRM');
+  if (!sh || sh.getLastRow() < 2) return set;
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues();
+  var lim = new Date().getTime() - capDias * 86400000;
+  for (var i = 0; i < data.length; i++) {
+    var t = _motorParseFechaAR(data[i][1]);
+    if (!t || t < lim) continue;
+    var telN = _crmNormTel(data[i][3]);
+    if (telN) set[telN] = true;
+  }
+  return set;
+}
+
+// ---- Ledger (hoja 'Motor Acciones', creada en Bloque 1). Append-only. ----
+function _motorLedgerSheet() { return SS.getSheetByName('Motor Acciones'); }
+
+function _motorLedgerDedupeSet() {   // DedupeKeys existentes → determinismo
+  var set = {}, sh = _motorLedgerSheet();
+  if (sh && sh.getLastRow() > 1) {
+    var col = sh.getRange(2, 2, sh.getLastRow() - 1, 1).getValues();  // B = DedupeKey
+    for (var i = 0; i < col.length; i++) { var k = String(col[i][0] || '').trim(); if (k) set[k] = true; }
+  }
+  return set;
+}
+function _motorLedgerHogaresRecientes(capDias) {   // hogares accionados ≤ capDias (freq-cap)
+  var set = {}, sh = _motorLedgerSheet();
+  if (sh && sh.getLastRow() > 1) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues();  // A..L
+    var lim = new Date().getTime() - capDias * 86400000;
+    for (var i = 0; i < data.length; i++) {
+      var hk = String(data[i][3] || '').trim();          // D HogarKey
+      var estado = String(data[i][11] || '').trim();     // L Estado
+      var t = _motorParseFechaAR(data[i][2]);            // C FechaCreada
+      if (hk && (estado === 'simulada' || estado === 'enviada') && t && t >= lim) set[hk] = true;
+    }
+  }
+  return set;
+}
+
+/**
+ * ══════════ motorTick — el "reloj" del Motor ══════════
+ * Corre Sensor → Governor → Ledger en SHADOW. NO envía (Dispatcher = Bloque 4).
+ * Idempotente y determinístico: LockService + DedupeKey semanal. Pensado para un
+ * trigger diario. Escribe una fila por decisión: 'simulada' (habría contactado) o
+ * 'suprimida' (con su motivo). Correr dos veces el mismo día no agrega filas.
+ */
+function motorTick() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { ok: false, error: 'lock ocupado' };
+  try {
+    var modo = _motorCfgStr('MOTOR_MODO', 'shadow');
+    var capDias = _motorCfgNum('MOTOR_FREQ_CAP_DIAS', 7);
+    var ahora = new Date();
+    var semana = _motorISOWeek(ahora);
+    var fechaStr = Utilities.formatDate(ahora, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+
+    var ctx = { capDias: capDias,
+                telsRecientes: _motorBitacoraTelsRecientes(capDias),
+                hogaresLedger: _motorLedgerHogaresRecientes(capDias) };
+    var dedupe = _motorLedgerDedupeSet();
+
+    var cands = _motorSensorRecompra();
+    var rows = [], creadas = 0, suprimidas = 0, dupes = 0;
+    for (var i = 0; i < cands.length; i++) {
+      var cd = cands[i];
+      var dk = cd.hogarKey + '|recompra|' + semana;
+      if (dedupe[dk]) { dupes++; continue; }               // ya existe → determinismo
+      dedupe[dk] = true;
+      var gov = _motorGovernor(cd, ctx);
+      var estado = gov.ok ? 'simulada' : 'suprimida';
+      if (gov.ok) creadas++; else suprimidas++;
+      // Cols A..R (ver Bloque 1). En Shadow M..O y Q..R quedan vacías.
+      rows.push([ 'A' + ahora.getTime() + '-' + i, dk, fechaStr, cd.hogarKey, cd.tel, cd.nombre,
+                  'recompra', 'home_recompra_liviana', JSON.stringify({ apodo: cd.apodo || cd.nombre }),
+                  '', modo, estado, '', '', '', (gov.ok ? '' : gov.motivo), '', '' ]);
+    }
+    if (rows.length) {
+      var sh = _motorLedgerSheet(), start = sh.getLastRow() + 1;
+      sh.getRange(start, 1, rows.length, rows[0].length).setValues(rows);
+    }
+    var res = { ok: true, modo: modo, semana: semana, candidatos: cands.length,
+                creadas: creadas, suprimidas: suprimidas, yaExistian: dupes };
+    console.log('motorTick ' + JSON.stringify(res));
+    return res;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Instala/desinstala el trigger diario del Motor (Shadow). Correr desde el editor.
+function motorInstallTrigger() {
+  var tg = ScriptApp.getProjectTriggers(), borrados = 0;
+  for (var i = 0; i < tg.length; i++) if (tg[i].getHandlerFunction() === 'motorTick') { ScriptApp.deleteTrigger(tg[i]); borrados++; }
+  ScriptApp.newTrigger('motorTick').timeBased().everyDays(1).atHour(9).create();
+  return { ok: true, borradosPrevios: borrados, instalado: 'motorTick diario ~9hs AR' };
+}
+function motorUninstallTrigger() {
+  var tg = ScriptApp.getProjectTriggers(), n = 0;
+  for (var i = 0; i < tg.length; i++) if (tg[i].getHandlerFunction() === 'motorTick') { ScriptApp.deleteTrigger(tg[i]); n++; }
+  return { ok: true, borrados: n };
+}
+
+// GET: devuelve el Ledger completo (para revisión / futura tab del Panel).
+function _doGetMotorAcciones(e) {
+  var sh = _motorLedgerSheet(), out = [];
+  var H = ['actionId','dedupeKey','fechaCreada','hogarKey','tel','nombre','jugada','template','variables',
+           'cupon','modo','estado','fechaEnvio','messageId','resultadoEnvio','motivoSupresion','pedidoAtribuido','diasHastaCompra'];
+  if (sh && sh.getLastRow() > 1) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues();
+    for (var i = 0; i < data.length; i++) {
+      var o = {};
+      for (var j = 0; j < H.length; j++) {
+        var v = data[i][j];
+        o[H[j]] = (v instanceof Date) ? Utilities.formatDate(v, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm') : v;
+      }
+      out.push(o);
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ts: Date.now(), n: out.length, acciones: out })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════
