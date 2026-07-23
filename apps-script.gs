@@ -9635,7 +9635,8 @@ function _doGetAdmin(opt) {
       var fCbDt = _parseDateAny(fCbRaw);
       vueltos.push({
         f: fCbDt ? Utilities.formatDate(fCbDt, 'America/Argentina/Buenos_Aires', 'dd/MM') : String(fCbRaw || ''),
-        h: String(dCbV[rcb][1] || ''), c: String(dCbV[rcb][3] || ''), $: mCb
+        h: String(dCbV[rcb][1] || ''), c: String(dCbV[rcb][3] || ''), $: mCb,
+        tipo: String(dCbV[rcb][6] || 'Billetera').trim()   // col G: Billetera | CambioMP | CruzadoEf
       });
     }
   }
