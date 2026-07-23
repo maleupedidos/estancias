@@ -6624,12 +6624,19 @@ function verificarStockBajo() {
   var alertas = [];
   for (var r = 1; r < data.length; r++) {
     var nombre = String(data[r][1]).trim();
+    if (!nombre) continue;
     var disponible = Number(data[r][7]) || 0; // col H = Disponible
     var fisico = Number(data[r][5]) || 0;     // col F = Físico
-    if (nombre && disponible <= umbral && fisico > 0) {
-      // Solo alerta si el producto tiene stock fisico (no es un producto inactivo con 0)
+    // "Activo esta semana" = tuvo Stock Inicial (>0) o se compró (>0). Esto EXCLUYE
+    // los pasamanos (a pedido) y los productos "próximamente" que están estructuralmente
+    // en 0, para no alertar de más. Un producto real que se agota vendiendo tuvo inicial>0,
+    // así que su caída a 0 SÍ dispara la alerta.
+    var inicial  = Number(data[r][3])  || 0;  // col D = Stock Inicial Semana
+    var comprado = Number(data[r][13]) || 0;  // col N = Comprado Semana
+    if (!(inicial > 0 || comprado > 0)) continue;  // producto no-activo esta semana → no alertar
+    if (disponible <= umbral && fisico > 0) {
       alertas.push({ nombre: nombre, disponible: disponible, fisico: fisico });
-    } else if (nombre && fisico === 0) {
+    } else if (fisico === 0) {
       alertas.push({ nombre: nombre, disponible: 0, fisico: 0 });
     }
   }
