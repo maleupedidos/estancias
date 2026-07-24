@@ -322,6 +322,12 @@ function doGet(e) {
     var _mit = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_) ? motorInstallTrigger() : { ok: false, error: 'forbidden' };
     return ContentService.createTextOutput(JSON.stringify(_mit)).setMimeType(ContentService.MimeType.JSON);
   }
+  // Auditoría: detalle de TODOS los hogares en ventana (incluye los que el piso mínimo excluye, con flag).
+  if (action === 'motorSensorDetalle') {
+    var _msd = ((e.parameter && e.parameter.key) === MOTOR_TEST_KEY_)
+      ? { ok: true, ts: Date.now(), candidatos: _motorSensorRecompra(true) } : { ok: false, error: 'forbidden' };
+    return ContentService.createTextOutput(JSON.stringify(_msd)).setMimeType(ContentService.MimeType.JSON);
+  }
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -14995,9 +15001,10 @@ function _motorParseFechaAR(v) {   // 'dd/MM/yyyy HH:mm' (texto de la bitácora)
  * Ventana (Config_Maleu, NO hardcodeada): diasUltima ∈ [round(freq·MIN), round(freq·MAX)].
  * Devuelve hogares candidatos. Determinístico (mismo día → misma lista).
  */
-function _motorSensorRecompra() {
+function _motorSensorRecompra(includeBelowFloor) {
   var MIN = _motorCfgNum('MOTOR_RECOMPRA_MIN_FACTOR', 0.85);
   var MAX = _motorCfgNum('MOTOR_RECOMPRA_MAX_FACTOR', 1.6);
+  var MINDIAS = _motorCfgNum('MOTOR_RECOMPRA_MIN_DIAS', 14);   // piso absoluto de días (Config, sin deploy)
   var index = _crmBuildClientesIndex();
   var meta = _crmGetClientesMeta();
   var hog = {};
@@ -15045,9 +15052,15 @@ function _motorSensorRecompra() {
     var diasUltima = Math.round((hoy - h.lastHome) / 86400000);
     var lo = Math.round(freq * MIN), hi = Math.round(freq * MAX);
     if (diasUltima < lo || diasUltima > hi) return;        // fuera de la ventana de recompra
+    // PISO ABSOLUTO: aunque esté dentro de su ventana, NO considerar recompra si compró
+    // hace muy poco. Protege de frecuencias artificialmente bajas (pedidos de prueba o muy
+    // juntos). Editable en Config (MOTOR_RECOMPRA_MIN_DIAS) sin deploy.
+    var pasaMinDias = (diasUltima >= MINDIAS);
+    if (!pasaMinDias && !includeBelowFloor) return;        // producción filtra; auditoría incluye con flag
     var lastHomeISO = Utilities.formatDate(new Date(h.lastHome), 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
     out.push({ hogarKey: hk, sub: h.sub, lote: h.lote, tel: h.domTel, nombre: h.domNombre,
                apodo: h.domApodo || h.domNombre, prodTop: h.domProd, freq: freq, diasUltima: diasUltima,
+               ventanaIni: lo, ventanaFin: hi, minDias: MINDIAS, pasaMinDias: pasaMinDias,
                lastHomeISO: lastHomeISO, deuda: h.deuda, pend: h.pend });
   });
   return out;
