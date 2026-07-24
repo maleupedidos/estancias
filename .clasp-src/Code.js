@@ -4032,6 +4032,7 @@ function doPost(e) {
     if (data.action === 'crmLoteSave')          return _doPostCrmLoteSave(data);
     if (data.action === 'crmSetVisitante')      return _doPostCrmSetVisitante(data);
     if (data.action === 'crmSetResidencia')     return _doPostCrmSetResidencia(data);
+    if (data.action === 'crmSetRolHogar')       return _doPostCrmSetRolHogar(data);
     if (data.action === 'hogaresMergeSave')     return _doPostHogaresMerge(data);
     if (data.action === 'crmPuntoSave')         return _doPostCrmPuntoSave(data);
     if (data.action === 'crmLogInteraccion')    return _doPostCrmLogInteraccion(data);
@@ -13288,7 +13289,7 @@ function _crmGetClientesMeta() {
   var sh = SS.getSheetByName('Clientes Meta');
   if (!sh) {
     sh = SS.insertSheet('Clientes Meta');
-    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante', 'Apodo', 'Residencia'];
+    var hdr = ['Tel Normalizado', 'Nombre Canónico', 'Cumpleaños (DD/MM)', 'Alias MP', 'Notas', 'Tags', 'Updated', 'Nombres Ocultos', 'Sub Barrio Mapa', 'Lote Mapa', 'Sin Ubicacion', 'Barrio Mapa', 'Canal Mapa', 'Canales Extra', 'Visitante', 'Apodo', 'Residencia', 'Rol Hogar'];
     sh.getRange(1, 1, 1, hdr.length).setValues([hdr]).setFontWeight('bold').setBackground('#331C1C').setFontColor('#F2E8C7');
     sh.setFrozenRows(1);
     sh.setColumnWidths(1, hdr.length, 140);
@@ -13299,6 +13300,7 @@ function _crmGetClientesMeta() {
   if (sh.getLastColumn() < 15) sh.getRange(1, 15).setValue('Visitante');
   if (sh.getLastColumn() < 16) sh.getRange(1, 16).setValue('Apodo');
   if (sh.getLastColumn() < 17) sh.getRange(1, 17).setValue('Residencia');
+  if (sh.getLastColumn() < 18) sh.getRange(1, 18).setValue('Rol Hogar');
   if (sh.getLastRow() <= 1) return {};
   var data = sh.getDataRange().getValues();
   var map = {};
@@ -13321,6 +13323,7 @@ function _crmGetClientesMeta() {
       canalMapa: String(data[r][12] || '').trim(),
       canalesExtra: String(data[r][13] || '').split('|').map(function(s){ return s.trim(); }).filter(Boolean),
       apodo: String(data[r][15] || '').trim(),   // sobrenombre para campañas WATI (col Apodo del CSV)
+      rolHogar: String(data[r][17] || '').trim(),   // rol en el hogar: Padre/Madre/Tutor/Hijo/Hija (col 18)
       // Tipo de integrante (col 17). 'vive' = vive en Estancias · 'finde' = va los fines
       // de semana · 'visita' = pide a casa ajena, no reside. Compat: si col 17 vacía pero
       // col 15 (Visitante legacy) = TRUE → 'visita'. `visitante` se deriva de acá.
@@ -13779,6 +13782,7 @@ function _doGetCrmClientes(e) {
       notas: m ? m.notas : '',
       tags: m ? m.tags : '',
       aliasMp: m ? m.aliasMp : '',
+      rolHogar: (m && m.rolHogar) || '',   // rol en el hogar (cable con la composición)
       // Campos de meta para que la ficha (skeleton) tenga todo al instante y editar sea seguro
       nombreCanonico: (m && m.nombreCanonico) || '',
       nombresOcultos: (m && m.nombresOcultos) || [],
@@ -14668,6 +14672,32 @@ function _doPostCrmSetResidencia(data) {
   _crmClearCache();
   try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
   return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel, residencia: r})).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+//  ROL EN EL HOGAR (col 18 de Clientes Meta): Padre/Madre/Tutor/Hijo/Hija/''.
+//  Es el "cable" que conecta al integrante real (que compra) con la composición
+//  de la casa: en vez de tipear el nombre en un slot, se le pone rol a la persona
+//  y la composición se arma sola. No destructivo, keyeado por teléfono.
+// ════════════════════════════════════════════════════════════
+function _doPostCrmSetRolHogar(data) {
+  var tel = String(data.tel || '').trim();
+  if (!tel) return ContentService.createTextOutput(JSON.stringify({ok: false, error: 'falta tel'})).setMimeType(ContentService.MimeType.JSON);
+  var rol = String(data.rol || '').trim();
+  var VALID = {'Padre':1, 'Madre':1, 'Tutor':1, 'Hijo':1, 'Hija':1};
+  if (rol && !VALID[rol]) rol = '';   // solo roles válidos; cualquier otra cosa → sin rol
+  var meta = _crmGetClientesMeta();   // asegura headers hasta col 18
+  var sh = SS.getSheetByName('Clientes Meta');
+  var m = meta[tel];
+  if (m && m._row) {
+    sh.getRange(m._row, 18).setValue(rol);
+  } else {
+    var updated = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm');
+    sh.appendRow([tel, '', '', '', '', '', updated, '', '', '', '', '', '', '', '', '', '', rol]);
+  }
+  _crmClearCache();
+  try { CacheService.getScriptCache().remove('crm_ficha_' + Utilities.base64EncodeWebSafe(tel).substring(0, 80)); } catch (_e) {}
+  return ContentService.createTextOutput(JSON.stringify({ok: true, tel: tel, rol: rol})).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ════════════════════════════════════════════════════════════
